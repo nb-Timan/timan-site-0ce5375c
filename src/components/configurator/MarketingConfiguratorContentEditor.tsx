@@ -18,6 +18,8 @@ import {
   canonicalLocalizedProductTitles,
   deleteMarketingConfiguratorDraftContent,
   localizedDraftDescriptions,
+  localizedDraftFeatures,
+  localizedDraftSpecs,
   localizedDraftTitles,
   saveMarketingConfiguratorContent,
   uploadMarketingConfiguratorImage,
@@ -27,7 +29,8 @@ import {
   type LocalizedProductTitles,
 } from '@/lib/marketingConfiguratorContentService';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
-import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { productLanguageLabel, resolveLocalizedProductText } from '@/lib/productLanguages';
 import type { Language, TechSpec } from '@/types/configurator';
 import { t } from '@/data/translations';
 import { t as portalT } from '@/lib/i18n/translations';
@@ -66,8 +69,10 @@ function fieldFor(item: MarketingConfiguratorCatalogItem, records: MarketingConf
   const canonicalTitles = canonicalLocalizedProductTitles(item.itemNumber, item.defaults.title);
   const source = draft?.content || published?.content;
   const content = mergeMarketingConfiguratorContent(item.defaults, source, item.itemNumber);
-  const localizedTitles = localizedDraftTitles(draft?.content, canonicalTitles);
+  const localizedTitles = localizedDraftTitles(source, canonicalTitles);
   const localizedDescriptions = localizedDraftDescriptions(source);
+  const localizedFeatures = localizedDraftFeatures(source || content);
+  const localizedSpecs = localizedDraftSpecs(source || content);
   return {
     draft,
     published,
@@ -77,6 +82,10 @@ function fieldFor(item: MarketingConfiguratorCatalogItem, records: MarketingConf
       localized_titles: localizedTitles,
       description: localizedDescriptions.da,
       localized_descriptions: localizedDescriptions,
+      key_features: localizedFeatures.da,
+      localized_key_features: localizedFeatures,
+      specs: localizedSpecs.da,
+      localized_specs: localizedSpecs,
     },
   };
 }
@@ -111,15 +120,23 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
     )
     : '';
 
+  const itemKey = item?.productKey || null;
+
   useEffect(() => {
     setError(null);
     const next = item ? fieldFor(item, records).content : null;
     setDraft(next);
-    setContentLanguage(uiLanguage === 'de' || uiLanguage === 'en' ? uiLanguage : 'da');
     setCustomBadge(Boolean(next?.badge && !MARKETING_BADGE_OPTIONS.includes(next.badge as typeof MARKETING_BADGE_OPTIONS[number])));
     setStartMode(next?.badge_starts_at ? 'specific' : 'now');
     setEndMode(next?.badge_ends_at ? 'specific' : 'duration');
-  }, [item, records, uiLanguage]);
+    // Product identity and persisted records initialize the draft. Language tab
+    // changes are intentionally excluded so switching languages cannot reset edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemKey, records]);
+
+  useEffect(() => {
+    setContentLanguage(uiLanguage);
+  }, [itemKey, uiLanguage]);
 
   useEffect(() => {
     setLinkedCampaign(null);
@@ -186,14 +203,16 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
 
   const updateSpec = (index: number, key: keyof TechSpec, value: string) => {
     if (!draft) return;
-    const specs = draft.specs.map((spec, itemIndex) => itemIndex === index ? { ...spec, [key]: value } : spec);
-    setDraft({ ...draft, specs });
+    const localizedSpecs = localizedDraftSpecs(draft);
+    localizedSpecs[contentLanguage] = localizedSpecs[contentLanguage].map((spec, itemIndex) => itemIndex === index ? { ...spec, [key]: value } : spec);
+    setDraft({ ...draft, specs: localizedSpecs.da, localized_specs: localizedSpecs });
   };
 
   const updateFeature = (index: number, value: string) => {
     if (!draft) return;
-    const key_features = draft.key_features.map((feature, featureIndex) => featureIndex === index ? value : feature);
-    setDraft({ ...draft, key_features });
+    const localizedFeatures = localizedDraftFeatures(draft);
+    localizedFeatures[contentLanguage] = localizedFeatures[contentLanguage].map((feature, featureIndex) => featureIndex === index ? value : feature);
+    setDraft({ ...draft, key_features: localizedFeatures.da, localized_key_features: localizedFeatures });
   };
 
   const updateLocalizedTitle = (language: keyof LocalizedProductTitles, value: string) => {
@@ -238,18 +257,18 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
             <div className="space-y-5">
               <section className="space-y-2">
                 <p className="text-sm font-semibold text-slate-700">Visningstitel</p>
-                <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label="Indholdssprog">
-                  {([['da', 'Dansk'], ['de', 'Deutsch'], ['en', 'English']] as const).map(([language, label]) => <button
-                    key={language}
+                <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label="Indholdssprog">
+                  {PORTAL_LANGUAGES.map(({ code, flag }) => <button
+                    key={code}
                     type="button"
                     role="tab"
-                    aria-selected={contentLanguage === language}
-                    className={`rounded px-3 py-1.5 text-sm font-medium ${contentLanguage === language ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    onClick={() => setContentLanguage(language)}
-                  >{label}</button>)}
+                    aria-selected={contentLanguage === code}
+                    className={`shrink-0 rounded px-2.5 py-1.5 text-sm font-medium ${contentLanguage === code ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    onClick={() => setContentLanguage(code)}
+                  >{flag}</button>)}
                 </div>
                 <Input
-                  aria-label={`Visningstitel ${{ da: 'Dansk', de: 'Deutsch', en: 'English' }[contentLanguage]}`}
+                  aria-label={`Visningstitel ${productLanguageLabel(contentLanguage)}`}
                   value={draft.localized_titles?.[contentLanguage] ?? ''}
                   onChange={(event) => updateLocalizedTitle(contentLanguage, event.target.value)}
                   placeholder={contentLanguage === 'da' ? 'Dansk produkttitel' : 'Tomt felt bruger den danske titel'}
@@ -257,12 +276,12 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
                 {contentLanguage !== 'da' && !draft.localized_titles?.[contentLanguage] && <p className="text-xs text-slate-500">Configurator bruger den danske titel, når feltet er tomt.</p>}
               </section>
               <Field label="Kort beskrivelse"><Textarea
-                aria-label={`Kort beskrivelse ${{ da: 'Dansk', de: 'Deutsch', en: 'English' }[contentLanguage]}`}
+                aria-label={`Kort beskrivelse ${productLanguageLabel(contentLanguage)}`}
                 value={draft.localized_descriptions?.[contentLanguage] ?? ''}
                 onChange={(event) => updateLocalizedDescription(contentLanguage, event.target.value)}
                 placeholder="Valgfri tekst under varenummeret"
               /></Field>
-              <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Nøglefunktioner</p><Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, key_features: [...draft.key_features, ''] })}><Plus className="mr-1 h-4 w-4" />Tilføj</Button></div>{draft.key_features.map((feature, index) => <div key={`${index}-${feature}`} className="grid grid-cols-[1fr_auto] gap-2"><Input value={feature} onChange={(event) => updateFeature(index, event.target.value)} placeholder="Fx kompakt og driftssikker" /><Button type="button" variant="ghost" size="icon" onClick={() => setDraft({ ...draft, key_features: draft.key_features.filter((_, featureIndex) => featureIndex !== index) })} aria-label="Fjern nøglefunktion"><X className="h-4 w-4" /></Button></div>)}</section>
+              <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Nøglefunktioner</p><Button type="button" variant="outline" size="sm" onClick={() => { const values = localizedDraftFeatures(draft); values[contentLanguage] = [...values[contentLanguage], '']; setDraft({ ...draft, key_features: values.da, localized_key_features: values }); }}><Plus className="mr-1 h-4 w-4" />Tilføj</Button></div>{localizedDraftFeatures(draft)[contentLanguage].map((feature, index) => <div key={`${index}-${feature}`} className="grid grid-cols-[1fr_auto] gap-2"><Input value={feature} onChange={(event) => updateFeature(index, event.target.value)} placeholder="Fx kompakt og driftssikker" /><Button type="button" variant="ghost" size="icon" onClick={() => { const values = localizedDraftFeatures(draft); values[contentLanguage] = values[contentLanguage].filter((_, featureIndex) => featureIndex !== index); setDraft({ ...draft, key_features: values.da, localized_key_features: values }); }} aria-label="Fjern nøglefunktion"><X className="h-4 w-4" /></Button></div>)}</section>
               <Field label="Videolink"><Input value={draft.video_url} onChange={(event) => setDraft({ ...draft, video_url: event.target.value })} placeholder="https://..." /></Field>
               <Field label="Billede"><div className="flex gap-2"><Input value={draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} placeholder="https://..." /><Button type="button" variant="outline" onClick={() => uploadInput.current?.click()}><Upload className="mr-1.5 h-4 w-4" />Upload</Button><input ref={uploadInput} type="file" accept="image/*" className="hidden" onChange={(event) => void uploadImage(event.target.files?.[0])} /></div></Field>
               <Field label="Badge"><Select value={customBadge ? 'custom' : (draft.badge || 'none')} onValueChange={(selected) => { const isCustom = selected === 'custom'; setCustomBadge(isCustom); setDraft({ ...draft, badge: isCustom || selected === 'none' ? '' : selected, ...(selected === 'none' ? { badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false } : {}) }); }}><SelectTrigger><MarketingConfiguratorBadgeOption badge={customBadge ? (draft.badge || 'Egen tekst') : draft.badge} /></SelectTrigger><SelectContent><SelectItem value="none">Ingen</SelectItem>{MARKETING_BADGE_PRESETS.map((option) => <SelectItem key={option.value} value={option.value}><MarketingConfiguratorBadgeOption badge={option.value} /></SelectItem>)}<SelectItem value="custom"><MarketingConfiguratorBadgeOption badge="Egen tekst" /></SelectItem></SelectContent></Select></Field>
@@ -294,18 +313,18 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
                   <div className="rounded border border-emerald-100 bg-white px-3 py-2 text-xs text-slate-600"><div>{portalT('marketingBadgeVisibleFrom', uiLanguage)}: {formatMarketingBadgeDateTime(draft.badge_starts_at || new Date().toISOString(), uiLanguage)}</div><div>{portalT('marketingBadgeExpires', uiLanguage)}: {formatMarketingBadgeDateTime(draft.badge_ends_at, uiLanguage)}</div></div>
                 </div>}
               </section>}
-              <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Dimensioner & tekniske specifikationer</p><Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, specs: [...draft.specs, { label: '', value: '' }] })}>Tilføj felt</Button></div>{draft.specs.map((spec, index) => <div key={`${index}-${spec.label}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input value={spec.label} onChange={(event) => updateSpec(index, 'label', event.target.value)} placeholder="Label" /><Input value={typeof spec.value === 'string' ? spec.value : ''} onChange={(event) => updateSpec(index, 'value', event.target.value)} placeholder="Værdi" /><Button type="button" variant="ghost" size="icon" onClick={() => setDraft({ ...draft, specs: draft.specs.filter((_, specIndex) => specIndex !== index) })} aria-label="Fjern felt"><X className="h-4 w-4" /></Button></div>)}</section>
+              <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Dimensioner & tekniske specifikationer</p><Button type="button" variant="outline" size="sm" onClick={() => { const values = localizedDraftSpecs(draft); values[contentLanguage] = [...values[contentLanguage], { label: '', value: '' }]; setDraft({ ...draft, specs: values.da, localized_specs: values }); }}>Tilføj felt</Button></div>{localizedDraftSpecs(draft)[contentLanguage].map((spec, index) => <div key={`${index}-${spec.label}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input value={spec.label} onChange={(event) => updateSpec(index, 'label', event.target.value)} placeholder="Label" /><Input value={typeof spec.value === 'string' ? spec.value : ''} onChange={(event) => updateSpec(index, 'value', event.target.value)} placeholder="Værdi" /><Button type="button" variant="ghost" size="icon" onClick={() => { const values = localizedDraftSpecs(draft); values[contentLanguage] = values[contentLanguage].filter((_, specIndex) => specIndex !== index); setDraft({ ...draft, specs: values.da, localized_specs: values }); }} aria-label="Fjern felt"><X className="h-4 w-4" /></Button></div>)}</section>
             </div>
             <aside className="space-y-3 lg:sticky lg:top-0">
               <p className="text-sm font-semibold text-slate-700">Live preview</p>
               {draft.badge && marketingBadgeScheduleState(draft) !== 'active' && <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">{marketingBadgeScheduleState(draft) === 'scheduled' ? `${portalT('marketingBadgeScheduled', uiLanguage)} – ${portalT('marketingBadgeStart', uiLanguage)} ${formatMarketingBadgeDateTime(draft.badge_starts_at, uiLanguage)}` : portalT('marketingBadgeExpired', uiLanguage)}</p>}
               <MarketingConfiguratorProductCard
-                title={draft.localized_titles?.[contentLanguage] || draft.localized_titles?.da || draft.title || item.defaults.title}
+                title={resolveLocalizedProductText(draft.localized_titles, contentLanguage) || draft.title || item.defaults.title}
                 itemNumber={item.itemNumber}
                 itemNumberLabel={itemNoLabel(uiLanguage)}
                 price={previewPrice}
-                description={draft.localized_descriptions?.[contentLanguage] ?? ''}
-                specs={draft.specs.filter((spec) => spec.label && spec.value).map((spec) => ({ label: spec.label, value: typeof spec.value === 'string' ? spec.value : '' }))}
+                description={resolveLocalizedProductText(draft.localized_descriptions, contentLanguage)}
+                specs={(localizedDraftSpecs(draft)[contentLanguage].length ? localizedDraftSpecs(draft)[contentLanguage] : localizedDraftSpecs(draft).da).filter((spec) => spec.label && spec.value).map((spec) => ({ label: spec.label, value: typeof spec.value === 'string' ? spec.value : '' }))}
                 badge={draft.badge}
                 campaign={draft.badge === 'Kampagne' ? linkedCampaign : null}
                 badgeSchedule={draft}

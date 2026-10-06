@@ -21,7 +21,7 @@ const titles = {
 function publish(price = 58350) {
   replacePublishedConfiguratorPrices([{
     item_number: '725138', item_text_da: titles.da, item_text_de: titles.de, item_text_en: titles.en,
-    identity_aliases: ['CS-200 Combi, for lad, el reg.'], price_dkk: price, price_eur: price / 7.46,
+    identity_aliases: ['CS-200 Combi, for lad, el reg.'], price_dkk: price, price_eur: Math.round(price / 7.46),
   }]);
 }
 function draft(language: Language = 'de', flowType: FlowType = 'quote'): ConfiguratorState {
@@ -69,10 +69,10 @@ describe('Product Master commercial description propagation', () => {
     expect(pdfText(saved)).not.toContain('Husk lad og vogn');
   });
 
-  it('separates commercial identity from the existing enriched presentation catalog', async () => {
+  it('uses the canonical Product Master identity instead of a legacy enriched presentation title', async () => {
     publish();
     const accessory = getAccessoriesFlat('Timan 3330').find(item => item.varenr === '725138')!;
-    expect(getLocalizedName(accessory.name, 'de')).toContain('Husk lad og vogn');
+    expect(getLocalizedName(accessory.name, 'de')).toBe(titles.de);
     expect(currentProductDescription('725138', 'de', `${titles.de} Marketing short description`)).toBe(titles.de);
     const saved = await finalizeConfiguratorPricingSnapshot(draft('de', 'order'));
     const document = buildSubmittedOrderDocument(saved);

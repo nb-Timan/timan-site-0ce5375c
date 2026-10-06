@@ -74,12 +74,26 @@ import {
   filterPriceListItems,
   parsePriceListSkuTokens,
 } from "@/lib/priceListSearch";
+import {
+  PRODUCT_LANGUAGE_FIELDS,
+  PRODUCT_LANGUAGES,
+  productLanguageDisplayCode,
+  productLanguageLabel,
+  storedProductText,
+  type LocalizedProductText,
+} from '@/lib/productLanguages';
 
 const FIELD_LABEL: Record<string, string> = {
   item_number: "Varenr.",
   item_text_da: "Varetekst dansk",
   item_text_de: "Varetekst tysk",
   item_text_en: "Varetekst engelsk",
+  item_text_it: "Varetekst italiensk",
+  item_text_hu: "Varetekst ungarsk",
+  item_text_sv: "Varetekst svensk",
+  item_text_fr: "Varetekst fransk",
+  item_text_pl: "Varetekst polsk",
+  item_text_cs: "Varetekst tjekkisk",
   cost_price_dkk: "Kostpris DKK",
   price_dkk: "Pris DKK",
   price_sek: "Pris SEK",
@@ -95,7 +109,7 @@ const PRODUCT_SCOPE_GROUPS = PRODUCT_GROUP_ORDER.filter(
 
 export default function BackendPriceListsPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
@@ -170,9 +184,10 @@ export default function BackendPriceListsPage() {
       const active = activeByItemNumber.get(item.item_number);
       return active ? {
         ...item,
-        item_text_da: active.item_text_da ?? item.item_text_da,
-        item_text_de: active.item_text_de ?? item.item_text_de,
-        item_text_en: active.item_text_en ?? item.item_text_en,
+        ...Object.fromEntries(PRODUCT_LANGUAGES.map((language) => {
+          const field = PRODUCT_LANGUAGE_FIELDS[language];
+          return [field, active[field] ?? item[field]];
+        })),
         price_dkk: active.price_dkk,
         price_eur: active.price_eur,
         price_sek: active.price_sek,
@@ -320,6 +335,14 @@ export default function BackendPriceListsPage() {
       group: groupMap.get(i.item_number) ?? "Options/accessories/other",
       item_number: i.item_number,
       item_text_da: i.item_text_da ?? "",
+      item_text_en: i.item_text_en ?? "",
+      item_text_de: i.item_text_de ?? "",
+      item_text_it: i.item_text_it ?? "",
+      item_text_hu: i.item_text_hu ?? "",
+      item_text_sv: i.item_text_sv ?? "",
+      item_text_fr: i.item_text_fr ?? "",
+      item_text_pl: i.item_text_pl ?? "",
+      item_text_cs: i.item_text_cs ?? "",
       cost_price_dkk: i.cost_price_dkk ?? "",
       price_dkk: i.price_dkk ?? 0,
       price_sek: i.price_sek ?? "",
@@ -539,7 +562,7 @@ export default function BackendPriceListsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2">{activeItem?.item_text_da ?? seedItem?.item_text_da ?? i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
+                        <td className="px-3 py-2">{storedProductText(activeItem || i, uiLanguage) || storedProductText(seedItem || i, uiLanguage) || activeItem?.item_text_da || seedItem?.item_text_da || i.item_text_da || <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPrice(i.cost_price_dkk)}</td>
                         <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeDkk} draft={i.is_dirty ? i.price_dkk : null} /></td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">
@@ -676,7 +699,7 @@ export default function BackendPriceListsPage() {
                     <tbody>
                       {filteredPreview.slice(0, 500).map((p) => {
                         const grp = p.item_number ? (groupMap.get(p.item_number) ?? "—") : "—";
-                        const nonPriceChanges = p.changes.filter((c) => c.field === "item_text_da");
+                        const nonPriceChanges = p.changes.filter((c) => c.field.startsWith("item_text_"));
                         return (
                         <tr key={p.rowIndex} className="border-t border-slate-100 align-top">
                           {importMode === "FULL_PRICE_LIST" && <td className="px-2 py-1.5 font-mono text-slate-400">{p.rowIndex}</td>}
@@ -856,7 +879,7 @@ export default function BackendPriceListsPage() {
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
             <h2 className="font-bold text-slate-900 mb-2">Eksportér prisliste</h2>
             <p className="text-sm text-slate-600 mb-4">
-              Download den nuværende prisliste som Excel (kolonner: maskintype, varenr, varetekst, kostpris DKK, pris DKK, pris SEK, pris EUR).
+              Download den nuværende prisliste som Excel med varetekst for alle ni portalsprog samt de gældende priser.
             </p>
             <ProductScopeSelect value={productScope} onChange={setProductScope} />
             <button
@@ -908,6 +931,12 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
     item_text_da: seed.item_text_da,
     item_text_de: null,
     item_text_en: null,
+    item_text_it: null,
+    item_text_hu: null,
+    item_text_sv: null,
+    item_text_fr: null,
+    item_text_pl: null,
+    item_text_cs: null,
     cost_price_dkk: null,
     cost_price_source: null,
     cost_price_updated_at: null,
@@ -925,6 +954,14 @@ export type PriceWorkbookRow = {
   group: string;
   item_number: string;
   item_text_da: string;
+  item_text_en: string;
+  item_text_de: string;
+  item_text_it: string;
+  item_text_hu: string;
+  item_text_sv: string;
+  item_text_fr: string;
+  item_text_pl: string;
+  item_text_cs: string;
   cost_price_dkk: number | string;
   price_dkk: number;
   price_sek: number | string;
@@ -951,6 +988,14 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     "Ny DB DKK",
     "Ny DG %",
     "Note",
+    "Varetekst (GB)",
+    "Varetekst (DE)",
+    "Varetekst (IT)",
+    "Varetekst (HU)",
+    "Varetekst (SE)",
+    "Varetekst (FR)",
+    "Varetekst (PL)",
+    "Varetekst (CZ)",
   ];
 
   const aoa: Array<Array<string | number>> = [
@@ -973,17 +1018,15 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       row.price_dkk,
       row.price_sek,
       row.price_eur,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
+      "", "", "", "", "", "", "", "", "", "", "",
+      row.item_text_en,
+      row.item_text_de,
+      row.item_text_it,
+      row.item_text_hu,
+      row.item_text_sv,
+      row.item_text_fr,
+      row.item_text_pl,
+      row.item_text_cs,
     ]),
   ];
 
@@ -1165,6 +1208,7 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       styleCell(ws, cell, dataStyle);
     }
     styleCell(ws, `R${r}`, noteStyle);
+    for (const col of ["S", "T", "U", "V", "W", "X", "Y", "Z"]) styleCell(ws, `${col}${r}`, dataStyle);
     for (const col of ["D", "E", "F", "G", "H", "J", "M", "N", "O", "P"]) {
       const cell = ws[`${col}${r}`];
       if (cell) cell.z = numberFormat;
@@ -1191,6 +1235,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 15 },
     { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
     { wch: 14 }, { wch: 12 }, { wch: 26 },
+    { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+    { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
   ];
   ws["!rows"] = [
     { hpt: 24 }, { hpt: 24 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 },
@@ -1221,11 +1267,11 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     { s: { r: legendRow, c: 4 }, e: { r: legendRow, c: 5 } },
     { s: { r: legendRow, c: 6 }, e: { r: legendRow, c: 7 } },
   ];
-  ws["!autofilter"] = { ref: `A${headerRow}:R${lastRow}` };
+  ws["!autofilter"] = { ref: `A${headerRow}:Z${lastRow}` };
   ws["!freeze"] = { xSplit: 0, ySplit: headerRow };
 
-  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:R1");
-  range.e.c = Math.max(range.e.c, 17);
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:Z1");
+  range.e.c = Math.max(range.e.c, 25);
   range.e.r = Math.max(range.e.r, legendRow);
   ws["!ref"] = XLSX.utils.encode_range(range);
 
@@ -1452,9 +1498,9 @@ function EditModal({ item, onClose, onSaved }: {
   onSaved: () => void | Promise<void>;
 }) {
   const [itemNumber, setItemNumber] = useState(item.item_number);
-  const [textDa, setTextDa] = useState(item.item_text_da ?? "");
-  const [textDe, setTextDe] = useState(item.item_text_de ?? "");
-  const [textEn, setTextEn] = useState(item.item_text_en ?? "");
+  const [texts, setTexts] = useState<LocalizedProductText>(() => Object.fromEntries(
+    PRODUCT_LANGUAGES.map((language) => [language, storedProductText(item, language)]),
+  ) as LocalizedProductText);
   const [costDkk, setCostDkk] = useState(formatEditablePrice(item.cost_price_dkk));
   const [dkk, setDkk] = useState(formatEditablePrice(item.price_dkk));
   const [eur, setEur] = useState(formatEditablePrice(item.price_eur));
@@ -1504,9 +1550,15 @@ function EditModal({ item, onClose, onSaved }: {
     const res = await updatePriceItem({
       item_number: item.item_number,
       new_item_number: nextItemNumber,
-      item_text_da: textDa.trim() || null,
-      item_text_de: textDe.trim() || null,
-      item_text_en: textEn.trim() || null,
+      item_text_da: texts.da.trim() || null,
+      item_text_en: texts.en.trim() || null,
+      item_text_de: texts.de.trim() || null,
+      item_text_it: texts.it.trim() || null,
+      item_text_hu: texts.hu.trim() || null,
+      item_text_sv: texts.sv.trim() || null,
+      item_text_fr: texts.fr.trim() || null,
+      item_text_pl: texts.pl.trim() || null,
+      item_text_cs: texts.cs.trim() || null,
       cost_price_dkk: c,
       price_dkk: d,
       price_eur: e,
@@ -1536,18 +1588,17 @@ function EditModal({ item, onClose, onSaved }: {
               <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
             </Field>
-            <Field label="Varetekst dansk">
-              <input value={textDa} onChange={(e) => setTextDa(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            </Field>
-            <Field label="Varetekst tysk">
-              <input value={textDe} onChange={(e) => setTextDe(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            </Field>
-            <Field label="Varetekst engelsk">
-              <input value={textEn} onChange={(e) => setTextEn(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {PRODUCT_LANGUAGES.map((language) => (
+                <Field key={language} label={`Varetekst ${productLanguageLabel(language)} (${productLanguageDisplayCode(language)})`}>
+                  <input
+                    value={texts[language]}
+                    onChange={(event) => setTexts((current) => ({ ...current, [language]: event.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </Field>
+              ))}
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
               <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
@@ -1823,6 +1874,12 @@ function PublishModal({
                           <div><span className="mr-1 font-bold text-slate-500">DA</span>{diffText(r.old_item_text_da, r.item_text_da)}</div>
                           <div><span className="mr-1 font-bold text-slate-500">DE</span>{diffText(r.old_item_text_de, r.item_text_de)}</div>
                           <div><span className="mr-1 font-bold text-slate-500">EN</span>{diffText(r.old_item_text_en, r.item_text_en)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">IT</span>{diffText(r.old_item_text_it, r.item_text_it)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">HU</span>{diffText(r.old_item_text_hu, r.item_text_hu)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">SE</span>{diffText(r.old_item_text_sv, r.item_text_sv)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">FR</span>{diffText(r.old_item_text_fr, r.item_text_fr)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">PL</span>{diffText(r.old_item_text_pl, r.item_text_pl)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">CZ</span>{diffText(r.old_item_text_cs, r.item_text_cs)}</div>
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_dkk, r.price_dkk)}</td>

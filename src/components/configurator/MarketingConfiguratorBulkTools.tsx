@@ -45,7 +45,7 @@ function effectiveContent(records: MarketingConfiguratorContentRecord[], item: M
     source,
     item.itemNumber,
   );
-  const localizedTitles = localizedDraftTitles(draft?.content, canonicalTitles);
+  const localizedTitles = localizedDraftTitles(source, canonicalTitles);
   const localizedDescriptions = localizedDraftDescriptions(source);
   return {
     ...content,

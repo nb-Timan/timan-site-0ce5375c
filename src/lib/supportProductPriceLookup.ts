@@ -3,12 +3,19 @@ import { buildConfiguratorSeed } from '@/lib/configuratorPriceSeed';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory } from '@/types/configurator';
 import { getCurrentProductPrice } from '@/lib/publishedProductMaster';
+import { PRODUCT_TEXT_FIELDS, storedProductText, type ProductTextSource } from '@/lib/productLanguages';
 
 export interface PublishedPriceOption {
   item_number?: unknown;
   item_text_da?: unknown;
   item_text_en?: unknown;
   item_text_de?: unknown;
+  item_text_it?: unknown;
+  item_text_hu?: unknown;
+  item_text_sv?: unknown;
+  item_text_fr?: unknown;
+  item_text_pl?: unknown;
+  item_text_cs?: unknown;
   identity_aliases?: unknown;
   price_dkk?: unknown;
   price_eur?: unknown;
@@ -60,8 +67,7 @@ function finitePrice(value: unknown): number | null {
 
 function localizedOptionName(option: PublishedPriceOption | undefined, language: PortalUiLanguage): string {
   if (!option) return '';
-  const key = language === 'de' ? 'item_text_de' : language === 'en' ? 'item_text_en' : 'item_text_da';
-  const localized = typeof option[key] === 'string' ? option[key].trim() : '';
+  const localized = storedProductText(option as ProductTextSource, language);
   const danish = typeof option.item_text_da === 'string' ? option.item_text_da.trim() : '';
   return localized || danish;
 }
@@ -89,7 +95,7 @@ function catalog(language: PortalUiLanguage, options: PublishedPriceOption[]): C
   for (const row of buildConfiguratorSeed()) {
     const option = optionMap.get(row.item_number.toLowerCase());
     const aliases = new Set<string>([row.item_text_da]);
-    for (const key of ['item_text_da', 'item_text_en', 'item_text_de'] as const) {
+    for (const key of PRODUCT_TEXT_FIELDS) {
       if (typeof option?.[key] === 'string' && option[key].trim()) aliases.add(option[key].trim());
     }
     if (Array.isArray(option?.identity_aliases)) {

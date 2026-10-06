@@ -28,6 +28,18 @@ export interface PublishPreviewRow {
   old_item_text_de: string | null;
   item_text_en: string | null;
   old_item_text_en: string | null;
+  item_text_it: string | null;
+  old_item_text_it: string | null;
+  item_text_hu: string | null;
+  old_item_text_hu: string | null;
+  item_text_sv: string | null;
+  old_item_text_sv: string | null;
+  item_text_fr: string | null;
+  old_item_text_fr: string | null;
+  item_text_pl: string | null;
+  old_item_text_pl: string | null;
+  item_text_cs: string | null;
+  old_item_text_cs: string | null;
   price_dkk: number | null;             // new
   old_price_dkk: number | null;         // current configurator/seed value
   price_eur: number | null;
@@ -107,6 +119,18 @@ export function buildPublishPreview(
         old_item_text_de: published?.item_text_de ?? null,
         item_text_en: it.item_text_en,
         old_item_text_en: published?.item_text_en ?? null,
+        item_text_it: it.item_text_it,
+        old_item_text_it: published?.item_text_it ?? null,
+        item_text_hu: it.item_text_hu,
+        old_item_text_hu: published?.item_text_hu ?? null,
+        item_text_sv: it.item_text_sv,
+        old_item_text_sv: published?.item_text_sv ?? null,
+        item_text_fr: it.item_text_fr,
+        old_item_text_fr: published?.item_text_fr ?? null,
+        item_text_pl: it.item_text_pl,
+        old_item_text_pl: published?.item_text_pl ?? null,
+        item_text_cs: it.item_text_cs,
+        old_item_text_cs: published?.item_text_cs ?? null,
         price_dkk: it.price_dkk,
         old_price_dkk: published?.price_dkk ?? s?.price_dkk ?? null,
         price_eur: it.price_eur,

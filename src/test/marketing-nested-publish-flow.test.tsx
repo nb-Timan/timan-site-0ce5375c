@@ -115,19 +115,19 @@ describe('nested Marketing publish flow', () => {
 
     fireEvent.change(await screen.findByLabelText('Visningstitel Dansk'), { target: { value: 'Dansk QA' } });
     fireEvent.change(screen.getByLabelText('Kort beskrivelse Dansk'), { target: { value: 'Dansk kort QA' } });
-    fireEvent.click(screen.getByRole('tab', { name: 'Deutsch' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'DE' }));
     fireEvent.change(screen.getByLabelText('Visningstitel Deutsch'), { target: { value: 'Deutsch QA' } });
     fireEvent.change(screen.getByLabelText('Kort beskrivelse Deutsch'), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('tab', { name: 'English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'GB' }));
     fireEvent.change(screen.getByLabelText('Visningstitel English'), { target: { value: 'English QA' } });
     fireEvent.change(screen.getByLabelText('Kort beskrivelse English'), { target: { value: 'English short QA' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
 
     await waitFor(() => expect(saveMarketingConfiguratorContent).toHaveBeenCalledWith(item, expect.objectContaining({
       title: 'Dansk QA',
-      localized_titles: { da: 'Dansk QA', de: 'Deutsch QA', en: 'English QA' },
+      localized_titles: expect.objectContaining({ da: 'Dansk QA', de: 'Deutsch QA', en: 'English QA' }),
       description: 'Dansk kort QA',
-      localized_descriptions: { da: 'Dansk kort QA', de: '', en: 'English short QA' },
+      localized_descriptions: expect.objectContaining({ da: 'Dansk kort QA', de: '', en: 'English short QA' }),
     }), 'draft'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });

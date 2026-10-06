@@ -1,17 +1,20 @@
 import { ACCESSORIES, getAccessoriesFlat, getLocalizedName, PRODUCTS } from '@/data/machines';
 import { supabase } from '@/lib/supabase';
-import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGE_CODES, type PortalUiLanguage } from '@/lib/portalLanguages';
+import {
+  emptyLocalizedProductText,
+  localizedProductTextMap,
+  normalizeLocalizedProductText,
+  resolveLocalizedProductText,
+  type LocalizedProductText,
+} from '@/lib/productLanguages';
 import type { Accessory, Machine, TechSpec } from '@/types/configurator';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
 import { isProductActive, publishedProduct, publishedProductText, type PublishedProductLanguage } from '@/lib/publishedProductMaster';
 
 export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 
-export type LocalizedProductTitles = {
-  da: string;
-  de: string;
-  en: string;
-};
+export type LocalizedProductTitles = LocalizedProductText;
 
 export type LocalizedProductDescriptions = LocalizedProductTitles;
 
@@ -21,10 +24,12 @@ export interface MarketingConfiguratorContentFields extends MarketingBadgeSchedu
   description: string;
   localized_descriptions?: LocalizedProductDescriptions;
   key_features: string[];
+  localized_key_features?: Record<PortalUiLanguage, string[]>;
   image_url: string;
   video_url: string;
   specification_url: string;
   specs: TechSpec[];
+  localized_specs?: Record<PortalUiLanguage, TechSpec[]>;
   badge: string;
 }
 
@@ -62,10 +67,6 @@ const EMPTY_CONTENT: MarketingConfiguratorContentFields = {
   badge_show_countdown: false,
 };
 
-function catalogLanguage(language: PortalUiLanguage) {
-  return language === 'sv' || language === 'fr' || language === 'pl' || language === 'cs' ? 'en' : language;
-}
-
 function firstUrl(item: { imageUrl?: string; images?: { url: string | null }[]; videoUrl?: string; videos?: { url: string | null }[] }, field: 'image' | 'video') {
   if (field === 'image') return item.images?.find((entry) => entry.url)?.url || item.imageUrl || '';
   return item.videos?.find((entry) => entry.url)?.url || item.videoUrl || '';
@@ -75,7 +76,7 @@ function defaultContent(item: Machine | Accessory, language: PortalUiLanguage): 
   const isMachine = 'techSpecs' in item;
   const specs = isMachine ? item.techSpecs : (item.specs || []);
   return {
-    title: getLocalizedName(item.name, catalogLanguage(language)),
+    title: getLocalizedName(item.name, language),
     description: '',
     key_features: [],
     image_url: firstUrl(item, 'image'),
@@ -94,26 +95,36 @@ function normalizeContent(value: unknown): MarketingConfiguratorContentFields {
   const localizedDescriptions = content.localized_descriptions && typeof content.localized_descriptions === 'object'
     ? content.localized_descriptions as Record<string, unknown>
     : null;
+  const localizedFeatures = content.localized_key_features && typeof content.localized_key_features === 'object'
+    ? content.localized_key_features as Record<string, unknown>
+    : null;
+  const localizedSpecs = content.localized_specs && typeof content.localized_specs === 'object'
+    ? content.localized_specs as Record<string, unknown>
+    : null;
+  const normalizeFeatures = (candidate: unknown) => Array.isArray(candidate)
+    ? candidate.filter((feature): feature is string => typeof feature === 'string').map((feature) => feature.trim()).filter(Boolean)
+    : [];
+  const normalizeSpecs = (candidate: unknown) => Array.isArray(candidate) ? candidate as TechSpec[] : [];
+  const featuresByLanguage = Object.fromEntries(PORTAL_LANGUAGE_CODES.map((language) => [
+    language,
+    normalizeFeatures(localizedFeatures?.[language]),
+  ])) as Record<PortalUiLanguage, string[]>;
+  const specsByLanguage = Object.fromEntries(PORTAL_LANGUAGE_CODES.map((language) => [
+    language,
+    normalizeSpecs(localizedSpecs?.[language]),
+  ])) as Record<PortalUiLanguage, TechSpec[]>;
   return {
     title: typeof content.title === 'string' ? content.title : '',
-    ...(localized ? { localized_titles: {
-      da: typeof localized.da === 'string' ? localized.da : '',
-      de: typeof localized.de === 'string' ? localized.de : '',
-      en: typeof localized.en === 'string' ? localized.en : '',
-    } } : {}),
+    ...(localized ? { localized_titles: normalizeLocalizedProductText(localized) } : {}),
     description: typeof content.description === 'string' ? content.description : '',
-    ...(localizedDescriptions ? { localized_descriptions: {
-      da: typeof localizedDescriptions.da === 'string' ? localizedDescriptions.da : '',
-      de: typeof localizedDescriptions.de === 'string' ? localizedDescriptions.de : '',
-      en: typeof localizedDescriptions.en === 'string' ? localizedDescriptions.en : '',
-    } } : {}),
-    key_features: Array.isArray(content.key_features)
-      ? content.key_features.filter((feature): feature is string => typeof feature === 'string').map((feature) => feature.trim()).filter(Boolean)
-      : [],
+    ...(localizedDescriptions ? { localized_descriptions: normalizeLocalizedProductText(localizedDescriptions) } : {}),
+    key_features: normalizeFeatures(content.key_features),
+    ...(localizedFeatures ? { localized_key_features: featuresByLanguage } : {}),
     image_url: typeof content.image_url === 'string' ? content.image_url : '',
     video_url: typeof content.video_url === 'string' ? content.video_url : '',
     specification_url: typeof content.specification_url === 'string' ? content.specification_url : '',
-    specs: Array.isArray(content.specs) ? content.specs as TechSpec[] : [],
+    specs: normalizeSpecs(content.specs),
+    ...(localizedSpecs ? { localized_specs: specsByLanguage } : {}),
     badge: typeof content.badge === 'string' ? content.badge : '',
     badge_starts_at: typeof content.badge_starts_at === 'string' ? content.badge_starts_at : null,
     badge_ends_at: typeof content.badge_ends_at === 'string' ? content.badge_ends_at : null,
@@ -177,10 +188,12 @@ export function mergeMarketingConfiguratorContent(
     description: override.description,
     ...(override.localized_descriptions ? { localized_descriptions: override.localized_descriptions } : {}),
     key_features: override.key_features.length ? override.key_features : defaults.key_features,
+    ...(override.localized_key_features ? { localized_key_features: override.localized_key_features } : {}),
     image_url: override.image_url || defaults.image_url,
     video_url: override.video_url || defaults.video_url,
     specification_url: override.specification_url || defaults.specification_url,
     specs: override.specs.length ? override.specs : defaults.specs,
+    ...(override.localized_specs ? { localized_specs: override.localized_specs } : {}),
     badge: override.badge || defaults.badge,
     badge_starts_at: override.badge_starts_at || null,
     badge_ends_at: override.badge_ends_at || null,
@@ -192,12 +205,7 @@ export function canonicalLocalizedProductTitles(
   itemNumber: string | undefined,
   fallbackDa = '',
 ): LocalizedProductTitles {
-  const row = publishedProduct(itemNumber);
-  return {
-    da: row?.item_text_da?.trim() || fallbackDa,
-    de: row?.item_text_de?.trim() || '',
-    en: row?.item_text_en?.trim() || '',
-  };
+  return localizedProductTextMap(publishedProduct(itemNumber), fallbackDa);
 }
 
 export function localizedDraftTitles(
@@ -205,16 +213,30 @@ export function localizedDraftTitles(
   canonical: LocalizedProductTitles,
 ): LocalizedProductTitles {
   if (!content) return canonical;
-  if (content.localized_titles) return { ...content.localized_titles };
-  return { ...canonical, da: content.title || canonical.da };
+  if (content.localized_titles) {
+    const result = { ...canonical };
+    for (const language of PORTAL_LANGUAGE_CODES) result[language] = content.localized_titles[language]?.trim() || canonical[language];
+    return result;
+  }
+  return { ...canonical, da: canonical.da || content.title };
 }
 
 export function localizedDraftDescriptions(
   content: MarketingConfiguratorContentFields | null | undefined,
 ): LocalizedProductDescriptions {
-  if (!content) return { da: '', de: '', en: '' };
+  if (!content) return emptyLocalizedProductText();
   if (content.localized_descriptions) return { ...content.localized_descriptions };
-  return { da: content.description, de: '', en: '' };
+  return { ...emptyLocalizedProductText(), da: content.description };
+}
+
+export function localizedDraftFeatures(content: MarketingConfiguratorContentFields | null | undefined) {
+  if (!content?.localized_key_features) return { ...Object.fromEntries(PORTAL_LANGUAGE_CODES.map((language) => [language, language === 'da' ? [...(content?.key_features || [])] : []])) } as Record<PortalUiLanguage, string[]>;
+  return Object.fromEntries(PORTAL_LANGUAGE_CODES.map((language) => [language, [...(content.localized_key_features?.[language] || [])]])) as Record<PortalUiLanguage, string[]>;
+}
+
+export function localizedDraftSpecs(content: MarketingConfiguratorContentFields | null | undefined) {
+  if (!content?.localized_specs) return { ...Object.fromEntries(PORTAL_LANGUAGE_CODES.map((language) => [language, language === 'da' ? [...(content?.specs || [])] : []])) } as Record<PortalUiLanguage, TechSpec[]>;
+  return Object.fromEntries(PORTAL_LANGUAGE_CODES.map((language) => [language, [...(content.localized_specs?.[language] || [])]])) as Record<PortalUiLanguage, TechSpec[]>;
 }
 
 /** Product identity comes from Product Master; presentation copy remains an independent exact value. */
@@ -224,25 +246,32 @@ export function resolveMarketingProductIdentity(
   requestedLanguage: PublishedProductLanguage = 'da',
   localizedFallback?: string,
 ): MarketingConfiguratorContentFields {
-  const language = requestedLanguage === 'de' || requestedLanguage === 'en' ? requestedLanguage : 'da';
+  const language = requestedLanguage;
+  const localizedTitles = localizedDraftTitles(content, canonicalLocalizedProductTitles(itemNumber, content.title));
   const localizedDescriptions = localizedDraftDescriptions(content);
+  const localizedFeatures = localizedDraftFeatures(content);
+  const localizedSpecs = localizedDraftSpecs(content);
   const resolvedContent = {
     ...content,
-    description: localizedDescriptions[language],
+    title: resolveLocalizedProductText(localizedTitles, language),
+    localized_titles: localizedTitles,
+    description: resolveLocalizedProductText(localizedDescriptions, language),
     localized_descriptions: localizedDescriptions,
+    key_features: localizedFeatures[language].length ? localizedFeatures[language] : localizedFeatures.da,
+    localized_key_features: localizedFeatures,
+    specs: localizedSpecs[language].length ? localizedSpecs[language] : localizedSpecs.da,
+    localized_specs: localizedSpecs,
   };
   const row = publishedProduct(itemNumber);
   if (!row?.item_text_da) {
-    const title = language === 'de' && localizedFallback?.trim()
-      ? localizedFallback.trim()
-      : resolvedContent.title;
+    const title = localizedFallback?.trim() || resolvedContent.title;
     return resolvedContent.description.trim() === title.trim()
       ? { ...resolvedContent, title, description: '' }
       : { ...resolvedContent, title };
   }
-  const canonicalTitle = language === 'de' && !row.item_text_de?.trim()
-    ? localizedFallback?.trim() || publishedProductText(itemNumber, language)
-    : publishedProductText(itemNumber, language);
+  const canonicalTitle = localizedTitles[language]?.trim()
+    || localizedFallback?.trim()
+    || publishedProductText(itemNumber, language);
   if (!canonicalTitle) return resolvedContent;
   return {
     ...resolvedContent,

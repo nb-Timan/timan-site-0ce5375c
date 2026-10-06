@@ -19,9 +19,20 @@ function workbookToArrayBuffer(ws: XLSX.WorkSheet) {
 }
 
 describe("parsePriceWorkbook", () => {
+  const emptyTranslations = {
+    item_text_en: "",
+    item_text_de: "",
+    item_text_it: "",
+    item_text_hu: "",
+    item_text_sv: "",
+    item_text_fr: "",
+    item_text_pl: "",
+    item_text_cs: "",
+  };
+
   it("eksporterer et professionelt workbook-layout med brugervenlige importbare headers", () => {
     const ws = buildPriceWorkbookSheet([
-      { group: "RC-1000s", item_number: "100001", item_text_da: "Basis", cost_price_dkk: 500, price_dkk: 1000, price_sek: 1503.76, price_eur: 134.23 },
+      { group: "RC-1000s", item_number: "100001", item_text_da: "Basis", ...emptyTranslations, cost_price_dkk: 500, price_dkk: 1000, price_sek: 1503.76, price_eur: 134.23 },
     ]);
 
     expect(ws["A1"]?.v).toBe("PRISLISTEVÆRKTØJ");
@@ -43,7 +54,10 @@ describe("parsePriceWorkbook", () => {
     expect(ws["P11"]?.v).toBe("Ny DB DKK");
     expect(ws["Q11"]?.v).toBe("Ny DG %");
     expect(ws["R11"]?.v).toBe("Note");
-    for (const col of "ABCDEFGHIJKLMNOPQR") {
+    expect(ws["S11"]?.v).toBe("Varetekst (GB)");
+    expect(ws["T11"]?.v).toBe("Varetekst (DE)");
+    expect(ws["Z11"]?.v).toBe("Varetekst (CZ)");
+    for (const col of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
       expect(String(ws[`${col}11`]?.v ?? "")).not.toContain("_");
     }
     expect(ws["H12"]?.v).toBe(250);
@@ -52,7 +66,7 @@ describe("parsePriceWorkbook", () => {
     expect(ws["Q12"]?.v).toBe(0.25);
     expect(ws["K12"]?.z).toBe("0.00%");
     expect(ws["!dataValidation"]).toBeUndefined();
-    expect(ws["!autofilter"]?.ref).toBe("A11:R12");
+    expect(ws["!autofilter"]?.ref).toBe("A11:Z12");
     expect(ws["!merges"]).toEqual(expect.arrayContaining([
       { s: { r: 9, c: 4 }, e: { r: 9, c: 8 } },
       { s: { r: 9, c: 9 }, e: { r: 9, c: 11 } },
@@ -62,11 +76,11 @@ describe("parsePriceWorkbook", () => {
 
   it("læser den eksporterede prisliste-workbook og beregner round-trip ændringer", () => {
     const rows: PriceWorkbookRow[] = [
-      { group: "RC-1000s", item_number: "100001", item_text_da: "Manuel pris", cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
-      { group: "RC-1000s", item_number: "100002", item_text_da: "Procent", cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
-      { group: "RC-1000s", item_number: "100003", item_text_da: "Masse X", cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
-      { group: "RC-1000s", item_number: "100004", item_text_da: "Uændret", cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
-      { group: "RC-1000s", item_number: "100005", item_text_da: "Masse lille x trimmet", cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
+      { group: "RC-1000s", item_number: "100001", item_text_da: "Manuel pris", ...emptyTranslations, cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
+      { group: "RC-1000s", item_number: "100002", item_text_da: "Procent", ...emptyTranslations, cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
+      { group: "RC-1000s", item_number: "100003", item_text_da: "Masse X", ...emptyTranslations, cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
+      { group: "RC-1000s", item_number: "100004", item_text_da: "Uændret", ...emptyTranslations, cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
+      { group: "RC-1000s", item_number: "100005", item_text_da: "Masse lille x trimmet", ...emptyTranslations, cost_price_dkk: 500, price_dkk: 1000, price_sek: "", price_eur: "" },
     ];
     const ws = buildPriceWorkbookSheet(rows);
     ws["B6"] = { ...(ws["B6"] ?? {}), t: "n", v: 0.02 };
@@ -94,6 +108,7 @@ describe("parsePriceWorkbook", () => {
       group: "RC-751",
       item_number: row.item_number,
       item_text_da: row.item_text_da,
+      ...emptyTranslations,
       cost_price_dkk: row.cost,
       price_dkk: row.dkk,
       price_sek: "",

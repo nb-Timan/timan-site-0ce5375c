@@ -1,4 +1,6 @@
 import { convertCurrency, type Currency } from '@/lib/currency';
+import { PRODUCT_LANGUAGES, PRODUCT_LANGUAGE_FIELDS, storedProductText } from '@/lib/productLanguages';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 /** Public commercial fields only. Costs and editorial audit never enter the browser catalog. */
 export interface PublishedProductMaster {
@@ -7,6 +9,12 @@ export interface PublishedProductMaster {
   item_text_da?: string | null;
   item_text_de?: string | null;
   item_text_en?: string | null;
+  item_text_it?: string | null;
+  item_text_hu?: string | null;
+  item_text_sv?: string | null;
+  item_text_fr?: string | null;
+  item_text_pl?: string | null;
+  item_text_cs?: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek?: number | null;
@@ -32,7 +40,7 @@ export function notifyProductMaster(): void {
   listeners.forEach(listener => listener());
 }
 
-export type PublishedProductLanguage = 'da' | 'de' | 'en';
+export type PublishedProductLanguage = PortalUiLanguage;
 
 export interface LegacyProductPrices {
   DKK: number | null;
@@ -65,7 +73,7 @@ export function getCurrentProductPrice(input: {
   return null;
 }
 
-/** DA is canonical; missing DE/EN deliberately falls back to DA, never static copy. */
+/** Stored values remain independent; rendering may fall back to canonical Danish. */
 export function publishedProductText(
   itemNumber: string | undefined,
   language: PublishedProductLanguage = 'da',
@@ -73,9 +81,14 @@ export function publishedProductText(
   const row = publishedProduct(itemNumber);
   const titleDa = row?.item_text_da?.trim();
   if (!titleDa) return null;
-  if (language === 'de') return row?.item_text_de?.trim() || titleDa;
-  if (language === 'en') return row?.item_text_en?.trim() || titleDa;
-  return titleDa;
+  return storedProductText(row, language) || titleDa;
+}
+
+export function publishedProductStoredText(
+  itemNumber: string | undefined,
+  language: PublishedProductLanguage,
+): string | null {
+  return storedProductText(publishedProduct(itemNumber), language) || null;
 }
 
 /** Only exact, known identity prefixes are replaced. Never guess which words are enrichment. */
@@ -86,15 +99,13 @@ export function resolvePublishedTitle(
   localizedFallback?: string,
 ): string {
   const row = publishedProduct(itemNumber);
-  const title = language === 'de' && !row?.item_text_de?.trim()
-    ? localizedFallback?.trim() || publishedProductText(itemNumber, language)
-    : publishedProductText(itemNumber, language);
+  const title = publishedProductStoredText(itemNumber, language)
+    || localizedFallback?.trim()
+    || publishedProductText(itemNumber, language);
   if (!title) return presentation;
   const aliases = [
     title,
-    row?.item_text_da?.trim(),
-    row?.item_text_de?.trim(),
-    row?.item_text_en?.trim(),
+    ...PRODUCT_LANGUAGES.map((code) => row?.[PRODUCT_LANGUAGE_FIELDS[code]]?.trim()),
     ...(row?.identity_aliases || []),
   ].filter((alias): alias is string => Boolean(alias)).sort((a, b) => b.length - a.length);
   const prefix = aliases.find(alias => presentation === alias
@@ -119,11 +130,13 @@ export function resolvePublishedProduct<T extends CatalogItem>(item: T): T {
   if (!row) return item;
   let name = item.name;
   if (row.item_text_da?.trim()) {
-    const baseName = typeof item.name === 'string' ? { da: item.name, de: item.name, en: item.name } : item.name;
-    const titleDa = resolvePublishedTitle(item.varenr, baseName.da, 'da');
-    const titleDe = resolvePublishedTitle(item.varenr, baseName.de || baseName.da, 'de', baseName.de);
-    const titleEn = resolvePublishedTitle(item.varenr, baseName.en || baseName.da, 'en');
-    name = { ...baseName, da: titleDa, de: titleDe, en: titleEn };
+    const baseName = typeof item.name === 'string' ? { da: item.name, en: item.name } : item.name;
+    const localized = { ...baseName } as Record<string, string | undefined>;
+    for (const language of PRODUCT_LANGUAGES) {
+      const fallback = baseName[language] || baseName.en || baseName.da;
+      localized[language] = resolvePublishedTitle(item.varenr, fallback || '', language, fallback);
+    }
+    name = localized as T['name'];
   }
   return {
     ...item, name,

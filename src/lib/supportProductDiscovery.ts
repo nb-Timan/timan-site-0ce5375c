@@ -5,12 +5,19 @@ import {
   type WorkTask,
 } from '@/data/productRecommendationMeta';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { storedProductText, type ProductTextSource } from '@/lib/productLanguages';
 
 export interface PublishedProductOption {
   item_number?: unknown;
   item_text_da?: unknown;
   item_text_en?: unknown;
   item_text_de?: unknown;
+  item_text_it?: unknown;
+  item_text_hu?: unknown;
+  item_text_sv?: unknown;
+  item_text_fr?: unknown;
+  item_text_pl?: unknown;
+  item_text_cs?: unknown;
 }
 
 export interface SupportProductFact {
@@ -73,8 +80,7 @@ function localizedMetaText(meta: ProductRecommendationMeta, language: PortalUiLa
 
 function publishedName(option: PublishedProductOption | undefined, meta: ProductRecommendationMeta, language: PortalUiLanguage): string {
   if (!option) return meta.name;
-  const key = language === 'de' ? 'item_text_de' : language === 'en' ? 'item_text_en' : 'item_text_da';
-  const localized = typeof option[key] === 'string' ? option[key].trim() : '';
+  const localized = storedProductText(option as ProductTextSource, language);
   const danish = typeof option.item_text_da === 'string' ? option.item_text_da.trim() : '';
   return localized || danish || meta.name;
 }

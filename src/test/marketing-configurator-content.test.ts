@@ -66,13 +66,19 @@ describe('Marketing configurator content', () => {
       price_dkk: 10, price_eur: 2,
     }]);
     const canonical = canonicalLocalizedProductTitles('725132', 'fallback');
-    expect(canonical).toEqual({ da: 'Dansk canonical', de: 'Deutsch canonical', en: 'English canonical' });
+    expect(canonical).toEqual({
+      da: 'Dansk canonical', en: 'English canonical', de: 'Deutsch canonical',
+      it: '', hu: '', sv: '', fr: '', pl: '', cs: '',
+    });
     const draft = localizedDraftTitles({
       ...EMPTY_CONTENT,
       title: 'Draft dansk',
       localized_titles: { da: 'Draft dansk', de: 'Draft deutsch', en: 'Draft English' },
     }, canonical);
-    expect(draft).toEqual({ da: 'Draft dansk', de: 'Draft deutsch', en: 'Draft English' });
+    expect(draft).toEqual({
+      da: 'Draft dansk', en: 'Draft English', de: 'Draft deutsch',
+      it: '', hu: '', sv: '', fr: '', pl: '', cs: '',
+    });
     expect(mergeMarketingConfiguratorContent({ ...EMPTY_CONTENT, title: 'static' }, { ...EMPTY_CONTENT, title: 'stale Marketing' }, '725132', 'de').title).toBe('Deutsch canonical');
     replaceProductMaster([]);
   });
@@ -155,9 +161,8 @@ describe('Marketing configurator content', () => {
     expect(configurator).toContain('marketingContent?.description');
     expect(editor).toContain("save('draft')");
     expect(editor).toContain("save('published')");
-    expect(editor).toContain("['da', 'Dansk']");
-    expect(editor).toContain("['de', 'Deutsch']");
-    expect(editor).toContain("['en', 'English']");
+    expect(editor).toContain('PORTAL_LANGUAGES.map');
+    expect(editor).toContain('setContentLanguage(code)');
     expect(editor).toContain('Kort beskrivelse');
     expect(editor).toContain('localized_descriptions');
     expect(editor).not.toContain('Field label="Hovedinformation"');
@@ -217,7 +222,7 @@ describe('Marketing configurator content', () => {
     expect(bulkTools).toContain('Batch redigér');
     expect(bulkTools).toContain("saveMarketingConfiguratorContent(item, content, 'draft')");
     expect(bulkTools).toContain('canonicalLocalizedProductTitles(item.itemNumber');
-    expect(bulkTools).toContain('localizedDraftTitles(draft?.content, canonicalTitles)');
+    expect(bulkTools).toContain('localizedDraftTitles(source, canonicalTitles)');
     expect(app).toContain('/portal/marketing/configurator');
     expect(marketingArea).toContain('canManageMarketingConfiguratorContent');
     expect(marketingArea).toContain('label="Configurator & kampagner"');

@@ -11,7 +11,7 @@ beforeEach(() => rpc.mockReset());
 afterEach(() => replaceProductMaster([]));
 
 describe('localized Product Master texts', () => {
-  it('sends Danish, German and English independently while preserving all prices', async () => {
+  it('sends all nine portal languages independently while preserving all prices', async () => {
     rpc.mockResolvedValue({ data: { item_number: '725135' }, error: null });
 
     await expect(updatePriceItem({
@@ -20,6 +20,12 @@ describe('localized Product Master texts', () => {
       item_text_da: 'Dansk tekst',
       item_text_de: 'Deutscher Text',
       item_text_en: 'English text',
+      item_text_it: 'Testo italiano',
+      item_text_hu: 'Magyar szoveg',
+      item_text_sv: 'Svensk text',
+      item_text_fr: 'Texte francais',
+      item_text_pl: 'Polski tekst',
+      item_text_cs: 'Cesky text',
       cost_price_dkk: 100,
       price_dkk: 200,
       price_eur: 30,
@@ -32,6 +38,12 @@ describe('localized Product Master texts', () => {
       p_item_text_da: 'Dansk tekst',
       p_item_text_de: 'Deutscher Text',
       p_item_text_en: 'English text',
+      p_item_text_it: 'Testo italiano',
+      p_item_text_hu: 'Magyar szoveg',
+      p_item_text_sv: 'Svensk text',
+      p_item_text_fr: 'Texte francais',
+      p_item_text_pl: 'Polski tekst',
+      p_item_text_cs: 'Cesky text',
       p_cost_price_dkk: 100,
       p_price_dkk: 200,
       p_price_eur: 30,
@@ -56,7 +68,7 @@ describe('localized Product Master texts', () => {
     };
 
     const resolved = resolvePublishedProduct(base);
-    expect(resolved.name).toEqual({
+    expect(resolved.name).toMatchObject({
       da: 'Dansk publiceret',
       de: 'Deutsch veröffentlicht',
       en: 'English published',
@@ -82,10 +94,10 @@ describe('localized Product Master texts', () => {
       priceEUR: 45,
     };
 
-    expect(resolvePublishedProduct(base).name).toEqual({
+    expect(resolvePublishedProduct(base).name).toMatchObject({
       da: 'Dansk publiceret',
       de: 'Deutsch alt',
-      en: 'Dansk publiceret',
+      en: 'English old',
     });
   });
 
@@ -108,11 +120,18 @@ describe('localized Product Master texts', () => {
     expect(resolvePublishedProduct(base).name).toMatchObject({ it: 'Italiano', hu: 'Magyar' });
   });
 
-  it('keeps all three text inputs visible and labels history per language', () => {
+  it('keeps all nine text inputs visible and labels history per language', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/backend/BackendPriceListsPage.tsx'), 'utf8');
-    expect(page).toContain('<Field label="Varetekst dansk">');
-    expect(page).toContain('<Field label="Varetekst tysk">');
-    expect(page).toContain('<Field label="Varetekst engelsk">');
+    expect(page).toContain('PRODUCT_LANGUAGES.map');
+    expect(page).toContain('Varetekst dansk');
+    expect(page).toContain('Varetekst engelsk');
+    expect(page).toContain('Varetekst tysk');
+    expect(page).toContain('Varetekst italiensk');
+    expect(page).toContain('Varetekst ungarsk');
+    expect(page).toContain('Varetekst svensk');
+    expect(page).toContain('Varetekst fransk');
+    expect(page).toContain('Varetekst polsk');
+    expect(page).toContain('Varetekst tjekkisk');
     expect(page).toContain('item_text_de: "Varetekst tysk"');
     expect(page).toContain('item_text_en: "Varetekst engelsk"');
   });

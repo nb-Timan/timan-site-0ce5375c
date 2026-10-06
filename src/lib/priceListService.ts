@@ -20,6 +20,7 @@ import {
   calculatePriceToolValues,
   type PriceToolSettings,
 } from "@/lib/priceListWorkbook";
+import { PRODUCT_LANGUAGE_FIELDS, PRODUCT_LANGUAGES, PRODUCT_TEXT_FIELDS } from '@/lib/productLanguages';
 
 export interface PriceListItem {
   id: string;
@@ -28,6 +29,12 @@ export interface PriceListItem {
   item_text_da: string | null;
   item_text_de: string | null;
   item_text_en: string | null;
+  item_text_it: string | null;
+  item_text_hu: string | null;
+  item_text_sv: string | null;
+  item_text_fr: string | null;
+  item_text_pl: string | null;
+  item_text_cs: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
@@ -60,6 +67,12 @@ export interface ActivePriceListItem {
   item_text_da: string | null;
   item_text_de: string | null;
   item_text_en: string | null;
+  item_text_it: string | null;
+  item_text_hu: string | null;
+  item_text_sv: string | null;
+  item_text_fr: string | null;
+  item_text_pl: string | null;
+  item_text_cs: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
@@ -79,6 +92,12 @@ export const PRICE_HISTORY_TEXT_FIELDS = [
   "item_text_da",
   "item_text_de",
   "item_text_en",
+  "item_text_it",
+  "item_text_hu",
+  "item_text_sv",
+  "item_text_fr",
+  "item_text_pl",
+  "item_text_cs",
 ] as const;
 
 export type PriceHistoryField = typeof PRICE_HISTORY_TEXT_FIELDS[number] | typeof PRICE_HISTORY_PRICE_FIELDS[number];
@@ -131,7 +150,10 @@ export function priceHistoryDelta(entry: Pick<PriceListHistoryEntry, 'old_numeri
   };
 }
 
-export const PRICE_FIELDS = ["item_text_da", "cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const;
+export const PRICE_FIELDS = [
+  ...PRODUCT_TEXT_FIELDS,
+  "cost_price_dkk", "price_dkk", "price_sek", "price_eur",
+] as const;
 export type PriceField = typeof PRICE_FIELDS[number];
 
 export const PRICE_IMPORT_MODES = ["COST_ONLY", "FULL_PRICE_LIST"] as const;
@@ -141,6 +163,14 @@ export const COST_ONLY_WRITE_FIELDS = ["cost_price_dkk"] as const;
 export interface CsvPriceRow {
   item_number: string;
   item_text_da?: string;
+  item_text_en?: string;
+  item_text_de?: string;
+  item_text_it?: string;
+  item_text_hu?: string;
+  item_text_sv?: string;
+  item_text_fr?: string;
+  item_text_pl?: string;
+  item_text_cs?: string;
   cost_price_dkk?: string;
   price_dkk?: string;
   price_eur?: string;
@@ -178,7 +208,7 @@ export interface ImportSummary {
 export async function listPriceItems(): Promise<PriceListItem[]> {
   const { data, error } = await supabase
     .from("price_list_items")
-    .select("id, item_number, renamed_from_item_number, item_text_da, item_text_de, item_text_en, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
+    .select("id, item_number, renamed_from_item_number, item_text_da, item_text_de, item_text_en, item_text_it, item_text_hu, item_text_sv, item_text_fr, item_text_pl, item_text_cs, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
     .eq("is_active", true)
     .order("item_number", { ascending: true });
   if (error) {
@@ -250,6 +280,12 @@ export async function updatePriceItem(input: {
   item_text_da: string | null;
   item_text_de: string | null;
   item_text_en: string | null;
+  item_text_it: string | null;
+  item_text_hu: string | null;
+  item_text_sv: string | null;
+  item_text_fr: string | null;
+  item_text_pl: string | null;
+  item_text_cs: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
@@ -262,6 +298,12 @@ export async function updatePriceItem(input: {
       p_item_text_da: input.item_text_da,
       p_item_text_de: input.item_text_de,
       p_item_text_en: input.item_text_en,
+      p_item_text_it: input.item_text_it,
+      p_item_text_hu: input.item_text_hu,
+      p_item_text_sv: input.item_text_sv,
+      p_item_text_fr: input.item_text_fr,
+      p_item_text_pl: input.item_text_pl,
+      p_item_text_cs: input.item_text_cs,
       p_price_dkk: input.price_dkk,
       p_price_eur: input.price_eur,
       p_price_sek: input.price_sek,
@@ -279,6 +321,14 @@ export async function updatePriceItem(input: {
 const HEADER_ALIASES: Record<keyof CsvPriceRow, string[]> = {
   item_number: ["item_number", "Varenr.", "varenr", "varenummer", "item_no", "itemnumber"],
   item_text_da: ["item_text_da", "Varetekst (DA)", "varetekst_da", "varetekst", "text_da", "tekst"],
+  item_text_en: ["item_text_en", "Varetekst (EN)", "Varetekst (GB)", "varetekst_en", "varetekst_gb", "text_en"],
+  item_text_de: ["item_text_de", "Varetekst (DE)", "varetekst_de", "text_de"],
+  item_text_it: ["item_text_it", "Varetekst (IT)", "varetekst_it", "text_it"],
+  item_text_hu: ["item_text_hu", "Varetekst (HU)", "varetekst_hu", "text_hu"],
+  item_text_sv: ["item_text_sv", "Varetekst (SE)", "Varetekst (SV)", "varetekst_se", "varetekst_sv", "text_sv"],
+  item_text_fr: ["item_text_fr", "Varetekst (FR)", "varetekst_fr", "text_fr"],
+  item_text_pl: ["item_text_pl", "Varetekst (PL)", "varetekst_pl", "text_pl"],
+  item_text_cs: ["item_text_cs", "Varetekst (CZ)", "Varetekst (CS)", "varetekst_cz", "varetekst_cs", "text_cs"],
   cost_price_dkk: ["cost_price_dkk", "Kostpris DKK", "kostpris_dkk", "kostpris", "kost_dkk", "kost", "cost_dkk", "cost_price"],
   price_dkk: ["price_dkk", "Ny pris DKK", "pris_dkk", "ny_pris_dkk", "dkk"],
   price_eur: ["price_eur", "Ny pris EUR", "pris_eur", "ny_pris_eur", "eur"],
@@ -379,7 +429,7 @@ export interface ParseResult {
 export async function listActivePriceItems(): Promise<ActivePriceListItem[]> {
   const { data, error } = await supabase
     .from('price_list_published')
-    .select('item_number, item_text_da, item_text_de, item_text_en, price_dkk, price_eur, price_sek, published_at, published_by_email')
+    .select('item_number, item_text_da, item_text_de, item_text_en, item_text_it, item_text_hu, item_text_sv, item_text_fr, item_text_pl, item_text_cs, price_dkk, price_eur, price_sek, published_at, published_by_email')
     .order('item_number', { ascending: true });
   if (error) {
     console.warn('[priceListService] listActivePriceItems:', error);
@@ -406,6 +456,14 @@ export function parsePriceCsv(text: string): ParseResult {
   const rows: CsvPriceRow[] = (out.data || []).map((r) => ({
     item_number: pickField(r, "item_number"),
     item_text_da: pickField(r, "item_text_da"),
+    item_text_en: pickField(r, "item_text_en"),
+    item_text_de: pickField(r, "item_text_de"),
+    item_text_it: pickField(r, "item_text_it"),
+    item_text_hu: pickField(r, "item_text_hu"),
+    item_text_sv: pickField(r, "item_text_sv"),
+    item_text_fr: pickField(r, "item_text_fr"),
+    item_text_pl: pickField(r, "item_text_pl"),
+    item_text_cs: pickField(r, "item_text_cs"),
     cost_price_dkk: pickField(r, "cost_price_dkk"),
     price_dkk: pickField(r, "price_dkk"),
     price_eur: pickField(r, "price_eur"),
@@ -450,6 +508,14 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
       .map((values) => ({
         item_number: pickWorkbookCell(values, headers, HEADER_ALIASES.item_number),
         item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da),
+        item_text_en: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_en),
+        item_text_de: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_de),
+        item_text_it: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_it),
+        item_text_hu: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_hu),
+        item_text_sv: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_sv),
+        item_text_fr: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_fr),
+        item_text_pl: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_pl),
+        item_text_cs: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_cs),
         cost_price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.cost_price_dkk),
         price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.price_dkk),
         price_eur: pickWorkbookCell(values, headers, HEADER_ALIASES.price_eur),
@@ -493,6 +559,14 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
       return {
         item_number: itemNumber,
         item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da, [2]),
+        item_text_en: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_en),
+        item_text_de: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_de),
+        item_text_it: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_it),
+        item_text_hu: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_hu),
+        item_text_sv: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_sv),
+        item_text_fr: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_fr),
+        item_text_pl: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_pl),
+        item_text_cs: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_cs),
         cost_price_dkk: formatWorkbookNumber(costPriceDkk),
         price_dkk: formatWorkbookNumber(calculated.priceDkk),
         price_eur: formatWorkbookNumber(calculated.priceEur),
@@ -535,7 +609,7 @@ function existingValue(item: PriceListItem, field: PriceField): string | null {
 function rawValue(r: CsvPriceRow, field: PriceField): string {
   const raw = (r[field] ?? "").trim();
   if (!raw) return "";
-  if (field === "item_text_da") return raw;
+  if (field.startsWith("item_text_")) return raw;
   const n = parsePrice(raw);
   return n == null ? "" : String(n);
 }
@@ -638,9 +712,10 @@ export function mergeCanonicalPriceItems(
     byItemNumber.set(key, canonical ? {
       ...canonical,
       ...item,
-      item_text_da: item.item_text_da ?? canonical.item_text_da,
-      item_text_de: item.item_text_de ?? canonical.item_text_de,
-      item_text_en: item.item_text_en ?? canonical.item_text_en,
+      ...Object.fromEntries(PRODUCT_LANGUAGES.map((language) => {
+        const field = PRODUCT_LANGUAGE_FIELDS[language];
+        return [field, item[field] ?? canonical[field]];
+      })),
       price_dkk: item.price_dkk ?? canonical.price_dkk,
       price_eur: item.price_eur ?? canonical.price_eur,
       price_sek: item.price_sek ?? canonical.price_sek,
@@ -710,6 +785,14 @@ export function buildPriceImportPayload(
     return {
       ...costOnlyRow,
       item_text_da: raw.item_text_da?.trim() || "",
+      item_text_en: raw.item_text_en?.trim() || "",
+      item_text_de: raw.item_text_de?.trim() || "",
+      item_text_it: raw.item_text_it?.trim() || "",
+      item_text_hu: raw.item_text_hu?.trim() || "",
+      item_text_sv: raw.item_text_sv?.trim() || "",
+      item_text_fr: raw.item_text_fr?.trim() || "",
+      item_text_pl: raw.item_text_pl?.trim() || "",
+      item_text_cs: raw.item_text_cs?.trim() || "",
       price_dkk: dkk == null ? (raw.price_dkk?.trim() ?? "") : String(dkk),
       price_eur: eur == null ? (raw.price_eur?.trim() ?? "") : String(eur),
       price_sek: sek == null ? (raw.price_sek?.trim() ?? "") : String(sek),
@@ -730,6 +813,14 @@ export function exportCsv(items: PriceListItem[]): string {
   const rows = items.map((i) => ({
     varenr: i.item_number,
     varetekst_da: i.item_text_da ?? "",
+    varetekst_en: i.item_text_en ?? "",
+    varetekst_de: i.item_text_de ?? "",
+    varetekst_it: i.item_text_it ?? "",
+    varetekst_hu: i.item_text_hu ?? "",
+    varetekst_se: i.item_text_sv ?? "",
+    varetekst_fr: i.item_text_fr ?? "",
+    varetekst_pl: i.item_text_pl ?? "",
+    varetekst_cz: i.item_text_cs ?? "",
     kostpris_dkk: i.cost_price_dkk ?? "",
     pris_dkk: i.price_dkk ?? "",
     pris_sek: i.price_sek ?? "",

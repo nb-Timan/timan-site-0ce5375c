@@ -44,6 +44,12 @@ export function filterPriceListItems(
       item.item_text_da,
       item.item_text_de,
       item.item_text_en,
+      item.item_text_it,
+      item.item_text_hu,
+      item.item_text_sv,
+      item.item_text_fr,
+      item.item_text_pl,
+      item.item_text_cs,
     ].some((value) => value?.toLowerCase().includes(term));
   });
 }

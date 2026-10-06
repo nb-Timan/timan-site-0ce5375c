@@ -30,7 +30,7 @@ it('resolves the current shovel consistently in Product Master, Configurator and
   expect(shouldRenderAccessory('Timan 3330', shovel, [])).toBe(true);
   expect(getLocalizedName(shovel.name, 'da')).toBe('Skovl Timan 3330');
   expect(getLocalizedName(shovel.name, 'en')).toBe('Bucket Timan 3330');
-  expect(getLocalizedName(shovel.name, 'de')).toBe('Skovl Timan 3330');
+  expect(getLocalizedName(shovel.name, 'de')).toBe('Schaufel Timan 3330');
   const rows = listMarketingConfiguratorCatalog().filter(item => item.machineKey === 'Timan 3330' && item.itemNumber === '730035');
   expect(rows).toHaveLength(1);
   expect(resolveMarketingProductIdentity('730035', rows[0].defaults).title).toBe('Skovl Timan 3330');
