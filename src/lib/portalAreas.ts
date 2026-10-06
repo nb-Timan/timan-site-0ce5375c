@@ -8,7 +8,7 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { hasAreaAccess } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'planning' | 'teknik_service' | 'salg_marketing' | 'calendar' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
+export type PortalAreaId = 'planning' | 'loans' | 'teknik_service' | 'salg_marketing' | 'calendar' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {
   id: PortalAreaId;
@@ -21,6 +21,19 @@ export interface PortalArea {
 }
 
 export const PORTAL_AREAS: PortalArea[] = [
+  {
+    id: 'loans',
+    title: { da: 'Lån af maskiner fra Timan', en: 'Loans from Timan', de: 'Leihmaschinen von Timan', it: 'Prestiti da Timan', hu: 'Timan kölcsöngépek' },
+    description: {
+      da: 'Opret, accepter og afslut lån af Timan-maskiner.',
+      en: 'Create, accept and close loans of Timan machines.',
+      de: 'Leihvorgänge für Timan-Maschinen erstellen, annehmen und abschließen.',
+      it: 'Crea, accetta e chiudi i prestiti di macchine Timan.',
+      hu: 'Timan gépkölcsönzések létrehozása, elfogadása és lezárása.',
+    },
+    moduleIds: [],
+    placeholders: [],
+  },
   {
     id: 'planning',
     title: { da: 'Planlægning', en: 'Planning', de: 'Planung', it: 'Pianificazione', hu: 'Tervezés' },

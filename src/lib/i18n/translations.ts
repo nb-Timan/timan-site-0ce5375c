@@ -23,6 +23,7 @@ import { SALES_DOCUMENT_TRANSLATIONS } from '@/lib/i18n/salesDocumentTranslation
 import { SUPPORT_TRANSLATIONS } from '@/lib/i18n/supportTranslations';
 import { CRM_DEALER_DASHBOARD_TRANSLATIONS } from '@/lib/i18n/crmDealerDashboardTranslations';
 import { PLANNING_TRANSLATIONS } from '@/lib/i18n/planningTranslations';
+import { LOAN_TRANSLATIONS } from '@/lib/i18n/loanTranslations';
 
 type Dict = Record<string, string>;
 
@@ -30,6 +31,7 @@ type Dict = Record<string, string>;
 // Danish (source of truth)
 // ---------------------------------------------------------------------------
 const da: Dict = {
+  ...LOAN_TRANSLATIONS.da,
   ...PLANNING_TRANSLATIONS.da,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.da,
   ...SUPPORT_TRANSLATIONS.da,
@@ -714,6 +716,7 @@ const da: Dict = {
 // English
 // ---------------------------------------------------------------------------
 const en: Dict = {
+  ...LOAN_TRANSLATIONS.en,
   ...PLANNING_TRANSLATIONS.en,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.en,
   ...SUPPORT_TRANSLATIONS.en,
@@ -1383,6 +1386,7 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.de,
   ...PLANNING_TRANSLATIONS.de,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.de,
   ...SUPPORT_TRANSLATIONS.de,
@@ -1852,6 +1856,7 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.it,
   ...PLANNING_TRANSLATIONS.it,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.it,
   ...SUPPORT_TRANSLATIONS.it,
@@ -2299,6 +2304,7 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.hu,
   ...PLANNING_TRANSLATIONS.hu,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.hu,
   ...SUPPORT_TRANSLATIONS.hu,
@@ -2746,6 +2752,7 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.sv,
   ...PLANNING_TRANSLATIONS.sv,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.sv,
   ...SUPPORT_TRANSLATIONS.sv,
@@ -3194,6 +3201,7 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.fr,
   ...PLANNING_TRANSLATIONS.fr,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.fr,
   ...SUPPORT_TRANSLATIONS.fr,
@@ -3642,6 +3650,7 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.pl,
   ...PLANNING_TRANSLATIONS.pl,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.pl,
   ...SUPPORT_TRANSLATIONS.pl,
@@ -4090,6 +4099,7 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.cs,
   ...PLANNING_TRANSLATIONS.cs,
   ...CRM_DEALER_DASHBOARD_TRANSLATIONS.cs,
   ...SUPPORT_TRANSLATIONS.cs,

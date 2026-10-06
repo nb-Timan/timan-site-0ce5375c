@@ -72,6 +72,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
 // ---------- Module access keys ----------
 export type ModuleAccessKey =
   | 'planning'
+  | 'loans'
   | 'teknik_service'
   | 'salg_marketing'
   | 'calendar'
@@ -98,6 +99,7 @@ export type ModuleAccessKey =
 
 export type PortalAreaAccessKey =
   | 'planning'
+  | 'loans'
   | 'teknik_service'
   | 'salg_marketing'
   | 'calendar'
@@ -120,6 +122,7 @@ export type PortalTopLevelAccessDefinition =
 export const PORTAL_TOP_LEVEL_ACCESS: readonly PortalTopLevelAccessDefinition[] = [
   { id: 'salg_marketing', source: 'area', key: 'salg_marketing' },
   { id: 'planning', source: 'area', key: 'planning' },
+  { id: 'loans', source: 'area', key: 'loans' },
   { id: 'marketing', source: 'area', key: 'marketing' },
   { id: 'teknik_service', source: 'area', key: 'teknik_service' },
   { id: 'dealer_data', source: 'area', key: 'dealer_data' },
@@ -437,10 +440,17 @@ export function hasAreaAccess(
   if (!user) return false;
   const role = derivePortalRole(user);
 
-  // Planning is deliberately opt-in, including for Backend. External roles
-  // cannot acquire it by manipulating their allowed_areas payload.
+  // Planning and Loans are deliberately opt-in, including for Backend.
+  // Loans additionally permits the two canonical partner roles to accept
+  // cases for their own account; database RLS remains the authoritative scope.
   if (area === 'planning') {
     return isInternalTimanPortalRole(role) && user.allowed_areas?.includes('planning') === true;
+  }
+  if (area === 'loans') {
+    const supportedRole = isInternalTimanPortalRole(role)
+      || role === 'timan_dealer'
+      || role === 'timan_service_partner';
+    return supportedRole && user.allowed_areas?.includes('loans') === true;
   }
 
   // Timan Backend is super-admin. Role defaults are the minimum access, so

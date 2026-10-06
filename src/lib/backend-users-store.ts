@@ -18,9 +18,9 @@ import type { OrganizationAccessRole } from "@/lib/organizationAccess";
 import { PORTAL_ROLE_DEFAULT_QUICK_ACTIONS } from "../../supabase/functions/_shared/portalCapabilityContract";
 
 export type UserStatus = "active" | "pending" | "blocked";
-export type AreaKey = "planning" | "teknik_service" | "salg_marketing" | "calendar" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
+export type AreaKey = "planning" | "loans" | "teknik_service" | "salg_marketing" | "calendar" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
 
-export const ALL_AREAS: AreaKey[] = ["salg_marketing", "planning", "marketing", "teknik_service", "dealer_data", "timan_crm", "calendar", "timan_backend"];
+export const ALL_AREAS: AreaKey[] = ["salg_marketing", "planning", "loans", "marketing", "teknik_service", "dealer_data", "timan_crm", "calendar", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
   // Training

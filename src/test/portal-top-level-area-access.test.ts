@@ -15,9 +15,11 @@ const seller = {
 };
 
 describe('canonical top-level portal area access', () => {
-  it('exposes the same nine areas in the user editor order', () => {
+  it('exposes the same eleven areas in the user editor order', () => {
     expect(PORTAL_TOP_LEVEL_ACCESS.map((entry) => entry.id)).toEqual([
       'salg_marketing',
+      'planning',
+      'loans',
       'marketing',
       'teknik_service',
       'dealer_data',
@@ -28,6 +30,8 @@ describe('canonical top-level portal area access', () => {
       'timan_backend',
     ]);
     expect(ALL_AREAS).toContain('calendar');
+    expect(ALL_AREAS).toContain('planning');
+    expect(ALL_AREAS).toContain('loans');
   });
 
   it('keeps Messe and Academy on their existing canonical module gates', () => {

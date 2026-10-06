@@ -4,6 +4,7 @@ import { portalCapabilityRoute } from '../../supabase/functions/_shared/portalCa
 /** Canonical destinations for the cards on the portal home page. */
 export const PORTAL_AREA_ROUTES: Record<PortalAreaId, string> = {
   planning: portalCapabilityRoute('area.planning'),
+  loans: portalCapabilityRoute('area.loans'),
   teknik_service: portalCapabilityRoute('area.technical_service'),
   salg_marketing: portalCapabilityRoute('area.sales'),
   calendar: portalCapabilityRoute('area.calendar'),

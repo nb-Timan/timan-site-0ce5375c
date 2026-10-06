@@ -298,16 +298,18 @@ export function sanitizePermsForRole(role: string, perms: BackendUser["perms"]):
  */
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
   if (!isDealerSideRole(draft.role)) {
+    const supportsLoans = ['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role);
     return {
       ...draft,
       organization_access_role: null,
-      allowed_areas: ['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role)
+      allowed_areas: supportsLoans
         ? draft.allowed_areas
-        : draft.allowed_areas.filter((area) => area !== 'planning'),
+        : draft.allowed_areas.filter((area) => area !== 'planning' && area !== 'loans'),
     };
   }
+  const supportsLoans = draft.role === 'timan_dealer' || draft.role === 'timan_service_partner';
   const allowed_areas = draft.allowed_areas.filter(
-    (a) => a !== "timan_backend" && a !== "planning",
+    (a) => a !== "timan_backend" && a !== "planning" && (supportsLoans || a !== "loans"),
   );
   const allowed_modules = draft.allowed_modules.filter(
     (m) => m !== "timan_backend",

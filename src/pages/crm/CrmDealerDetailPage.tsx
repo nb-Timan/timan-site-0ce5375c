@@ -43,7 +43,7 @@ import {
   hasUsableDealerAddress,
   requestDealerGeocoding,
 } from "@/lib/dealerGeocodingService";
-import { derivePortalRole } from "@/lib/portalAccess";
+import { derivePortalRole, hasAreaAccess } from "@/lib/portalAccess";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
@@ -167,6 +167,8 @@ const L = {
   comment:          { da: "Kommentar", en: "Comment", de: "Kommentar", it: "Commento", hu: "Megjegyzés" },
   no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
   demo_machines:    { da: "Demo-maskiner", en: "Demo machines", de: "Demomaschinen", it: "Macchine demo", hu: "Demógépek", sv: "Demomaskiner", fr: "Machines de démonstration", pl: "Maszyny demonstracyjne", cs: "Předváděcí stroje" },
+  demo_machines_loans: { da: "Demo-maskiner / lån", en: "Demo machines / loans", de: "Demomaschinen / Leihen", it: "Macchine demo / prestiti", hu: "Demógépek / kölcsönök", sv: "Demomaskiner / lån", fr: "Machines de démonstration / prêts", pl: "Maszyny demonstracyjne / wypożyczenia", cs: "Předváděcí stroje / zápůjčky" },
+  view_loans: { da: "Se lån", en: "View loans", de: "Leihen anzeigen", it: "Vedi prestiti", hu: "Kölcsönök megtekintése", sv: "Visa lån", fr: "Voir les prêts", pl: "Zobacz wypożyczenia", cs: "Zobrazit zápůjčky" },
   no_active_demo_machines: { da: "Ingen aktive demo-maskiner", en: "No active demo machines", de: "Keine aktiven Demomaschinen", it: "Nessuna macchina demo attiva", hu: "Nincs aktív demógép" },
   no_machines:      { da: "Ingen maskiner", en: "No machines", de: "Keine Maschinen", it: "Nessuna macchina", hu: "Nincs gép" },
   view_machines:    { da: "Se maskiner", en: "View machines", de: "Maschinen anzeigen", it: "Vedi macchine", hu: "Gépek megtekintése" },
@@ -1621,6 +1623,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
                   dealer={machineContext?.dealer ?? null}
                   scope={machineContext?.scope ?? null}
                   lang={lang}
+                  canViewLoans={hasAreaAccess(effectiveUser, 'loans')}
                   onOpenMachines={() => {
                     setMachineListDemoOnly(true);
                     setActiveTab("machines");
@@ -2020,6 +2023,7 @@ function CrmDemoMachinesPanel({
   lang,
   onOpenMachines,
   compact = false,
+  loanHref,
 }: {
   rows: DealerMachineRegisterRow[];
   total?: number;
@@ -2028,6 +2032,7 @@ function CrmDemoMachinesPanel({
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
   compact?: boolean;
+  loanHref?: string | null;
 }) {
   return (
     <div className={`bg-white border border-slate-200 ${compact ? "rounded-lg p-4" : "rounded-2xl p-5"}`}>
@@ -2037,16 +2042,14 @@ function CrmDemoMachinesPanel({
           onClick={onOpenMachines}
           className="text-left text-sm font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-700"
         >
-          {tl("demo_machines", lang)}
+          {loanHref ? tl("demo_machines_loans", lang) : tl("demo_machines", lang)}
         </button>
-        <button
-          type="button"
-          onClick={onOpenMachines}
-          className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
-          aria-label={`${tl("view_machines", lang)} ${total}`}
-        >
-          {total}
-        </button>
+        <div className="flex items-center gap-2">
+          {loanHref && <Link to={loanHref} className="text-xs font-semibold text-emerald-700 hover:text-emerald-800">{tl('view_loans', lang)}</Link>}
+          <button type="button" onClick={onOpenMachines}
+            className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
+            aria-label={`${tl("view_machines", lang)} ${total}`}>{total}</button>
+        </div>
       </div>
       {loading ? (
         <p className="text-sm text-slate-500">Henter demo-maskiner…</p>
@@ -2096,12 +2099,13 @@ function CrmDemoMachinesPanel({
 }
 
 function CrmDemoMachinesPreview({
-  dealer, scope, lang, onOpenMachines,
+  dealer, scope, lang, onOpenMachines, canViewLoans,
 }: {
   dealer: DealerAccount | null;
   scope: JournalScope | null;
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
+  canViewLoans: boolean;
   compact?: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
@@ -2124,7 +2128,8 @@ function CrmDemoMachinesPreview({
     return () => { cancelled = true; };
   }, [dealer, scope]);
 
-  return <CrmDemoMachinesPanel rows={rows} total={total} loading={loading} error={error} lang={lang} onOpenMachines={onOpenMachines} compact />;
+  const loanHref = canViewLoans && dealer?.id ? `/portal/loans?partner=${encodeURIComponent(dealer.id)}` : null;
+  return <CrmDemoMachinesPanel rows={rows} total={total} loading={loading} error={error} lang={lang} onOpenMachines={onOpenMachines} compact loanHref={loanHref} />;
 }
 
 function CrmMachineRegisterPanel({

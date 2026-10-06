@@ -82,6 +82,7 @@ const STATUS_PILL: Record<UserStatus, string> = {
 
 const TOP_LEVEL_AREA_LABEL: Record<PortalTopLevelAreaId, string> = {
   planning: "Planlægning",
+  loans: "Lån af maskiner fra Timan",
   salg_marketing: "Salg",
   marketing: "Marketing",
   teknik_service: "Teknik & Service",
@@ -95,6 +96,7 @@ const TOP_LEVEL_AREA_LABEL: Record<PortalTopLevelAreaId, string> = {
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   planning: "Planlægning",
+  loans: "Lån af maskiner fra Timan",
   teknik_service: "Teknik & Service",
   salg_marketing: "Salg",
   calendar: "Kalender",

@@ -101,6 +101,7 @@ const capability = (
 export const PORTAL_CAPABILITY_CONTRACTS = [
   capability('area.sales', 'salg_marketing', '/portal/salg-marketing', { kind: 'area', key: 'salg_marketing' }, ['read'], false, 'sales_area'),
   capability('area.planning', 'planning', '/portal/planning', { kind: 'area', key: 'planning' }),
+  capability('area.loans', 'loans', '/portal/loans', { kind: 'area', key: 'loans' }, ['read', 'create', 'edit']),
   capability('area.partner_data', 'dealer_data', '/portal/dealer-data', { kind: 'area', key: 'dealer_data' }, ['read'], false, 'partner_data'),
   capability('area.crm', 'timan_crm', '/portal/crm', { kind: 'crm' }, ['read'], false, 'crm_area'),
   capability('area.marketing', 'marketing', '/portal/marketing', { kind: 'area', key: 'marketing' }),

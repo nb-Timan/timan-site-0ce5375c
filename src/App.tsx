@@ -137,6 +137,10 @@ function lazyWithDynamicImportRecovery<T extends ComponentType>(
 
 const PortalPage = lazy(() => import("./pages/PortalPage"));
 const PlanningPage = lazy(() => import("./pages/PlanningPage"));
+const LoansPage = lazy(() => import("./pages/loans/LoansPage"));
+const LoanCasePage = lazy(() => import("./pages/loans/LoanCasePage"));
+const LoanAcceptancePage = lazy(() => import("./pages/loans/LoanAcceptancePage"));
+const LoanReturnPage = lazy(() => import("./pages/loans/LoanReturnPage"));
 const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
 const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
 const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
@@ -341,6 +345,11 @@ const App = () => (
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
               <Route path="/portal/planning" element={<PortalAreaAccessGuard area="planning"><PlanningPage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans" element={<PortalAreaAccessGuard area="loans"><LoansPage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/new" element={<PortalAreaAccessGuard area="loans"><LoanCasePage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/:caseId" element={<PortalAreaAccessGuard area="loans"><LoanCasePage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/:caseId/accept" element={<PortalAreaAccessGuard area="loans"><LoanAcceptancePage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/:caseId/return" element={<PortalAreaAccessGuard area="loans"><LoanReturnPage /></PortalAreaAccessGuard>} />
               <Route path="/academy" element={<AcademyAccessGuard><AcademyPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads" element={<AcademyAccessGuard><AcademyCrmLeadsPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads/:id" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
