@@ -17,6 +17,7 @@ import {
   mergeMarketingConfiguratorContent,
   canonicalLocalizedProductTitles,
   deleteMarketingConfiguratorDraftContent,
+  findMarketingConfiguratorContentRecord,
   localizedDraftDescriptions,
   localizedDraftFeatures,
   localizedDraftSpecs,
@@ -64,8 +65,8 @@ function asIso(value: string) {
 }
 
 function fieldFor(item: MarketingConfiguratorCatalogItem, records: MarketingConfiguratorContentRecord[]) {
-  const draft = records.find((record) => record.product_key === item.productKey && record.status === 'draft') || null;
-  const published = records.find((record) => record.product_key === item.productKey && record.status === 'published') || null;
+  const draft = findMarketingConfiguratorContentRecord(records, item, 'draft');
+  const published = findMarketingConfiguratorContentRecord(records, item, 'published');
   const canonicalTitles = canonicalLocalizedProductTitles(item.itemNumber, item.defaults.title);
   const source = draft?.content || published?.content;
   const content = mergeMarketingConfiguratorContent(item.defaults, source, item.itemNumber);
@@ -189,7 +190,8 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
     onClose();
   };
 
-  const hasPersistedDraft = Boolean(item && records.some((record) => record.product_key === item.productKey && record.status === 'draft'));
+  const hasPersistedDraft = Boolean(item && findMarketingConfiguratorContentRecord(records, item, 'draft'));
+  const contentMode = item && records.some((record) => record.item_number === item.itemNumber) ? 'edit' : 'create';
 
   const uploadImage = async (file: File | null | undefined) => {
     if (!file || !draft) return;
@@ -240,7 +242,7 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent aria-describedby={undefined} className="max-h-[94vh] overflow-y-auto sm:max-w-5xl xl:max-w-6xl">
+      <DialogContent aria-describedby={undefined} data-content-mode={contentMode} className="max-h-[94vh] overflow-y-auto sm:max-w-5xl xl:max-w-6xl">
         <DialogHeader><DialogTitle>Redigér præsentationsindhold</DialogTitle></DialogHeader>
         {item && draft && <div className="space-y-5">
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">

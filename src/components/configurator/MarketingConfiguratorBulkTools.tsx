@@ -5,9 +5,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import {
   canonicalLocalizedProductTitles,
+  findMarketingConfiguratorContentRecord,
   localizedDraftDescriptions,
   localizedDraftTitles,
   mergeMarketingConfiguratorContent,
+  resolveMarketingConfiguratorEditorItem,
   saveMarketingConfiguratorContent,
   uploadMarketingConfiguratorImage,
   type MarketingConfiguratorCatalogItem,
@@ -27,7 +29,7 @@ type Props = {
 type CatalogState = 'missing' | 'draft' | 'published';
 
 function recordFor(records: MarketingConfiguratorContentRecord[], item: MarketingConfiguratorCatalogItem, status: 'draft' | 'published') {
-  return records.find((record) => record.product_key === item.productKey && record.status === status) || null;
+  return findMarketingConfiguratorContentRecord(records, item, status);
 }
 
 function catalogState(records: MarketingConfiguratorContentRecord[], item: MarketingConfiguratorCatalogItem): CatalogState {
@@ -68,10 +70,19 @@ export default function MarketingConfiguratorBulkTools({ catalog, records, onSav
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
-  const visibleCatalog = useMemo(() => catalog.filter((item) => {
+  const canonicalCatalog = useMemo(() => {
+    const seen = new Set<string>();
+    return catalog.flatMap((item) => {
+      if (seen.has(item.itemNumber)) return [];
+      seen.add(item.itemNumber);
+      return resolveMarketingConfiguratorEditorItem(catalog, records, item.machineKey, item.item.id) || [];
+    });
+  }, [catalog, records]);
+
+  const visibleCatalog = useMemo(() => canonicalCatalog.filter((item) => {
     const state = catalogState(records, item);
     return filter === 'all' || state === filter;
-  }), [catalog, filter, records]);
+  }), [canonicalCatalog, filter, records]);
 
   const open = (nextMode: Exclude<ToolMode, null>) => {
     setMode(nextMode);

@@ -69,4 +69,20 @@ describe('Marketing localized title publication', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     window.removeEventListener('timan:product-master-published', listener);
   });
+
+  it('uses the same stable product key for first save and repeated publish', async () => {
+    const firstDraft = await saveMarketingConfiguratorContent(item, content, 'draft');
+    const secondDraft = await saveMarketingConfiguratorContent(item, content, 'draft');
+    const firstPublish = await saveMarketingConfiguratorContent(item, content, 'published');
+    const secondPublish = await saveMarketingConfiguratorContent(item, content, 'published');
+
+    expect(firstDraft.row?.id).toBe(secondDraft.row?.id);
+    expect(firstPublish.row?.id).toBe(secondPublish.row?.id);
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(upsert).toHaveBeenNthCalledWith(1, expect.objectContaining({ product_key: item.productKey }), { onConflict: 'product_key,status' });
+    expect(upsert).toHaveBeenNthCalledWith(2, expect.objectContaining({ product_key: item.productKey }), { onConflict: 'product_key,status' });
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenNthCalledWith(1, 'publish_marketing_configurator_product_content', expect.objectContaining({ p_product_key: item.productKey }));
+    expect(rpc).toHaveBeenNthCalledWith(2, 'publish_marketing_configurator_product_content', expect.objectContaining({ p_product_key: item.productKey }));
+  });
 });

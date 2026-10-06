@@ -29,7 +29,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibraryService';
-import { listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, productContentKey, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
+import { findMarketingConfiguratorContentRecord, listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, marketingPresentationActions, productContentKey, resolveMarketingConfiguratorCatalogItem, resolveMarketingConfiguratorEditorItem, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
 import MarketingConfiguratorContentEditor from '@/components/configurator/MarketingConfiguratorContentEditor';
 import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingConfiguratorBulkTools';
 import MarketingCampaignManager from '@/components/configurator/MarketingCampaignManager';
@@ -856,22 +856,26 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // the actual nine-language portal locale.
   const contentUiLang = resolveContentUiLanguage(uiLanguage);
   const productRevision = useProductMasterRevision();
-  const marketingCatalogByKey = useMemo(
-    () => { void productRevision; return new Map(listMarketingConfiguratorCatalog(uiLanguage).map((item) => [item.productKey, item])); },
+  const marketingCatalog = useMemo(
+    () => { void productRevision; return listMarketingConfiguratorCatalog(uiLanguage); },
     [uiLanguage, productRevision],
+  );
+  const marketingCatalogByKey = useMemo(
+    () => new Map(marketingCatalog.map((item) => [item.productKey, item])),
+    [marketingCatalog],
   );
   // Marketing may only affect the visual product content. Every configuration
   // and price calculation below continues to use the original canonical item.
   const marketingContentFor = (machineType: string, itemId: string | undefined) => {
     if (!itemId) return null;
-    const key = productContentKey(machineType, itemId);
-    const catalogItem = marketingCatalogByKey.get(key);
+    const catalogItem = resolveMarketingConfiguratorCatalogItem(marketingCatalog, machineType, itemId);
+    if (!catalogItem) return null;
     const content = marketingEditMode
-      ? marketingEditorRecords.find((record) => record.product_key === key && record.status === 'draft')?.content
-        || marketingEditorRecords.find((record) => record.product_key === key && record.status === 'published')?.content
-        || publishedMarketingContent.get(key)?.content
+      ? findMarketingConfiguratorContentRecord(marketingEditorRecords, catalogItem, 'draft')?.content
+        || findMarketingConfiguratorContentRecord(marketingEditorRecords, catalogItem, 'published')?.content
+        || findMarketingConfiguratorContentRecord(publishedMarketingContent.values(), catalogItem, 'published')?.content
         || null
-      : publishedMarketingContent.get(key)?.content || null;
+      : findMarketingConfiguratorContentRecord(publishedMarketingContent.values(), catalogItem, 'published')?.content || null;
     return content ? resolveMarketingProductIdentity(catalogItem?.itemNumber, content, lang, catalogItem?.defaults.title) : null;
   };
   const campaignClock = useMarketingBadgeClock();
@@ -881,14 +885,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     : null;
   const openMarketingEditor = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return;
-    const item = marketingCatalogByKey.get(productContentKey(machineType, itemId));
+    const item = resolveMarketingConfiguratorEditorItem(marketingCatalog, marketingEditorRecords, machineType, itemId);
     if (item) setMarketingEditorItem(item);
   };
   const marketingContentState = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return null;
-    const key = productContentKey(machineType, itemId);
-    if (marketingEditorRecords.some((record) => record.product_key === key && record.status === 'published')) return 'published';
-    if (marketingEditorRecords.some((record) => record.product_key === key && record.status === 'draft')) return 'draft';
+    const item = resolveMarketingConfiguratorCatalogItem(marketingCatalog, machineType, itemId);
+    if (!item) return null;
+    if (findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'published')) return 'published';
+    if (findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'draft')) return 'draft';
     return 'missing';
   };
   const marketingEditButton = (machineType: string, itemId: string | undefined) => marketingEditMode ? (
@@ -1964,9 +1969,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
     const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, uiLanguage) : machineType);
-    const hasSpecs = Boolean(marketingContent?.description || marketingContent?.key_features.length || marketingContent?.specs.length || item.specs?.length);
-    const showVideoIcon = !!videoUrl;
-    const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
+    const presentationActions = marketingPresentationActions(marketingContent);
+    const hasSpecs = presentationActions.information || Boolean(item.specs?.length);
+    const showVideoIcon = Boolean(videoUrl);
+    const showImageIcon = Boolean(imageUrl);
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
     return (
       <div className="mt-1 flex gap-2 whitespace-nowrap">

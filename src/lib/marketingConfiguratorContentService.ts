@@ -175,6 +175,76 @@ export function listMarketingConfiguratorCatalog(language: PortalUiLanguage = 'd
   return rows;
 }
 
+function normalizedMarketingProductIdentity(value: string | undefined) {
+  return String(value || '').trim().toLocaleLowerCase('da-DK');
+}
+
+/** Resolve an editor target from canonical catalogue identity, never from a presentation row. */
+export function resolveMarketingConfiguratorCatalogItem(
+  catalog: MarketingConfiguratorCatalogItem[],
+  machineKey: string,
+  productIdentity: string | undefined,
+): MarketingConfiguratorCatalogItem | null {
+  if (!productIdentity) return null;
+  const exact = catalog.find((item) => item.productKey === productContentKey(machineKey, productIdentity));
+  if (exact) return exact;
+
+  const normalizedIdentity = normalizedMarketingProductIdentity(productIdentity);
+  return catalog.find((item) => {
+    if (item.machineKey !== machineKey) return false;
+    const aliases = publishedProduct(item.itemNumber)?.identity_aliases || [];
+    return [item.item.id, item.itemNumber, ...aliases]
+      .some((candidate) => normalizedMarketingProductIdentity(candidate) === normalizedIdentity);
+  }) || null;
+}
+
+/**
+ * Presentation content belongs to the canonical SKU. Prefer the exact context
+ * when it exists, then reuse the same SKU record in another Configurator view.
+ */
+export function findMarketingConfiguratorContentRecord(
+  records: Iterable<MarketingConfiguratorContentRecord>,
+  item: Pick<MarketingConfiguratorCatalogItem, 'productKey' | 'itemNumber'>,
+  status: MarketingConfiguratorContentStatus,
+): MarketingConfiguratorContentRecord | null {
+  const rows = [...records];
+  return rows.find((record) => record.product_key === item.productKey && record.status === status)
+    || rows.find((record) => record.item_number === item.itemNumber && record.status === status)
+    || null;
+}
+
+/** Reuse an existing SKU row, or the first stable catalogue context for a new row. */
+export function resolveMarketingConfiguratorEditorItem(
+  catalog: MarketingConfiguratorCatalogItem[],
+  records: MarketingConfiguratorContentRecord[],
+  machineKey: string,
+  productIdentity: string | undefined,
+): MarketingConfiguratorCatalogItem | null {
+  const contextualItem = resolveMarketingConfiguratorCatalogItem(catalog, machineKey, productIdentity);
+  if (!contextualItem) return null;
+
+  const existing = findMarketingConfiguratorContentRecord(records, contextualItem, 'draft')
+    || findMarketingConfiguratorContentRecord(records, contextualItem, 'published');
+  if (existing) {
+    return catalog.find((item) => item.productKey === existing.product_key)
+      || { ...contextualItem, productKey: existing.product_key, machineKey: existing.machine_key };
+  }
+
+  return catalog.find((item) => item.itemNumber === contextualItem.itemNumber) || contextualItem;
+}
+
+export function marketingPresentationActions(content: MarketingConfiguratorContentFields | null | undefined) {
+  return {
+    video: Boolean(content?.video_url?.trim()),
+    image: Boolean(content?.image_url?.trim()),
+    information: Boolean(
+      content?.description?.trim()
+      || content?.key_features?.some((feature) => feature.trim())
+      || content?.specs?.some((spec) => spec.label?.trim() && String(spec.value || '').trim()),
+    ),
+  };
+}
+
 export function mergeMarketingConfiguratorContent(
   defaults: MarketingConfiguratorContentFields,
   override: MarketingConfiguratorContentFields | null | undefined,

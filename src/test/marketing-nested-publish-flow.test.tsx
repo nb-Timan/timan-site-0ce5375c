@@ -63,6 +63,29 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('nested Marketing publish flow', () => {
+  it.each(['412050', '412051'])('opens %s without a presentation row and saves create-mode media and specs', async (itemNumber) => {
+    const target = catalog.find((product) => product.machineKey === 'RC-1000S' && product.itemNumber === itemNumber)!;
+    render(<MarketingConfiguratorContentEditor item={target} catalog={catalog} records={[]} uiLanguage="da" priceSourceLanguage="da" onClose={vi.fn()} onSaved={vi.fn()} onDraftDeleted={vi.fn()} />);
+
+    const dialog = screen.getByRole('dialog', { name: 'Redigér præsentationsindhold' });
+    expect(dialog).toHaveAttribute('data-content-mode', 'create');
+    expect(await screen.findByLabelText('Visningstitel Dansk')).not.toHaveValue('');
+
+    const mediaInputs = screen.getAllByPlaceholderText('https://...');
+    fireEvent.change(mediaInputs[0], { target: { value: `https://example.test/${itemNumber}.mp4` } });
+    fireEvent.change(mediaInputs[1], { target: { value: `https://example.test/${itemNumber}.jpg` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Tilføj felt' }));
+    fireEvent.change(screen.getByPlaceholderText('Label'), { target: { value: 'Bredde' } });
+    fireEvent.change(screen.getByPlaceholderText('Værdi'), { target: { value: '120 cm' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
+
+    await waitFor(() => expect(saveMarketingConfiguratorContent).toHaveBeenCalledWith(target, expect.objectContaining({
+      video_url: `https://example.test/${itemNumber}.mp4`,
+      image_url: `https://example.test/${itemNumber}.jpg`,
+      specs: expect.arrayContaining([{ label: 'Bredde', value: '120 cm' }]),
+    }), 'draft'));
+  });
+
   it('returns from campaign publish with the product draft intact, then closes after product publish', async () => {
     const onClose = vi.fn();
     const onSaved = vi.fn();

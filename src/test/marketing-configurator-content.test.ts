@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_CONTENT,
   canonicalLocalizedProductTitles,
+  findMarketingConfiguratorContentRecord,
   listMarketingConfiguratorCatalog,
   localizedDraftDescriptions,
   localizedDraftTitles,
   mergeMarketingConfiguratorContent,
+  marketingPresentationActions,
   productContentKey,
+  resolveMarketingConfiguratorEditorItem,
   resolveMarketingProductIdentity,
 } from '@/lib/marketingConfiguratorContentService';
 import { replaceProductMaster } from '@/lib/publishedProductMaster';
@@ -32,6 +35,50 @@ describe('Marketing configurator content', () => {
     expect(catalog.some((item) => item.kind === 'machine' && item.machineKey === 'RC-1000S')).toBe(true);
     expect(scraper?.productKey).toBe(productContentKey('RC-1000S', scraper?.item.id || ''));
     expect(workLight?.defaults.title).toBe('Arbejdslys 2 stk.');
+  });
+
+  it.each(['412050', '412051'])('opens %s in stable create mode from RC-1000s and loose-equipment contexts', (itemNumber) => {
+    const catalog = listMarketingConfiguratorCatalog('da');
+    const rcItem = catalog.find((item) => item.machineKey === 'RC-1000S' && item.itemNumber === itemNumber)!;
+    const looseItem = catalog.find((item) => item.machineKey === 'LOOSE_TOOL' && item.itemNumber === itemNumber)!;
+
+    expect(rcItem).toBeDefined();
+    expect(looseItem).toBeDefined();
+    expect(resolveMarketingConfiguratorEditorItem(catalog, [], 'RC-1000S', rcItem.item.id)).toMatchObject({
+      productKey: rcItem.productKey,
+      itemNumber,
+    });
+    expect(resolveMarketingConfiguratorEditorItem(catalog, [], 'LOOSE_TOOL', looseItem.item.id)).toMatchObject({
+      productKey: rcItem.productKey,
+      itemNumber,
+    });
+
+    const published = {
+      id: `${itemNumber}-published`,
+      product_key: rcItem.productKey,
+      machine_key: rcItem.machineKey,
+      item_number: itemNumber,
+      content: { ...rcItem.defaults, video_url: 'https://example.test/video' },
+      status: 'published' as const,
+      published_at: '2026-10-06T12:00:00.000Z',
+      updated_at: '2026-10-06T12:00:00.000Z',
+    };
+    expect(findMarketingConfiguratorContentRecord([published], looseItem, 'published')?.id).toBe(published.id);
+    expect(resolveMarketingConfiguratorEditorItem(catalog, [published], 'LOOSE_TOOL', looseItem.item.id)?.productKey).toBe(rcItem.productKey);
+  });
+
+  it('shows only presentation actions backed by usable content', () => {
+    expect(marketingPresentationActions({ ...EMPTY_CONTENT, image_url: 'https://example.test/image.jpg' })).toEqual({
+      video: false,
+      image: true,
+      information: false,
+    });
+    expect(marketingPresentationActions({ ...EMPTY_CONTENT, video_url: '  ', image_url: '  ' })).toEqual({
+      video: false,
+      image: false,
+      information: false,
+    });
+    expect(marketingPresentationActions({ ...EMPTY_CONTENT, specs: [{ label: 'Bredde', value: '120 cm' }] }).information).toBe(true);
   });
 
   it('uses a published override only for presentation fields and preserves canonical defaults as fallback', () => {
@@ -194,7 +241,8 @@ describe('Marketing configurator content', () => {
       configurator.indexOf('const marketingContentState'),
       configurator.indexOf('const marketingEditButton'),
     );
-    expect(contentState.indexOf("record.status === 'published'")).toBeLessThan(contentState.indexOf("record.status === 'draft'"));
+    expect(contentState.indexOf("findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'published')"))
+      .toBeLessThan(contentState.indexOf("findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'draft')"));
     expect(configurator).toContain("renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo)");
     expect(configurator).toContain('badgeSchedule={marketingContent}');
     expect(editor).toContain('marketingBadgeDisplayPeriod');
