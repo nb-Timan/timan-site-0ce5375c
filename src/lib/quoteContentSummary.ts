@@ -22,7 +22,7 @@ import {
 import { configuratorCurrency, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
-import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import { hasMachineDeliveryOverride, machineDeliveryDate, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
 import {
   TIMAN_COMPANY_PROFILE,
   type TimanCompanyProfile,
@@ -70,10 +70,27 @@ export interface QuoteContentSummary {
   payment_terms: string;
   /** Customer reference from the persisted Configurator state. */
   purchase_order_number: string | null;
+  customer: {
+    company: string;
+    contact_person: string;
+    phone: string;
+    address: string;
+    postal_code: string;
+    city: string;
+    country: string;
+  };
   delivery: {
     method: string;
     date: string | null;
     startup_option: string | null;
+    address_source: 'customer' | 'alternative';
+    address: string;
+    postal_code: string;
+    city: string;
+    country: string;
+    contact_person: string;
+    phone: string;
+    note: string;
   };
   machines: SummaryMachineGroup[];
   totals: {
@@ -93,6 +110,7 @@ function getRalCodeFor(state: ConfiguratorState, configKey: string, accId: strin
 export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContentSummary {
   const lang = state.language;
   const currency = configuratorCurrency(state);
+  const destination = resolveDeliveryDestination(state);
 
   const machines: SummaryMachineGroup[] = [];
   let subtotal = 0;
@@ -191,10 +209,27 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     // The order-level label is derived from the frozen machine references.
     // Legacy snapshots without them retain their original global fallback.
     purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,
+    customer: {
+      company: state.firmanavn || '',
+      contact_person: state.kontaktperson || '',
+      phone: state.telefon || '',
+      address: state.address || '',
+      postal_code: state.postalCode || '',
+      city: state.city || '',
+      country: state.country || '',
+    },
     delivery: {
       method: state.deliveryMethod || '',
       date: state.date || null,
       startup_option: state.deliveryDeliverStartup ?? null,
+      address_source: destination.source,
+      address: destination.address,
+      postal_code: destination.postalCode,
+      city: destination.city,
+      country: destination.country,
+      contact_person: destination.contactPerson,
+      phone: destination.phone,
+      note: destination.note,
     },
     machines,
     totals: {

@@ -254,6 +254,14 @@ export interface ConfiguratorState {
   city: string;
   country: string;
   alternativeDeliveryAddress: string;
+  /** Transaction-specific delivery destination. Customer/dealer masterdata stays separate. */
+  useAlternativeDeliveryAddress?: boolean;
+  alternativeDeliveryPostalCode?: string;
+  alternativeDeliveryCity?: string;
+  alternativeDeliveryCountry?: string;
+  alternativeDeliveryContactPerson?: string;
+  alternativeDeliveryPhone?: string;
+  alternativeDeliveryNote?: string;
   purchaseOrderNumber: string;
   comment: string;
   internalNote: string;

@@ -40,6 +40,15 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     expect(delivery?.amount).toBe(roundPricingMoney(result.subtotal * 0.75 * 0.02));
   });
 
+  it('hides individual-date controls for one base machine and shows them for multiple base machines', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const step2 = source.slice(source.indexOf('{/* Step 2: Delivery */}'), source.indexOf('{/* Step 3: Accessories */}'));
+    expect(step2).toContain('baseMachineQty >= 2');
+    expect(step2).toContain('data-testid="machine-delivery-date-editor"');
+    expect(step2).toContain('<ConfiguratorDeliveryAddress');
+    expect(step2.indexOf('<ConfiguratorDeliveryAddress')).toBeGreaterThan(step2.indexOf('baseMachineQty >= 2'));
+  });
+
   it('uses the common date until one machine receives an override', () => {
     const state = twoMachineState();
     expect(machineDeliveryDate(state, 1)).toBe('2026-10-12');
@@ -68,14 +77,15 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     expect(calculateConfiguration(state, { now: NOW }).discountDetails.some(detail => detail.kind === 'delivery')).toBe(false);
   });
 
-  it('keeps an override on its machine when another machine is removed and drops stale keys', () => {
+  it('ignores a remaining override when another base machine is removed and drops stale keys', () => {
     const state = twoMachineState();
     state.machineDeliveryDates = { m0_1: '2026-11-01', m1_1: '2027-01-21', stale_1: '2099-01-01' };
     state.machineConfigs = [state.machineConfigs[1]];
     const normalized = normalizeConfiguratorState(state);
 
     expect(normalized.machineDeliveryDates).toEqual({ m1_1: '2027-01-21' });
-    expect(machineDeliveryDate(normalized, 1)).toBe('2027-01-21');
+    expect(machineDeliveryDate(normalized, 1)).toBe('2026-10-12');
+    expect(hasMachineDeliveryOverride(normalized, 1)).toBe(false);
   });
 
   it('canonicalizes early unit-number override keys on load', () => {

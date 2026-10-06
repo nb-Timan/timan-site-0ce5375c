@@ -39,6 +39,7 @@ import { PlanningAvailabilityBadge } from '@/components/configurator/PlanningAva
 import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlanningAvailability';
 import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
+import { ConfiguratorDeliveryAddress } from '@/components/configurator/ConfiguratorDeliveryAddress';
 import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
 import {
   ConfiguratorDemoMachineControl,
@@ -131,7 +132,7 @@ import { calculateConfiguration, configurationCampaignSelection, formatDiscountD
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
-import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
+import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
 import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 import {
@@ -924,6 +925,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const academyProductCopy = (key: string) => academyProductInstruction(tPortal(key, uiLanguage), academyProductNames);
 
   const totalQty = state.machineConfigs.reduce((sum, c) => sum + c.qty, 0);
+  const baseMachineQty = baseMachineQuantity(state);
   const discountEligibleQty = state.machineConfigs.reduce((sum, c) => sum + (PRODUCTS[c.type]?.isDiscountEligible ? c.qty : 0), 0);
   const flowSelected = !!state.flowType;
 
@@ -984,6 +986,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // quote is sent — at that moment ensurePendingLeadCreated() runs and
   // links the new lead to the row.
   const [pendingNewLead, setPendingNewLead] = useState(false);
+
+  useEffect(() => {
+    if (baseMachineQty >= 2) return;
+    setMachineDeliveryEditorOpen(false);
+    if (Object.keys(state.machineDeliveryDates ?? {}).length === 0) return;
+    setState(current => ({ ...current, machineDeliveryDates: {} }));
+  }, [baseMachineQty, setState, state.machineDeliveryDates]);
 
   useEffect(() => {
     savedConfigurationIdRef.current = savedConfigurationId;
@@ -2037,6 +2046,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       : T('multipleDeliveryDates');
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
+    const deliveryDestination = resolveDeliveryDestination(state);
+    const deliveryDestinationHtml = formatDeliveryDestination(deliveryDestination).replace(/\n/g, '<br>') || '-';
     const renderFlowType = overrides?.flowType ?? state.flowType;
     const pdfTitle = renderFlowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
 
@@ -2087,8 +2098,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <span class="font-medium">${TC('confirmPhone')}</span><span>${state.telefon || '-'}</span>
           <span class="font-medium">${TC('confirmEmailSender')}</span><span>${state.email || '-'}</span>
           <span class="font-medium">${TC('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
+          <span class="font-medium">${TC('deliveryAddressLine')}</span><span>${state.address || '-'}</span>
+          <span class="font-medium">${TC('deliveryPostalCode')}</span><span>${state.postalCode || '-'}</span>
+          <span class="font-medium">${TC('deliveryCity')}</span><span>${state.city || '-'}</span>
+          <span class="font-medium">${TC('deliveryCountry')}</span><span>${state.country || '-'}</span>
 
           ${state.comment ? `<span class="font-medium">${TC('confirmComment')}</span><span>${state.comment}</span>` : ''}
+        </div>
+      </div>
+      <div class="mt-6 text-sm text-gray-700">
+        <h2 class="font-bold text-base mb-2">${TC('deliveryAddressSection')}</h2>
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p class="font-medium">${deliveryDestination.source === 'customer' ? TC('sameAsCustomerAddress') : TC('useAlternativeDeliveryAddress')}</p>
+          <p class="mt-1">${deliveryDestinationHtml}</p>
         </div>
       </div>
         </div>
@@ -3798,7 +3820,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   </div>
                 </div>
 
-                <div className="mb-8 mx-auto max-w-2xl text-left">
+                {baseMachineQty >= 2 && <div className="mb-8 mx-auto max-w-2xl text-left" data-testid="machine-delivery-date-editor">
                   <button
                     type="button"
                     aria-expanded={machineDeliveryEditorOpen}
@@ -3813,7 +3835,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 sm:p-4">
                       <p className="mb-3 text-xs text-gray-500">{T('machineDeliveryDateHelp')}</p>
                       <div className="space-y-3">
-                        {getGlobalMachineUnits().map(unit => {
+                        {getDisplayMachineUnits().map(unit => {
                           const overridden = hasMachineDeliveryOverride(state, unit.unitNumber);
                           const effectiveDate = machineDeliveryDate(state, unit.unitNumber);
                           const deliveryDiscount = machineDeliveryDiscountByUnit.get(unit.unitNumber);
@@ -3871,6 +3893,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       </div>
                     </div>
                   )}
+                </div>}
+
+                <div className="mb-8 mx-auto max-w-2xl">
+                  <ConfiguratorDeliveryAddress
+                    state={state}
+                    variant="step2"
+                    disabled={submittedOrderEditorLocked}
+                    T={T}
+                    onChange={(update) => setState(current => ({ ...current, ...update }))}
+                  />
                 </div>
 
                 <div className="mt-3 space-y-3 w-full flex flex-col items-center max-w-2xl mx-auto">
@@ -4389,6 +4421,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   </div>
                 )}
                 <div className="space-y-4 max-w-lg mx-auto" data-testid="configurator-step4-customer-contact">
+                  <h3 className="border-b border-gray-200 pb-2 text-base font-bold text-gray-900">{T('customerDetailsSection')}</h3>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
                     <input id="configurator-lead-firmanavn" aria-invalid={leadValidationErrors.includes('firmanavn')} type="text" value={state.firmanavn} onChange={e => updateActiveCustomerField('firmanavn', e.target.value)} className={leadFieldClass('firmanavn')} />
@@ -4437,6 +4470,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.country}</label>
                     <input id="configurator-lead-country" aria-invalid={leadValidationErrors.includes('country')} type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className={leadFieldClass('country')} />
                   </div>
+                  <ConfiguratorDeliveryAddress
+                    state={state}
+                    variant="step4"
+                    disabled={submittedOrderEditorLocked}
+                    T={T}
+                    onChange={(update) => setState(current => ({ ...current, ...update }))}
+                  />
                   <ConfiguratorPurchaseOrderField
                     label={T('purchaseOrderReference')}
                     value={state.purchaseOrderNumber}

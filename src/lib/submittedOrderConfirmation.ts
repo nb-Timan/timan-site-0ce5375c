@@ -4,7 +4,7 @@ import { configuratorCurrency, hasFrozenConfiguratorPricing } from '@/lib/config
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
-import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import { hasMachineDeliveryOverride, machineDeliveryDate, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
 import { DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
 import { TIMAN_COMPANY_PROFILE } from '../../supabase/functions/_shared/timanCompanyProfile';
 
@@ -88,6 +88,7 @@ export const buildSubmittedOrderDocument = buildReadOnlySalesDocument;
 /** Keep the existing webhook shape, but resolve every commercial line from the document. */
 export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteContentSummary {
   const { lines, totals } = buildSubmittedOrderDocument(state);
+  const destination = resolveDeliveryDestination(state);
   let unitNumber = 0;
   const machines = state.machineConfigs.map(machine => {
     const units = Array.from({ length: machine.qty }, (_, index) => {
@@ -124,7 +125,16 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
     language: state.language, currency: configuratorCurrency(state), flow_type: 'order',
     payment_terms: getPaymentTermsDocumentValue(state.paymentTerms),
     purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,
-    delivery: { method: state.deliveryMethod || '', date: state.date || null, startup_option: state.deliveryDeliverStartup ?? null },
+    customer: {
+      company: state.firmanavn || '', contact_person: state.kontaktperson || '', phone: state.telefon || '',
+      address: state.address || '', postal_code: state.postalCode || '', city: state.city || '', country: state.country || '',
+    },
+    delivery: {
+      method: state.deliveryMethod || '', date: state.date || null, startup_option: state.deliveryDeliverStartup ?? null,
+      address_source: destination.source, address: destination.address, postal_code: destination.postalCode,
+      city: destination.city, country: destination.country, contact_person: destination.contactPerson,
+      phone: destination.phone, note: destination.note,
+    },
     machines, totals: { subtotal: totals.subtotal },
   };
 }

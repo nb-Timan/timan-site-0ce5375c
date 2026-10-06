@@ -4,7 +4,7 @@ import { configuratorCurrency } from "@/lib/configuratorPricing";
 import { formatDiscountDetailLabel } from "@/lib/calcConfiguration";
 import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
-import { commonMachineDeliveryDate, machineDeliveryDate } from "@/lib/configuratorDelivery";
+import { commonMachineDeliveryDate, machineDeliveryDate, resolveDeliveryDestination } from "@/lib/configuratorDelivery";
 import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from "@/lib/configuratorLinePresentation";
 import { timanCompanyLegalLine } from "../../supabase/functions/_shared/timanCompanyProfile";
 
@@ -462,8 +462,21 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     [input.TC("confirmPhone").replace(":", ""), input.state.telefon || "-"],
     [input.TC("confirmEmailSender").replace(":", ""), input.state.email || "-"],
     [input.TC("confirmEmailRecipient").replace(":", ""), (input.state.emailRecipient || "").split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean).join(", ") || "-"],
+    [input.TC("deliveryAddressLine"), [input.state.address, [input.state.postalCode, input.state.city].filter(Boolean).join(" "), input.state.country].filter(Boolean).join(", ")],
     input.state.comment ? [input.TC("confirmComment").replace(":", ""), input.state.comment] : ["", ""],
   ], y);
+
+  const deliveryDestination = resolveDeliveryDestination(input.state);
+  const deliveryAddressText = [deliveryDestination.address, [deliveryDestination.postalCode, deliveryDestination.city].filter(Boolean).join(" "), deliveryDestination.country].filter(Boolean).join(", ");
+  if (deliveryAddressText || (deliveryDestination.source === "alternative" && (deliveryDestination.contactPerson || deliveryDestination.phone || deliveryDestination.note))) {
+    y = drawLabelValueGrid(pdf, input.TC("deliveryAddressSection"), [
+      [input.TC("deliveryAddressSource"), deliveryDestination.source === "customer" ? input.TC("sameAsCustomerAddress") : input.TC("useAlternativeDeliveryAddress")],
+      [input.TC("deliveryAddressLine"), deliveryAddressText],
+      deliveryDestination.contactPerson ? [input.TC("deliveryContactPerson"), deliveryDestination.contactPerson] : ["", ""],
+      deliveryDestination.phone ? [input.TC("deliveryPhone"), deliveryDestination.phone] : ["", ""],
+      deliveryDestination.note ? [input.TC("deliveryNote"), deliveryDestination.note] : ["", ""],
+    ], y);
+  }
 
   const sections = groupMachineSections(input.calcResult.lineItems, input.state);
   sections.forEach((section) => {
