@@ -666,7 +666,7 @@ export function MachineInterestPicker({
     return (
       <div
         data-testid={`lead-interest-quantity-${canonical.item_number}`}
-        className="inline-grid h-9 grid-cols-[36px_minmax(48px,64px)_36px] overflow-hidden rounded-md border border-slate-200 bg-white"
+        className="inline-grid h-8 justify-self-start grid-cols-[32px_minmax(40px,56px)_32px] overflow-hidden rounded-md border border-slate-200 bg-white"
       >
         <button
           type="button"
@@ -674,9 +674,9 @@ export function MachineInterestPicker({
           aria-label={crmLeadText('decreaseQuantity', language)}
           disabled={quantity <= 1}
           onClick={() => updateQuantity(canonical, quantity - 1)}
-          className="inline-flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+          className="inline-flex touch-manipulation items-center justify-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
         >
-          <Minus className="h-4 w-4" />
+          <Minus className="h-3.5 w-3.5" />
         </button>
         <input
           type="number"
@@ -686,16 +686,16 @@ export function MachineInterestPicker({
           aria-label={crmLeadText('quantity', language)}
           value={quantity}
           onChange={(event) => updateQuantity(canonical, Number(event.target.value))}
-          className="min-w-0 border-x border-slate-200 px-1 text-center text-sm tabular-nums outline-none focus:bg-emerald-50"
+          className="min-w-0 border-x border-slate-200 px-0.5 text-center text-xs tabular-nums outline-none focus:bg-emerald-50"
         />
         <button
           type="button"
           title={crmLeadText('increaseQuantity', language)}
           aria-label={crmLeadText('increaseQuantity', language)}
           onClick={() => updateQuantity(canonical, quantity + 1)}
-          className="inline-flex items-center justify-center text-slate-600 hover:bg-slate-50"
+          className="inline-flex touch-manipulation items-center justify-center text-slate-600 hover:bg-slate-50"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
     );
