@@ -5,6 +5,7 @@ import { getAccessoriesFlat } from '@/data/machines';
 import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlanningAvailability';
 import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { PlanningAvailabilityBadge } from '@/components/configurator/PlanningAvailabilityBadge';
+import { canReadConfiguratorPlanningAvailability } from '@/lib/portalAccess';
 import type { ConfiguratorState } from '@/types/configurator';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
@@ -26,13 +27,13 @@ describe('Planning Configurator gate', () => {
     expect(result.current).toEqual({});
     expect(mocks.rpc).not.toHaveBeenCalled();
     mocks.rpc.mockResolvedValue({ data: {
-      status: 'unknown', source_state: 'missing', item_number: '712000', requested_date: '2026-12-01',
-      stock: 0, incoming: 0, free_by_date: 0, soft_by_date: 0, next_available: null,
+      sku: '712000', free_stock_qty: 0, next_incoming_date: null,
+      next_incoming_qty: 0, availability_status: 'unknown',
     }, error: null });
     rerender({ enabled: true });
     await waitFor(() => expect(result.current['712000']?.status).toBe('unknown'));
-    expect(mocks.rpc).toHaveBeenCalledWith('planning_get_availability', {
-      p_item_number: '712000', p_requested_date: '2026-12-01', p_quantity: 1,
+    expect(mocks.rpc).toHaveBeenCalledWith('planning_get_configurator_availability', {
+      p_sku: '712000', p_requested_date: '2026-12-01', p_quantity: 1,
     });
     rerender({ enabled: false });
     await waitFor(() => expect(result.current).toEqual({}));
@@ -54,9 +55,8 @@ describe('Planning Configurator gate', () => {
 
   it('shows missing supply as neutral unknown rather than a false red shortage', () => {
     render(<PlanningAvailabilityBadge language="da" availability={{
-      status: 'unknown', source_state: 'missing', item_number: '712000',
-      requested_date: '2026-12-01', stock: 0, incoming: 0,
-      free_by_date: 0, soft_by_date: 0, next_available: null,
+      status: 'unknown', sku: '712000', free_stock_qty: 0,
+      next_incoming_date: null, next_incoming_qty: 0,
     }} />);
     expect(screen.getByText('Tilgængelighed ukendt')).toBeInTheDocument();
     expect(screen.queryByText('Ledige ved ønsket dato')).not.toBeInTheDocument();
@@ -70,19 +70,51 @@ describe('Planning Configurator gate', () => {
     ['unknown', 'Tilgængelighed ukendt', 'bg-slate-400'],
   ] as const)('renders the server %s status unchanged in Configurator', async (status, label, color) => {
     mocks.rpc.mockResolvedValue({ data: {
-      status, source_state: status === 'unknown' ? 'missing' : 'fresh',
-      item_number: '712000', requested_date: '2026-12-15',
-      stock: 8, incoming: 0, free_by_date: status === 'green' ? 8 : 5,
-      soft_by_date: status === 'yellow' ? 3 : 0, next_available: '2026-12-01',
+      availability_status: status, sku: '712000', free_stock_qty: 8,
+      next_incoming_date: '2026-12-01', next_incoming_qty: 5,
     }, error: null });
     const { result } = renderHook(() => usePlanningAvailability(true,
       [{ itemNumber: '712000', quantity: 8 }], '2026-12-15'));
     await waitFor(() => expect(result.current['712000']?.status).toBe(status));
-    expect(mocks.rpc).toHaveBeenCalledWith('planning_get_availability', {
-      p_item_number: '712000', p_requested_date: '2026-12-15', p_quantity: 8,
+    expect(mocks.rpc).toHaveBeenCalledWith('planning_get_configurator_availability', {
+      p_sku: '712000', p_requested_date: '2026-12-15', p_quantity: 8,
     });
     render(<PlanningAvailabilityBadge language="da" availability={result.current['712000']} />);
     expect(screen.getByText(label)).toBeInTheDocument();
     expect(document.querySelector(`.${color}`)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['timan_backend', null, true],
+    ['timan_seller', null, true],
+    ['timan_service', null, true],
+    ['timan_dealer', '100', true],
+    ['timan_dealer', '10458', false],
+    ['timan_importer', '10458', false],
+    ['timan_service_partner', '10458', false],
+  ] as const)('gates %s / dealer %s availability as %s', (portalRole, dealerNumber, expected) => {
+    expect(canReadConfiguratorPlanningAvailability({
+      role: 'partner', partner_type: null, portal_role: portalRole,
+      dealer_number: dealerNumber, approved: true, is_active: true,
+    })).toBe(expected);
+  });
+
+  it('blocks inactive, unapproved and anonymous users', () => {
+    expect(canReadConfiguratorPlanningAvailability(null)).toBe(false);
+    expect(canReadConfiguratorPlanningAvailability({
+      role: 'timan_saelger', partner_type: null, portal_role: 'timan_seller',
+      approved: true, is_active: false,
+    })).toBe(false);
+    expect(canReadConfiguratorPlanningAvailability({
+      role: 'partner', partner_type: null, portal_role: 'timan_dealer', dealer_number: '100',
+      approved: false, is_active: true,
+    })).toBe(false);
+  });
+
+  it('keeps availability independent from full Planning access and actions', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    expect(source).toContain('canReadConfiguratorPlanningAvailability(effectiveUser)');
+    expect(source).toContain("hasAreaAccess(resolvedEffectiveUser, 'planning')");
+    expect(source).toContain('if (!planningEnabled || !savedConfigurationId || orderLocked) return;');
   });
 });

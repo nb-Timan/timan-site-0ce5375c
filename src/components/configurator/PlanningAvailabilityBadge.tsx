@@ -26,13 +26,11 @@ export function PlanningAvailabilityBadge({ availability, language }: {
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_COLOR[status]}`} aria-hidden="true" />
         <span>{t(STATUS_KEY[status], language)}</span>
       </summary>
-      {availability?.source_state === 'fresh' && status !== 'unknown' && (
+      {availability && status !== 'unknown' && (
         <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 pb-1">
-          <dt>{t('planningStock', language)}</dt><dd className="tabular-nums">{availability.stock}</dd>
-          <dt>{t('planningFreeByDate', language)}</dt><dd className="tabular-nums">{availability.free_by_date}</dd>
-          <dt>{t('planningSoftQuotes', language)}</dt><dd className="tabular-nums">{availability.soft_by_date}</dd>
-          <dt>{t('planningIncomingUnits', language)}</dt><dd className="tabular-nums">{availability.incoming}</dd>
-          <dt>{t('planningNextAvailable', language)}</dt><dd>{availability.next_available ?? '—'}</dd>
+          <dt>{t('planningStock', language)}</dt><dd className="tabular-nums">{availability.free_stock_qty}</dd>
+          <dt>{t('planningNextAvailable', language)}</dt><dd>{availability.next_incoming_date ?? '—'}</dd>
+          <dt>{t('planningIncomingUnits', language)}</dt><dd className="tabular-nums">{availability.next_incoming_qty}</dd>
         </dl>
       )}
     </details>

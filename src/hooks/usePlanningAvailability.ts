@@ -5,14 +5,18 @@ export type PlanningAvailabilityStatus = 'green' | 'yellow' | 'red' | 'unknown';
 
 export interface PlanningAvailability {
   status: PlanningAvailabilityStatus;
-  source_state: 'fresh' | 'stale' | 'missing';
-  item_number: string;
-  requested_date: string;
-  stock: number;
-  incoming: number;
-  free_by_date: number;
-  soft_by_date: number;
-  next_available: string | null;
+  sku: string;
+  free_stock_qty: number;
+  next_incoming_date: string | null;
+  next_incoming_qty: number;
+}
+
+interface PlanningAvailabilityResponse {
+  sku: string;
+  free_stock_qty: number;
+  next_incoming_date: string | null;
+  next_incoming_qty: number;
+  availability_status: PlanningAvailabilityStatus;
 }
 
 export interface PlanningAvailabilityItem {
@@ -34,12 +38,20 @@ export function usePlanningAvailability(
     }
     let cancelled = false;
     Promise.all(normalizedItems.map(async (item) => {
-      const { data, error } = await supabase.rpc('planning_get_availability', {
-        p_item_number: item.itemNumber,
+      const { data, error } = await supabase.rpc('planning_get_configurator_availability', {
+        p_sku: item.itemNumber,
         p_requested_date: requestedDate || null,
         p_quantity: Math.max(1, item.quantity),
       });
-      return [item.itemNumber, error ? null : data as unknown as PlanningAvailability] as const;
+      if (error || !data) return [item.itemNumber, null] as const;
+      const response = data as unknown as PlanningAvailabilityResponse;
+      return [item.itemNumber, {
+        status: response.availability_status,
+        sku: response.sku,
+        free_stock_qty: response.free_stock_qty,
+        next_incoming_date: response.next_incoming_date,
+        next_incoming_qty: response.next_incoming_qty,
+      } satisfies PlanningAvailability] as const;
     })).then((results) => {
       if (cancelled) return;
       setAvailability(Object.fromEntries(results.filter((result) => result[1])) as Record<string, PlanningAvailability>);

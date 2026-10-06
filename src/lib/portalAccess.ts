@@ -139,8 +139,20 @@ export type PortalAccessUser = (
     allowed_modules?: string[] | null;
     permissions?: Record<string, boolean> | null;
     portal_variant?: string | null;
+    dealer_number?: string | null;
+    approved?: boolean;
+    is_active?: boolean;
   }
 );
+
+export function canReadConfiguratorPlanningAvailability(
+  user: PortalAccessUser | null | undefined,
+): boolean {
+  if (!user || user.approved !== true || user.is_active !== true) return false;
+  const role = derivePortalRole(user);
+  const dealerNumber = String(user.dealer_number ?? '').trim();
+  return isInternalTimanPortalRole(role) || dealerNumber === '100';
+}
 
 
 // ---------- Default per-role module access ----------

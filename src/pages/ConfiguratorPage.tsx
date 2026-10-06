@@ -113,7 +113,7 @@ import { RecommendationInfoPopover } from '@/components/configurator/Recommendat
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
 import { academyProductInstruction, getAcademyCase1ProductNames } from '@/lib/academyProductText';
-import { derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
+import { canReadConfiguratorPlanningAvailability, derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive } from '@/lib/messePreview';
 
 import { toast } from 'sonner';
@@ -360,12 +360,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const effectiveUser = resolvedEffectiveUser ?? appUser;
   const planningEnabled = !isAcademyMode && !isExhibition && !viewAsResolving
     && hasAreaAccess(resolvedEffectiveUser, 'planning');
-  const machineAvailability = usePlanningAvailability(planningEnabled,
+  const planningAvailabilityEnabled = !isAcademyMode && !isExhibition && !viewAsResolving
+    && canReadConfiguratorPlanningAvailability(effectiveUser);
+  const machineAvailability = usePlanningAvailability(planningAvailabilityEnabled,
     MACHINE_KEYS.map((key) => ({ itemNumber: PRODUCTS[key].varenr,
       quantity: Math.max(1, state.machineConfigs.find((config) => config.type === key)?.qty ?? 1) })),
     state.date);
   const selectedPlanningAttachments = planningSelectedAttachments(state);
-  const attachmentAvailability = usePlanningAvailability(planningEnabled, selectedPlanningAttachments, state.date);
+  const attachmentAvailability = usePlanningAvailability(planningAvailabilityEnabled, selectedPlanningAttachments, state.date);
   const planningConfigurationStatus = worstPlanningStatus([
     ...state.machineConfigs.map((machine) => machineAvailability[PRODUCTS[machine.type]?.varenr]?.status ?? 'unknown'),
     ...selectedPlanningAttachments.map((item) => attachmentAvailability[item.itemNumber]?.status ?? 'unknown'),
@@ -3713,7 +3715,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                 style={{ width: 32, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
                             </div>
                           </div>
-                          {planningEnabled && <PlanningAvailabilityBadge
+                          {planningAvailabilityEnabled && <PlanningAvailabilityBadge
                             availability={machineAvailability[p.varenr]} language={uiLanguage} />}
                           {planningEnabled && isSelected
                             && ['red', 'unknown'].includes(machineAvailability[p.varenr]?.status ?? 'unknown')
@@ -4056,7 +4058,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</div>
                           <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
-                          {planningEnabled && currentQtyVal > 0 && <PlanningAvailabilityBadge
+                          {planningAvailabilityEnabled && currentQtyVal > 0 && <PlanningAvailabilityBadge
                             availability={attachmentAvailability[a.varenr]} language={uiLanguage} />}
                           {planningEnabled && currentQtyVal > 0
                             && ['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown')
@@ -4124,9 +4126,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
                               {renderActionLinks(a, machineType)}
-                              {planningEnabled && isSelected && <div onClick={(event) => event.stopPropagation()}>
-                                <PlanningAvailabilityBadge availability={attachmentAvailability[a.varenr]} language={uiLanguage} />
-                                {['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown') &&
+                              {(planningAvailabilityEnabled || planningEnabled) && isSelected && <div onClick={(event) => event.stopPropagation()}>
+                                {planningAvailabilityEnabled && <PlanningAvailabilityBadge availability={attachmentAvailability[a.varenr]} language={uiLanguage} />}
+                                {planningEnabled && ['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown') &&
                                   <button type="button" disabled={!savedConfigurationId || orderLocked}
                                     title={!savedConfigurationId ? T('saveCase') : undefined}
                                     onClick={() => void requestPlanningDelivery(
@@ -4165,7 +4167,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               return (
                 <div className="bg-white rounded-2xl shadow p-6">
                   <h2 className="text-xl font-bold mb-4 text-center">{T('step3Title')}</h2>
-                  {planningEnabled && <p className="mb-4 text-center text-sm font-medium text-slate-700">
+                  {planningAvailabilityEnabled && <p className="mb-4 text-center text-sm font-medium text-slate-700">
                     {tPortal('planningAvailability', uiLanguage)}: {tPortal({
                       green: 'planningGreen', yellow: 'planningYellow', red: 'planningRed', unknown: 'planningUnknown',
                     }[planningConfigurationStatus], uiLanguage)}
