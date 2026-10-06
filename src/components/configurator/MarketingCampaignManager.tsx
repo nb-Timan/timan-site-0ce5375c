@@ -11,6 +11,7 @@ import type { MarketingConfiguratorCatalogItem } from '@/lib/marketingConfigurat
 import { deleteMarketingCampaign, emptyMarketingCampaign, listMarketingCampaigns, loadPublishedMarketingCampaigns, saveMarketingCampaign } from '@/lib/marketingCampaignService';
 import { ALL_CAMPAIGN_PARTNER_TYPES, type CampaignPartnerType, type CampaignProductLink, type CampaignProductRole, type CampaignType, type ProductCampaign } from '@/lib/configuratorCampaigns';
 import { getPartnerAccountTypeLabel } from '@/lib/partnerAccountTypes';
+import { toast } from 'sonner';
 
 type Props = {
   catalog: MarketingConfiguratorCatalogItem[];
@@ -25,7 +26,7 @@ const localDate = (value: string) => {
 };
 const isoDate = (value: string) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : '';
 
-export default function MarketingCampaignManager({ catalog, language, initialProduct, onSaved, closeOnPublish = false }: Props) {
+export default function MarketingCampaignManager({ catalog, language, initialProduct, onSaved, closeOnPublish = true }: Props) {
   const T = (key: string) => t(key, language);
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<ProductCampaign[]>([]);
@@ -91,6 +92,7 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
     const saved = await refresh(result.id);
     await loadPublishedMarketingCampaigns();
     if (saved) onSaved?.(saved);
+    if (status === 'published') toast.success(T('campaignPublishedSuccess'));
     if (status === 'published' && closeOnPublish) {
       setOpen(false);
       setMessage(null);

@@ -188,6 +188,39 @@ describe('canonical multi-product campaigns', () => {
     const withTrigger = calculateConfiguration(withTriggerState, { now });
     expect(withTrigger.campaignLines?.[0]).toMatchObject({ campaignType: 'conditional', benefitItemNumber: '725138', finalLineValue: 0, quantity: 1 });
   });
+  it.each(['725135', '725136', '725142'])('applies the Timan 3330 benefit to Loader-Line tractor SKU %s across cart groups', itemNumber => {
+    const input = { ...createEmptyConfiguratorState('da'), machineConfigs: [
+      { id: 'trigger', type: 'Timan 3330', qty: 1, configMode: 'shared' as const, acc: [] },
+      { id: 'benefit', type: 'Loader Line', qty: 1, configMode: 'shared' as const, acc: [itemNumber] },
+    ] } as ConfiguratorState;
+    const products = [
+      link({ role: 'trigger', productKey: 'Timan 3330::Timan 3330', machineKey: 'Timan 3330', itemNumber: '712000' }),
+      ...['725135', '725136', '725142'].map(benefitItemNumber => link({
+        role: 'benefit',
+        productKey: `Loader Line::${benefitItemNumber}`,
+        machineKey: 'Loader Line',
+        itemNumber: benefitItemNumber,
+      })),
+    ];
+    replacePublishedCampaigns([campaign({
+      type: 'conditional', benefitPricingType: 'fixed', discountPct: null,
+      targetPriceDkk: 0, targetPriceEur: 0, products,
+    })]);
+
+    const selection = configurationCampaignSelection(input);
+    const eligible = eligibleCampaignFor(`Loader Line::${itemNumber}`, selection, now);
+    const result = calculateConfiguration(input, { now });
+
+    expect(eligible?.code).toBe('K09-2026-01');
+    expect(result.campaignLines).toHaveLength(1);
+    expect(result.campaignLines?.[0]).toMatchObject({
+      benefitItemNumber: itemNumber,
+      triggerItemNumbers: ['712000'],
+      finalLineValue: 0,
+    });
+    expect(result.discountDetails.map(detail => detail.kind)).toEqual(['base', 'campaign']);
+    expect(result.discountDetails.some(detail => ['delivery', 'quantity', 'dealer'].includes(detail.kind))).toBe(false);
+  });
   it('does not grant unlimited free benefits unless scaling is explicit', () => {
     const input = state(); input.machineConfigs[0].qty = 2;
     replacePublishedCampaigns([campaign({ type: 'conditional', benefitPricingType: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0,

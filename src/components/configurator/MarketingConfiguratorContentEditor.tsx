@@ -276,7 +276,6 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
                   closeOnPublish
                   onSaved={(campaign) => {
                     setLinkedCampaign(campaign);
-                    if (campaign.status === 'published') toast.success(portalT('campaignPublishedSuccess', uiLanguage));
                   }}
                 />
               </section>}
