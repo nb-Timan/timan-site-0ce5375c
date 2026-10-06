@@ -8,6 +8,15 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { hasAreaAccess } from '@/lib/portalAccess';
 
+export const SALES_CARD_ORDER = [
+  'configurator',
+  'videos',
+  'loans',
+  'resources',
+  'misc',
+  'contracts',
+] as const satisfies readonly (PortalModuleId | 'loans')[];
+
 export type PortalAreaId = 'planning' | 'loans' | 'teknik_service' | 'salg_marketing' | 'calendar' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {

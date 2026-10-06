@@ -15,7 +15,7 @@ import {
 import ModuleCard from '@/components/portal/ModuleCard';
 import PlaceholderCard from '@/components/portal/PlaceholderCard';
 import BackendHome from '@/components/portal/BackendHome';
-import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
+import { PORTAL_AREAS, SALES_CARD_ORDER, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
 import { canAccessContractsModule, canManageMarketingConfiguratorContent, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
@@ -169,6 +169,17 @@ export default function PortalAreaPage({ areaId }: Props) {
       findPortalCapabilityContractByRoute(module.href)?.academyGate,
       academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds(),
     ));
+  const areaCards = areaId === 'salg_marketing'
+    ? SALES_CARD_ORDER.flatMap((cardId) => {
+        if (cardId === 'loans') {
+          return hasAreaAccess(effectiveUser, 'loans')
+            ? [{ kind: 'loans' as const }]
+            : [];
+        }
+        const module = areaModules.find((candidate) => candidate.id === cardId);
+        return module ? [{ kind: 'module' as const, module }] : [];
+      })
+    : areaModules.map((module) => ({ kind: 'module' as const, module }));
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
   const showNewsOverviewCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
 
@@ -192,15 +203,39 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-          {areaId === 'salg_marketing' && hasAreaAccess(effectiveUser, 'loans') && (
-            <PlaceholderCard
-              title={t('area_loans_title', uiLanguage)}
-              language={lang}
-              to={PORTAL_AREA_ROUTES.loans}
-              icon={KeyRound}
-              description={t('area_loans_desc', uiLanguage)}
-            />
-          )}
+          {areaCards.map((card) => {
+            if (card.kind === 'loans') {
+              return (
+                <PlaceholderCard
+                  key="loans"
+                  title={t('area_loans_title', uiLanguage)}
+                  language={lang}
+                  to={PORTAL_AREA_ROUTES.loans}
+                  icon={KeyRound}
+                  description={t('area_loans_desc', uiLanguage)}
+                />
+              );
+            }
+            const m = card.module;
+            const mb = moduleBadge(m.id);
+            const mUpdateBadge = mb
+              ? {
+                  kind: mb.kind,
+                  label: mb.kind === 'major' ? 'VIGTIG' : (mb.count > 1 ? `NY ${mb.count}` : 'NY'),
+                  tooltip: [
+                    formatChangedDate(mb.latest.changed_at),
+                    mb.latest.title?.[lang] || mb.latest.title?.da || '',
+                    mb.latest.description?.[lang] || mb.latest.description?.da || '',
+                  ].filter(Boolean).join('\n'),
+                }
+              : null;
+            return <ModuleCard
+              key={m.id}
+              module={m}
+              language={uiLanguage}
+              updateBadge={mUpdateBadge}
+            />;
+          })}
           {areaId === 'salg_marketing' && activeContractAccess?.contract_id && hasEffectiveAcademyCapabilityAccess(
             effectiveUser,
             true,
@@ -221,26 +256,6 @@ export default function PortalAreaPage({ areaId }: Props) {
               })}`}
             />
           )}
-          {areaModules.map(m => {
-            const mb = moduleBadge(m.id);
-            const mUpdateBadge = mb
-              ? {
-                  kind: mb.kind,
-                  label: mb.kind === 'major' ? 'VIGTIG' : (mb.count > 1 ? `NY ${mb.count}` : 'NY'),
-                  tooltip: [
-                    formatChangedDate(mb.latest.changed_at),
-                    mb.latest.title?.[lang] || mb.latest.title?.da || '',
-                    mb.latest.description?.[lang] || mb.latest.description?.da || '',
-                  ].filter(Boolean).join('\n'),
-                }
-              : null;
-            return <ModuleCard
-              key={m.id}
-              module={m}
-              language={uiLanguage}
-              updateBadge={mUpdateBadge}
-            />;
-          })}
           {showCreateNewsCard && (
             <PlaceholderCard
               title={t('newsCmsTitle', uiLanguage)}

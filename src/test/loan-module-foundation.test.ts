@@ -9,6 +9,7 @@ import { t } from '@/lib/i18n/translations';
 import { canAddLoanPhoto, loanChangeRequiresNewAcceptance, loanDerivedTimingStatus } from '@/lib/loanDomain';
 import { getPortalBackTarget } from '@/lib/portalBackNav';
 import { findPortalCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
+import { SALES_CARD_ORDER } from '@/lib/portalAreas';
 
 const migration = readFileSync('supabase/migrations/20261006130704_loans_phase1_foundation.sql', 'utf8');
 
@@ -42,9 +43,20 @@ describe('Loans Phase 1 capability and domain', () => {
     const loanShell = readFileSync('src/pages/loans/LoanShell.tsx', 'utf8');
 
     expect(portalHome).toContain(".filter((area) => area.id !== 'loans')");
-    expect(salesArea).toContain("areaId === 'salg_marketing' && hasAreaAccess(effectiveUser, 'loans')");
+    expect(salesArea).toContain("return hasAreaAccess(effectiveUser, 'loans')");
     expect(salesArea).toContain('to={PORTAL_AREA_ROUTES.loans}');
     expect(loanShell).toContain('to={PORTAL_AREA_ROUTES.salg_marketing}');
+  });
+
+  it('keeps the canonical Sales cards in the intended source order', () => {
+    expect(SALES_CARD_ORDER).toEqual([
+      'configurator',
+      'videos',
+      'loans',
+      'resources',
+      'misc',
+      'contracts',
+    ]);
   });
 
   it('strips forged Loans access from unsupported external roles', () => {
