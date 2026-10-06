@@ -18,6 +18,7 @@
  *   /portal/misc                      → /portal/salg-marketing  ("Salg & Marketing")
  *   /portal/videos/*                  → /portal/videos          ("Videoer")
  *   /portal/videos                    → /portal/salg-marketing  ("Salg & Marketing")
+ *   /portal/loans/*                   → /portal/salg-marketing  ("Salg")
  *   /portal/salg-marketing            → /portal                 ("portal")
  *   /portal/teknik-service            → /portal                 ("portal")
  *   /portal/backend/*                 → /portal/backend         ("Backend")
@@ -131,6 +132,9 @@ const RULES: ParentRule[] = [
   // Videos
   { match: p => startsWith(p, '/portal/videos') && !eq(p, '/portal/videos'), to: '/portal/videos', labelKey: 'videos' },
   { match: p => eq(p, '/portal/videos'),                  to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+
+  // Loans is a Sales submodule, while its routes remain unchanged.
+  { match: p => startsWith(p, '/portal/loans'),           to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
 
   // Area landing pages
   { match: p => eq(p, '/portal/salg-marketing'),          to: '/portal', labelKey: 'portal' },

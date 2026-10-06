@@ -18,7 +18,7 @@ import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { canAccessContractsModule, canManageMarketingConfiguratorContent, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canAccessContractsModule, canManageMarketingConfiguratorContent, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
@@ -30,6 +30,7 @@ import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
 import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
 import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
 import { findPortalCapabilityContractByRoute, portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
+import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -191,6 +192,15 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+          {areaId === 'salg_marketing' && hasAreaAccess(effectiveUser, 'loans') && (
+            <PlaceholderCard
+              title={t('area_loans_title', uiLanguage)}
+              language={lang}
+              to={PORTAL_AREA_ROUTES.loans}
+              icon={KeyRound}
+              description={t('area_loans_desc', uiLanguage)}
+            />
+          )}
           {areaId === 'salg_marketing' && activeContractAccess?.contract_id && hasEffectiveAcademyCapabilityAccess(
             effectiveUser,
             true,

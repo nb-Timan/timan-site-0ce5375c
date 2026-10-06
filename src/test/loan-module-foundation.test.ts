@@ -7,6 +7,7 @@ import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 import { LOAN_TRANSLATIONS } from '@/lib/i18n/loanTranslations';
 import { t } from '@/lib/i18n/translations';
 import { canAddLoanPhoto, loanChangeRequiresNewAcceptance, loanDerivedTimingStatus } from '@/lib/loanDomain';
+import { getPortalBackTarget } from '@/lib/portalBackNav';
 import { findPortalCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 const migration = readFileSync('supabase/migrations/20261006130704_loans_phase1_foundation.sql', 'utf8');
@@ -29,6 +30,21 @@ describe('Loans Phase 1 capability and domain', () => {
   it('uses the shared route contract without adding Loans to role defaults', () => {
     expect(PORTAL_AREA_ROUTES.loans).toBe('/portal/loans');
     expect(findPortalCapabilityContract('area.loans')?.access).toEqual({ kind: 'area', key: 'loans' });
+  });
+
+  it('nests Loans navigation under Sales without changing Loans routes', () => {
+    expect(getPortalBackTarget('/portal/loans')).toBe('/portal/salg-marketing');
+    expect(getPortalBackTarget('/portal/loans/new')).toBe('/portal/salg-marketing');
+    expect(getPortalBackTarget('/portal/loans/case-1/accept')).toBe('/portal/salg-marketing');
+
+    const portalHome = readFileSync('src/pages/PortalPage.tsx', 'utf8');
+    const salesArea = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
+    const loanShell = readFileSync('src/pages/loans/LoanShell.tsx', 'utf8');
+
+    expect(portalHome).toContain(".filter((area) => area.id !== 'loans')");
+    expect(salesArea).toContain("areaId === 'salg_marketing' && hasAreaAccess(effectiveUser, 'loans')");
+    expect(salesArea).toContain('to={PORTAL_AREA_ROUTES.loans}');
+    expect(loanShell).toContain('to={PORTAL_AREA_ROUTES.salg_marketing}');
   });
 
   it('strips forged Loans access from unsupported external roles', () => {
