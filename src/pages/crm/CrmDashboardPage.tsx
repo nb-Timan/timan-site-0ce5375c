@@ -42,6 +42,7 @@ import {
   type CrmDashboardSalesOutcomeKpis,
 } from '@/lib/crmDashboardKpisService';
 import { summarizeWonOrderValues } from '@/lib/crmClosedOrderValue';
+import { calculateAverageSalesCycle } from '@/lib/crmSalesCycle';
 import { classifyCrmLostReason, type CrmLostReasonAnalyticsCategory } from '@/lib/crmLostReason';
 import { Language } from '@/types/configurator';
 import {
@@ -321,7 +322,7 @@ export default function CrmDashboardPage() {
       });
       let lds: CrmLead[] = [];
       let cal: CalendarActivity[] = [];
-      if (!rpcKpis || externalCrm) {
+      if (!rpcKpis || !salesOutcomeKpis || externalCrm) {
         const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500, payload: "summary" });
         lds = externalCrm
           ? rawLeads.filter((l) => {
@@ -371,7 +372,7 @@ export default function CrmDashboardPage() {
   }, [localPipelineRows, serverLeadKpis, serverQuoteOrderKpis]);
 
   const realMetrics = useMemo(() => {
-    const base = deriveMetrics(activities, orders, isAdmin);
+    const base = deriveMetrics(activities, orders, leads, isAdmin);
     const byStage = PIPELINE_STAGES.map(meta => {
       const items = pipelineRows[meta.key] || [];
       const value = items.reduce((s, x) => s + (x.value || 0), 0);
@@ -407,7 +408,7 @@ export default function CrmDashboardPage() {
       avgSalesDays: serverSalesOutcomeKpis?.avgSalesDays ?? base.avgSalesDays,
       pipelineByStage: byStage,
     };
-  }, [activities, orders, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis, serverSalesOutcomeKpis]);
+  }, [activities, orders, leads, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis, serverSalesOutcomeKpis]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
@@ -1224,7 +1225,7 @@ interface DerivedMetrics {
   latestSoldUnits: Array<{ id: string; dealer: string; closedAt: string; units: Array<{ key: string; qty: number }>; totalUnits: number }>;
 }
 
-function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _isAdmin: boolean): DerivedMetrics {
+function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], leads: CrmLead[], _isAdmin: boolean): DerivedMetrics {
   void _isAdmin;
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -1274,24 +1275,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   });
   const wonPctChange = pctChange(ordersThis.length, ordersPrev.length);
 
-  // Avg sales days
-  const quoteDates = new Map<string, number>();
-  for (const a of activities) {
-    if (a.activity_type === 'quote_created' && a.configuration_id) {
-      const t = new Date(a.activity_date).getTime();
-      const prev = quoteDates.get(a.configuration_id);
-      if (prev === undefined || t < prev) quoteDates.set(a.configuration_id, t);
-    }
-  }
-  const cycles: number[] = [];
-  for (const o of orders) {
-    const start = quoteDates.get(o.id);
-    if (start !== undefined) {
-      const days = (new Date(o.closed_at).getTime() - start) / (1000 * 60 * 60 * 24);
-      if (days >= 0 && days < 365) cycles.push(days);
-    }
-  }
-  const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
+  const avgSalesDays = calculateAverageSalesCycle(leads, orders).averageDays;
 
   const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedCountThisMonth = ordersThis.length;
