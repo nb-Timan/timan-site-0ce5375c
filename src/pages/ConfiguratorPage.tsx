@@ -95,6 +95,7 @@ import { buildSubmittedOrderCsv } from '@/lib/submittedOrderCsv';
 import {
   buildCustomerOrderMailPayload,
   buildInternalOrderMailPayload,
+  internalOrderMailSubject,
   INTERNAL_TIMAN_ORDER_EMAIL,
 } from '@/lib/configuratorOrderMail';
 import { ACADEMY_BONUS_CASE_2, ACADEMY_CASE_1, ACADEMY_CASE_3, academySandbox } from '@/lib/academySandbox';
@@ -2547,7 +2548,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             flowType: 'order',
             enteredRecipient: state.emailRecipient || null,
             resolvedRecipients: recipients,
-            bccRecipients: [],
+            bccRecipients: [INTERNAL_TIMAN_ORDER_EMAIL],
             fillerEmail: emailUdfylder || null,
             internalCopyRecipient: INTERNAL_TIMAN_ORDER_EMAIL,
             quoteDefaultRecipients: [],
@@ -2645,10 +2646,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 category: 'order',
                 source_module: 'Configurator',
                 source_action: 'send_order',
-                subject: `Ordrebekræftelse ${activeOrderNumber || activeQuoteNumber || ''}${confirmationRevisionNumber ? ` · Revision ${confirmationRevisionNumber}` : ''}`.trim(),
+                subject: webhookPayload.subject,
                 to_addresses: recipients,
                 cc_addresses: [],
-                bcc_addresses: [],
+                bcc_addresses: [INTERNAL_TIMAN_ORDER_EMAIL],
                 responsible_user_id: responsibleSellerId,
                 responsible_seller_id: responsibleSellerId,
                 related_entity_type: 'configuration',
@@ -2700,7 +2701,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             let internalDelivered = false;
             let internalFailureReason = '';
             let internalAttachmentCount = 0;
-            let internalCsvFilename: string | null = null;
             try {
               const submitted = await loadConfigurationByIdUnscoped(activeCaseId, appUser?.email || '');
               if (!submitted) throw new Error('Det frosne ordre-snapshot kunne ikke genindlæses.');
@@ -2713,7 +2713,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 dealerName: submitted.dealer_name,
                 sellerInitials: submitted.seller_initials,
               });
-              internalCsvFilename = csv.filename;
               const internalPayload = buildInternalOrderMailPayload(baseOrderWebhookPayload, csv);
               const internalRes = await fetch(orderWebhookUrl, {
                 method: 'POST',
@@ -2726,7 +2725,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 internalFailureReason = 'Opaque response (CORS) — cannot verify internal delivery';
               } else if (internalRes.ok) {
                 internalDelivered = true;
-                internalAttachmentCount = 2;
+                internalAttachmentCount = 1;
               } else {
                 internalFailureReason = `HTTP ${internalRes.status}`;
               }
@@ -2742,7 +2741,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 category: 'order',
                 source_module: 'Configurator',
                 source_action: 'send_order_internal_csv',
-                subject: `Intern ordrekopi ${activeOrderNumber || ''}${internalCsvFilename ? ` · ${internalCsvFilename}` : ''}`.trim(),
+                subject: internalOrderMailSubject(baseOrderWebhookPayload),
                 to_addresses: [INTERNAL_TIMAN_ORDER_EMAIL],
                 cc_addresses: [],
                 bcc_addresses: [],
