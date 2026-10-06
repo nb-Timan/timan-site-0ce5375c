@@ -1453,8 +1453,8 @@ export function reorderCalendarMonthsForFiscalYear<T>(values: readonly T[]): T[]
   return FISCAL_MONTH_ORDER.map((calendarMonthIdx) => values[calendarMonthIdx]);
 }
 
-export function availableYears(): number[] {
-  const current = currentFiscalYearForBudget();
+export function availableYears(now: Date = new Date()): number[] {
+  const current = currentFiscalYearForBudget(now);
   const base = Math.max(current, 2026);
   return [base - 1, base, base + 1];
 }

@@ -21,16 +21,21 @@ import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import { isOpenLead as isOpenLeadShared, isOfferLead, isDemoLead } from "@/lib/leadStatus";
 import {
-  listBudgetLines, listForecasts, listSalesActuals,
-  BUDGET_SELLERS, availableYears,
-  type BudgetLine, type BudgetForecast, type SalesActual,
+  aggregateBudget, listBudgetDealerLines, listBudgetLines, listForecasts, listSalesActuals,
+  BUDGET_SELLERS, availableYears, fiscalYearLabel,
+  type BudgetDealerLine, type BudgetLine, type BudgetForecast, type SalesActual,
 } from "@/lib/crmBudgetService";
 import { formatCompactConvertedMoney, formatConvertedMoney, type Currency } from "@/lib/currency";
+import {
+  sellerOverviewDateBelongsToYear, sellerOverviewDefaultYear, sellerOverviewMonthPeriods,
+  type SellerOverviewMonthPeriod,
+} from "@/lib/crmSellerOverviewYear";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
 
 interface Props {
   selectedInitials: string | null;
   onSelectSeller: (initials: string | null) => void;
+  now?: Date;
 }
 
 interface SellerRow {
@@ -66,9 +71,6 @@ function fmtKr(n: number, displayCurrency: Currency): string {
 function fmtFull(n: number, displayCurrency: Currency): string {
   return formatConvertedMoney(n, "DKK", displayCurrency);
 }
-
-function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
-function addMonths(d: Date, n: number) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
 
 function ownerMatchesSeller(
   ownerName: string | null | undefined,
@@ -125,44 +127,55 @@ function avatarGradient(initials: string): string {
   return palette[h % palette.length];
 }
 
-export default function SellerOverviewSection({ selectedInitials, onSelectSeller }: Props) {
+export default function SellerOverviewSection({ selectedInitials, onSelectSeller, now }: Props) {
   const displayCurrency = usePortalCurrency();
-  const [year] = useState<number>(availableYears()[0]);
+  const referenceNow = useMemo(() => now ?? new Date(), [now]);
+  const [years] = useState<number[]>(() => availableYears(referenceNow));
+  const [year, setYear] = useState<number>(() => sellerOverviewDefaultYear(referenceNow));
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
+  const [dealerLines, setDealerLines] = useState<BudgetDealerLine[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [l, d, a, bl, fc, ac] = await Promise.all([
+      const [l, d, a, bl, fc, ac, dl] = await Promise.all([
         listLeads({ limit: 500, payload: "summary" }),
         listDemoLeads({ limit: 500, payload: "summary" }),
         listActivities({ ownerUserId: null, limit: 1000 }),
         listBudgetLines({ year }),
         listForecasts(year),
         listSalesActuals(year),
+        listBudgetDealerLines(year),
       ]);
       if (cancelled) return;
       setLeads(l); setDemoLeads(d); setActivities(a);
-      setBudgetLines(bl); setForecasts(fc); setActuals(ac);
+      setBudgetLines(bl); setForecasts(fc); setActuals(ac); setDealerLines(dl);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [year]);
 
   const rows: SellerRow[] = useMemo(() => {
-    const now = new Date();
-    const monthIdx = now.getMonth();
-    const monthStart = startOfMonth(now);
-    const lastMonthStart = addMonths(monthStart, -1);
-    const nextMonthStart = addMonths(monthStart, 1);
-    const nextMonthEnd = addMonths(monthStart, 2);
+    const periods = sellerOverviewMonthPeriods(year, referenceNow);
+    const yearLeads = leads.filter((lead) => sellerOverviewDateBelongsToYear(
+      lead.first_contact_date ?? lead.created_at,
+      year,
+    ));
+    const yearDemoLeads = demoLeads.filter((demo) => sellerOverviewDateBelongsToYear(
+      demo.demo_date ?? demo.created_at,
+      year,
+    ));
+    const yearActivities = activities.filter((activity) => sellerOverviewDateBelongsToYear(
+      activity.activity_date ?? activity.created_at,
+      year,
+    ));
 
     return BUDGET_SELLERS.map(seller => {
       const matchLead = (l: CrmLead) =>
@@ -176,16 +189,16 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
         || (b.seller_email || "").toLowerCase() === seller.email.toLowerCase();
 
       // Leads
-      const myLeads = leads.filter(matchLead);
+      const myLeads = yearLeads.filter(matchLead);
       const activeLeads = myLeads.filter(isOpenLead).length;
       const hotLeads = myLeads.filter(isHotLead).length;
 
       // Demos (both demo leads and leads with demo_has_run)
-      const myDemos = demoLeads.filter(matchDemo);
+      const myDemos = yearDemoLeads.filter(matchDemo);
       const demos = myDemos.length + myLeads.filter(l => l.demo_has_run === "yes").length;
 
       // Offers + orders from activities
-      const myActivities = activities.filter(matchActivity);
+      const myActivities = yearActivities.filter(matchActivity);
       const offers = myActivities.filter(isOfferSentActivity);
       const orders = myActivities.filter(isWonOrderActivity);
       const offersSent = offers.length;
@@ -236,31 +249,37 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
           .reduce((s, o) => s + (o.value || 0), 0);
       }
 
-      const buildPeriod = (m: number, from: Date, to: Date): PeriodCell => {
-        const budget = budgetForMonth(m);
+      const buildPeriod = (period: SellerOverviewMonthPeriod): PeriodCell => {
+        if (!period.belongsToSelectedYear) {
+          return { budget: 0, orders: 0, pipeline: 0, forecast: 0, scorePct: 0 };
+        }
+        const budget = budgetForMonth(period.monthIndex);
         const ordersInPeriod = orders
-          .filter(o => { const d = new Date(o.activity_date); return d >= from && d < to; })
+          .filter(o => { const d = new Date(o.activity_date); return d >= period.from && d < period.to; })
           .reduce((s, o) => s + (o.value || 0), 0);
         // For past months, prefer recorded actuals share. For future use forecast.
-        const ord = ordersInPeriod || actualsForMonth(m);
-        const pipeline = pipelineForRange(from, to);
-        const fc = forecastForMonth(m);
+        const ord = ordersInPeriod || actualsForMonth(period.monthIndex);
+        const pipeline = pipelineForRange(period.from, period.to);
+        const fc = forecastForMonth(period.monthIndex);
         const scorePct = budget > 0 ? Math.round(((ord + pipeline) / budget) * 100) : 0;
         return { budget, orders: ord, pipeline, forecast: fc, scorePct };
       };
 
-      const lastMonth = buildPeriod(
-        (monthIdx + 11) % 12,
-        lastMonthStart,
-        monthStart,
-      );
-      const thisMonth = buildPeriod(monthIdx, monthStart, nextMonthStart);
-      const nextMonth = buildPeriod((monthIdx + 1) % 12, nextMonthStart, nextMonthEnd);
+      const lastMonth = buildPeriod(periods.last);
+      const thisMonth = buildPeriod(periods.current);
+      const nextMonth = buildPeriod(periods.next);
 
-      const totalScorePct = annualBudget > 0 ? Math.round((ordersValue / annualBudget) * 100) : 0;
-      const totalWithPipelinePct = annualBudget > 0
-        ? Math.round(((ordersValue + offersValue) / annualBudget) * 100)
-        : 0;
+      const canonicalBudget = aggregateBudget(
+        budgetLines,
+        forecasts,
+        actuals,
+        seller.email,
+        dealerLines,
+        year,
+      ).totals;
+      const totalScorePct = canonicalBudget.scorePct;
+      const pipelinePct = annualBudget > 0 ? Math.round((offersValue / annualBudget) * 100) : 0;
+      const totalWithPipelinePct = totalScorePct + pipelinePct;
 
       return {
         initials: seller.initials,
@@ -274,7 +293,13 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
         annualBudget,
       };
     });
-  }, [leads, demoLeads, activities, budgetLines, forecasts, actuals]);
+  }, [leads, demoLeads, activities, budgetLines, forecasts, actuals, dealerLines, year, referenceNow]);
+
+  const monthPeriods = sellerOverviewMonthPeriods(year, referenceNow);
+  const monthLabel = (value: Date) => new Intl.DateTimeFormat("da-DK", {
+    month: "short",
+    year: "numeric",
+  }).format(value);
 
   const filteredRows = selectedInitials
     ? rows.filter(r => r.initials === selectedInitials)
@@ -297,10 +322,23 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
             <Users className="h-4 w-4" />
           </span>
           Sælgeroverblik
-          <span className="text-xs text-gray-400 font-normal">{year}</span>
         </h2>
-        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-gray-200">
-          <Filter className="h-3.5 w-3.5 text-gray-400 ml-1.5 mr-0.5" />
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
+            <span>Budgetår</span>
+            <select
+              aria-label="Budgetår for sælgeroverblik"
+              value={year}
+              onChange={(event) => setYear(Number(event.target.value))}
+              className="h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm font-medium text-gray-900"
+            >
+              {years.map((availableYear) => (
+                <option key={availableYear} value={availableYear}>{fiscalYearLabel(availableYear)}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-gray-200 bg-gray-100/80 p-1">
+            <Filter className="ml-1.5 mr-0.5 h-3.5 w-3.5 text-gray-400" />
           <button
             onClick={() => onSelectSeller(null)}
             className={
@@ -322,6 +360,7 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
               }
             >{s.initials}</button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -342,9 +381,9 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
                 <th className="py-2.5 px-2 font-medium text-right">Tilbud værdi</th>
                 <th className="py-2.5 px-2 font-medium text-center">Ordre</th>
                 <th className="py-2.5 px-2 font-medium text-right">Ordre værdi</th>
-                <th className="py-2.5 px-2 font-medium text-center">Sidste måned</th>
-                <th className="py-2.5 px-2 font-medium text-center">Denne måned</th>
-                <th className="py-2.5 px-2 font-medium text-center">Næste måned</th>
+                <MonthHeader title="Sidste måned" date={monthLabel(monthPeriods.last.from)} />
+                <MonthHeader title="Denne måned" date={monthLabel(monthPeriods.current.from)} />
+                <MonthHeader title="Næste måned" date={monthLabel(monthPeriods.next.from)} />
                 <th className="py-2.5 pl-2 pr-1 font-medium text-center">Total %</th>
               </tr>
             </thead>
@@ -355,6 +394,7 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
                 return (
                   <tr
                     key={r.initials}
+                    aria-label={`Sælger ${r.initials}`}
                     onClick={() => onSelectSeller(r.initials === selectedInitials ? null : r.initials)}
                     className={
                       "cursor-pointer hover:bg-emerald-50/40 transition-colors " +
@@ -425,6 +465,15 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
         </div>
       )}
     </section>
+  );
+}
+
+function MonthHeader({ title, date }: { title: string; date: string }) {
+  return (
+    <th className="px-2 py-2.5 text-center font-medium">
+      <span className="block">{title}</span>
+      <span className="mt-0.5 block normal-case tracking-normal text-[10px] font-normal text-gray-400">{date}</span>
+    </th>
   );
 }
 
