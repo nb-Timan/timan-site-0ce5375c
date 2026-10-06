@@ -17,13 +17,16 @@ import { CrmActivity } from '@/lib/crmActivitiesService';
 import { Language } from '@/types/configurator';
 import { formatConvertedMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
+import { useSellerDirectory } from '@/lib/sellerDirectory';
+import {
+  buildSellerPerformanceRows,
+  canonicalPerformanceSellers,
+  type SellerPerformanceFilter,
+} from '@/lib/crmSellerPerformance';
 
 const COL_WINRATE: Record<Language, string> = {
   da: 'Win rate', en: 'Win rate', de: 'Win-Rate', it: 'Win rate', hu: 'Win rate',
 };
-function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || '?';
-}
 function avatarGradient(name: string): string {
   // Stable per-name gradient
   const palette = [
@@ -38,8 +41,6 @@ function avatarGradient(name: string): string {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return palette[h % palette.length];
 }
-
-type Filter = 'this_month' | 'last_month' | 'ytd' | 'forecast';
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: 'Sælger Performance',     en: 'Seller performance',     de: 'Verkäufer-Performance', it: 'Performance venditori', hu: 'Értékesítői teljesítmény' },
@@ -63,141 +64,8 @@ interface Props {
   language: Language;
 }
 
-interface SellerRow {
-  name: string;
-  closedCount: number;
-  closedValue: number;
-  activeCount: number;
-  activeValue: number;
-  prevValue: number;
-  prevPctChange: number;
-  forecastCount: number;
-  forecastValue: number;
-  wonCount: number;
-  lostCount: number;
-  winRate: number;
-}
-
 function fmtKr(n: number, displayCurrency: Currency): string {
   return formatConvertedMoney(n, 'DKK', displayCurrency);
-}
-
-function startOfMonth(d: Date): Date { return new Date(d.getFullYear(), d.getMonth(), 1); }
-function startOfYear(d: Date): Date { return new Date(d.getFullYear(), 0, 1); }
-function addMonths(d: Date, n: number): Date { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
-
-/** Rough quote-stage detection (mirrors dashboard pipeline classification). */
-function isOpenQuote(a: CrmActivity): boolean {
-  return a.activity_type === 'quote_created'
-      || a.activity_type === 'quote_revised'
-      || a.activity_type === 'quote_sent'
-      || a.activity_type === 'order_created';
-}
-function isWon(a: CrmActivity): boolean {
-  return a.activity_type === 'order_sent' && (a.status || '').toLowerCase() !== 'lost';
-}
-
-function buildRows(activities: CrmActivity[], filter: Filter): SellerRow[] {
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const lastMonthStart = addMonths(monthStart, -1);
-  const monthBeforeStart = addMonths(monthStart, -2);
-  const yearStart = startOfYear(now);
-  const nextMonthStart = addMonths(monthStart, 1);
-  const nextMonthEnd = addMonths(monthStart, 2);
-
-  let scopeFrom: Date;
-  let scopeTo: Date;
-  switch (filter) {
-    case 'this_month': scopeFrom = monthStart;     scopeTo = now; break;
-    case 'last_month': scopeFrom = lastMonthStart; scopeTo = monthStart; break;
-    case 'forecast':   scopeFrom = yearStart;      scopeTo = now; break; // closed/active still YTD; forecast box is the highlight
-    case 'ytd':
-    default:           scopeFrom = yearStart;      scopeTo = now; break;
-  }
-
-  const sellers = new Map<string, SellerRow>();
-  const ensure = (name: string): SellerRow => {
-    let r = sellers.get(name);
-    if (!r) {
-      r = {
-        name,
-        closedCount: 0, closedValue: 0,
-        activeCount: 0, activeValue: 0,
-        prevValue: 0, prevPctChange: 0,
-        forecastCount: 0, forecastValue: 0,
-        wonCount: 0, lostCount: 0, winRate: 0,
-      };
-      sellers.set(name, r);
-    }
-    return r;
-  };
-
-  // Per-seller two-month-back closed values (for prevPctChange arrow)
-  const monthBeforeClosed = new Map<string, number>();
-
-  for (const a of activities) {
-    const name = a.assigned_owner_name || a.created_by_name;
-    if (!name) continue;
-    const row = ensure(name);
-    const date = new Date(a.activity_date);
-
-    // ── Closed orders (in scope) ─────────────────────────
-    if (isWon(a) && date >= scopeFrom && date <= scopeTo) {
-      row.closedCount += 1;
-      row.closedValue += a.value || 0;
-    }
-
-    // ── Active quotes (always "as of now", not date-bound) ───
-    if (isOpenQuote(a)) {
-      row.activeCount += 1;
-      row.activeValue += a.value || 0;
-    }
-
-    // ── Last month closed (always last calendar month) ───
-    if (isWon(a) && date >= lastMonthStart && date < monthStart) {
-      row.prevValue += a.value || 0;
-    }
-
-    // ── Two-months-back closed for arrow ─────────────────
-    if (isWon(a) && date >= monthBeforeStart && date < lastMonthStart) {
-      monthBeforeClosed.set(name, (monthBeforeClosed.get(name) || 0) + (a.value || 0));
-    }
-
-    // ── Win rate (overall, in scope) ─────────────────────
-    if (date >= scopeFrom && date <= scopeTo) {
-      if (isWon(a)) row.wonCount += 1;
-      if (a.activity_type === 'order_sent' && (a.status || '').toLowerCase() === 'lost') row.lostCount += 1;
-      if (a.activity_type === 'lead_rejected') row.lostCount += 1;
-    }
-
-    // ── Forecast: open quotes with expected_close_date next month ─────────
-    if (isOpenQuote(a)) {
-      const meta = (a.meta || {}) as Record<string, unknown>;
-      const expected = meta.expected_close_date ? new Date(String(meta.expected_close_date)) : null;
-      if (expected && expected >= nextMonthStart && expected < nextMonthEnd) {
-        row.forecastCount += 1;
-        row.forecastValue += a.value || 0;
-      }
-    }
-  }
-
-  for (const r of sellers.values()) {
-    if (r.forecastCount === 0 && r.activeCount > 0) {
-      r.forecastCount = Math.max(1, Math.round(r.activeCount * 0.5));
-      r.forecastValue = Math.round(r.activeValue * 0.5);
-    }
-    const prevPrev = monthBeforeClosed.get(r.name) || 0;
-    if (prevPrev === 0) {
-      r.prevPctChange = r.prevValue > 0 ? 100 : 0;
-    } else {
-      r.prevPctChange = Math.round(((r.prevValue - prevPrev) / prevPrev) * 100);
-    }
-    const tot = r.wonCount + r.lostCount;
-    r.winRate = tot === 0 ? 0 : Math.round((r.wonCount / tot) * 100);
-  }
-
-  return Array.from(sellers.values()).sort((a, b) => b.closedValue - a.closedValue);
 }
 
 function TrendArrow({ pct }: { pct: number }) {
@@ -208,11 +76,19 @@ function TrendArrow({ pct }: { pct: number }) {
 
 export default function SellerPerformanceSection({ activities, language }: Props) {
   const displayCurrency = usePortalCurrency();
-  const [filter, setFilter] = useState<Filter>('ytd');
-  const rows = useMemo(() => buildRows(activities, filter), [activities, filter]);
+  const sellerDirectory = useSellerDirectory();
+  const [filter, setFilter] = useState<SellerPerformanceFilter>('ytd');
+  const sellers = useMemo(
+    () => canonicalPerformanceSellers(sellerDirectory.list),
+    [sellerDirectory.list],
+  );
+  const rows = useMemo(
+    () => buildSellerPerformanceRows(activities, filter, sellers),
+    [activities, filter, sellers],
+  );
   const isForecastView = filter === 'forecast';
 
-  const FILTERS: Array<{ key: Filter; label: string }> = [
+  const FILTERS: Array<{ key: SellerPerformanceFilter; label: string }> = [
     { key: 'this_month', label: T.this_month[language] },
     { key: 'last_month', label: T.last_month[language] },
     { key: 'ytd',        label: T.ytd[language] },
@@ -271,7 +147,8 @@ export default function SellerPerformanceSection({ activities, language }: Props
               {rows.map((r, idx) => {
                 const isLeader = idx === 0 && r.closedValue > 0;
                 return (
-                  <tr key={r.name}
+                  <tr key={r.seller.id}
+                      aria-label={`Sælger ${r.seller.initials}`}
                       className={
                         (isForecastView ? 'bg-violet-50/30 ' : '') +
                         (isLeader ? 'bg-gradient-to-r from-amber-50/60 to-transparent ' : '') +
@@ -281,15 +158,16 @@ export default function SellerPerformanceSection({ activities, language }: Props
                     <td className="py-3.5 pr-4">
                       <div className="inline-flex items-center gap-3">
                         <div className="relative">
-                          <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${avatarGradient(r.name)} text-white text-xs font-semibold flex items-center justify-center shadow-sm ring-2 ring-white`}>
-                            {initials(r.name)}
+                          <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${avatarGradient(r.seller.id)} text-white text-xs font-semibold flex items-center justify-center shadow-sm ring-2 ring-white`}>
+                            {r.seller.initials}
                           </div>
                           {isLeader && (
                             <Crown className="absolute -top-1.5 -right-1.5 h-4 w-4 text-amber-500 fill-amber-300 drop-shadow-sm" />
                           )}
                         </div>
                         <div className="leading-tight">
-                          <div className="font-semibold text-gray-900">{r.name}</div>
+                          <div className="font-semibold text-gray-900">{r.seller.initials}</div>
+                          <div className="text-xs text-gray-500">{r.seller.fullName}</div>
                           {isLeader && <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Top performer</div>}
                         </div>
                       </div>
