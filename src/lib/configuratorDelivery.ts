@@ -1,4 +1,4 @@
-import type { ConfiguratorState } from '@/types/configurator';
+import type { ConfiguratorState, MachineDeliveryAddress } from '@/types/configurator';
 import { LOOSE_TOOL_KEY } from '@/data/machines';
 
 type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDeliveryDates'> & Partial<Pick<ConfiguratorState, 'date'>>;
@@ -6,7 +6,7 @@ type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDelivery
 export const DELIVERY_DISCOUNT_PERCENT = 2;
 
 export interface ConfiguratorDeliveryDestination {
-  source: 'customer' | 'alternative';
+  source: 'customer' | 'alternative' | 'dealer';
   company: string;
   address: string;
   postalCode: string;
@@ -27,7 +27,13 @@ export function hasAlternativeDeliveryAddress(state: ConfiguratorState): boolean
   return state.useAlternativeDeliveryAddress === true;
 }
 
-export function resolveDeliveryDestination(state: ConfiguratorState): ConfiguratorDeliveryDestination {
+export function resolveDeliveryDestination(state: ConfiguratorState, unitNumber?: number): ConfiguratorDeliveryDestination {
+  const unit = unitNumber === undefined ? deliveryMachineUnits(state)[0] : deliveryMachineUnits(state).find(item => item.unitNumber === unitNumber);
+  const snapshot = unit && state.machineDeliveryAddresses?.[unit.key];
+  if (snapshot) {
+    const { mode, ...destination } = snapshot;
+    return { ...destination, source: mode === 'manual' ? 'alternative' : mode };
+  }
   if (hasAlternativeDeliveryAddress(state)) {
     return {
       source: 'alternative',
@@ -52,6 +58,46 @@ export function resolveDeliveryDestination(state: ConfiguratorState): Configurat
     phone: state.telefon?.trim() ?? '',
     note: '',
   };
+}
+
+export function deliveryMachineUnits(state: Pick<ConfiguratorState, 'machineConfigs'>) {
+  let unitNumber = 0;
+  return state.machineConfigs.flatMap(machine => Array.from({ length: Math.max(0, machine.qty) }, (_, index) => {
+    unitNumber += 1;
+    return { key: `${machine.id}_${index + 1}`, unitNumber, machineType: machine.type };
+  })).filter(unit => unit.machineType !== LOOSE_TOOL_KEY);
+}
+
+export function emptyMachineDeliveryAddress(): MachineDeliveryAddress {
+  return { mode: 'manual', company: '', address: '', postalCode: '', city: '', country: '', contactPerson: '', phone: '', note: '' };
+}
+
+export function dealerDeliveryAddress(state: ConfiguratorState): MachineDeliveryAddress {
+  const dealer = state.dealerCustomerData;
+  return { mode: 'dealer', company: dealer.firmanavn, address: dealer.address, postalCode: dealer.postalCode,
+    city: dealer.city, country: dealer.country, contactPerson: dealer.kontaktperson, phone: dealer.telefon, note: '' };
+}
+
+/** Legacy snapshots stay untouched until an explicit delivery edit. */
+export function normalizeMachineDeliveryAddresses(state: ConfiguratorState): Record<string, MachineDeliveryAddress> | undefined {
+  if (state.machineDeliveryAddresses === undefined) return undefined;
+  return Object.fromEntries(deliveryMachineUnits(state).map(unit => [unit.key, {
+    ...emptyMachineDeliveryAddress(), ...state.machineDeliveryAddresses?.[unit.key],
+  }]));
+}
+
+export function updateMachineDeliveryAddress(state: ConfiguratorState, key: string, update: Partial<MachineDeliveryAddress>): Record<string, MachineDeliveryAddress> {
+  // Explicit editing upgrades legacy delivery fields once, not on historical reads.
+  const addresses = state.machineDeliveryAddresses ?? Object.fromEntries(deliveryMachineUnits(state).map(unit => {
+    const { source, ...destination } = resolveDeliveryDestination(state, unit.unitNumber);
+    return [unit.key, { ...destination, mode: source === 'alternative' ? 'manual' as const : source }];
+  }));
+  return { ...addresses, [key]: { ...emptyMachineDeliveryAddress(), ...addresses[key], ...update } };
+}
+
+export function deliveryDestinationSections(state: ConfiguratorState) {
+  if (state.machineDeliveryAddresses === undefined) return [{ unit: null, destination: resolveDeliveryDestination(state) }];
+  return deliveryMachineUnits(state).map(unit => ({ unit, destination: resolveDeliveryDestination(state, unit.unitNumber) }));
 }
 
 export function formatDeliveryDestination(destination: ConfiguratorDeliveryDestination): string {

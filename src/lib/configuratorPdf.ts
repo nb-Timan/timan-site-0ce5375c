@@ -4,7 +4,7 @@ import { configuratorCurrency } from "@/lib/configuratorPricing";
 import { formatDiscountDetailLabel } from "@/lib/calcConfiguration";
 import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
-import { commonMachineDeliveryDate, machineDeliveryDate, resolveDeliveryDestination } from "@/lib/configuratorDelivery";
+import { commonMachineDeliveryDate, machineDeliveryDate, deliveryDestinationSections } from "@/lib/configuratorDelivery";
 import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from "@/lib/configuratorLinePresentation";
 import { timanCompanyLegalLine } from "../../supabase/functions/_shared/timanCompanyProfile";
 
@@ -206,7 +206,7 @@ function ensureSpace(pdf: any, y: number, needed: number, onNewPage?: () => numb
   return typeof nextY === "number" ? nextY : 34;
 }
 
-function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, string | null | undefined]>, y: number): number {
+function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, string | null | undefined]>, y: number, wrapValues = false): number {
   const visible = items.filter(([, value]) => String(value ?? "").trim());
   if (visible.length === 0) return y;
 
@@ -218,6 +218,39 @@ function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, strin
   y += 5;
 
   const colW = (PAGE.width - PAGE.marginX * 2 - 6) / 2;
+  if (wrapValues) {
+    // New delivery snapshots retain all address/note lines, including page continuations.
+    for (let index = 0; index < visible.length; index += 2) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.8);
+      const cells = visible.slice(index, index + 2).map(([label, value]) => ({
+        label, lines: pdf.splitTextToSize(String(value), colW - 4) as string[],
+      }));
+      const lineCount = Math.max(...cells.map(cell => cell.lines.length));
+      for (let offset = 0; offset < lineCount; offset += 62) {
+        const chunks = cells.map(cell => ({ ...cell, lines: cell.lines.slice(offset, offset + 62) }));
+        const height = 4.5 + Math.max(...chunks.map(cell => cell.lines.length)) * 3.5;
+        y = ensureSpace(pdf, y, height + 2);
+        chunks.forEach(({ label, lines }, col) => {
+          if (!lines.length) return;
+          const x = PAGE.marginX + col * (colW + 6);
+          setColor(pdf, "fill", COLORS.softGray);
+          setColor(pdf, "draw", COLORS.border);
+          pdf.roundedRect(x, y, colW, height, 1.5, 1.5, "FD");
+          setColor(pdf, "text", COLORS.muted);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(6.8);
+          pdf.text(label.toUpperCase(), x + 2, y + 3);
+          setColor(pdf, "text", COLORS.text);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(7.8);
+          lines.forEach((line, lineIndex) => pdf.text(line, x + 2, y + 6.5 + lineIndex * 3.5));
+        });
+        y += height + 2;
+      }
+    }
+    return y + 6;
+  }
   const rowH = 10;
   visible.forEach(([label, value], index) => {
     const col = index % 2;
@@ -466,16 +499,18 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     input.state.comment ? [input.TC("confirmComment").replace(":", ""), input.state.comment] : ["", ""],
   ], y);
 
-  const deliveryDestination = resolveDeliveryDestination(input.state);
-  const deliveryAddressText = [deliveryDestination.address, [deliveryDestination.postalCode, deliveryDestination.city].filter(Boolean).join(" "), deliveryDestination.country].filter(Boolean).join(", ");
-  if (deliveryAddressText || (deliveryDestination.source === "alternative" && (deliveryDestination.contactPerson || deliveryDestination.phone || deliveryDestination.note))) {
-    y = drawLabelValueGrid(pdf, input.TC("deliveryAddressSection"), [
-      [input.TC("deliveryAddressSource"), deliveryDestination.source === "customer" ? input.TC("sameAsCustomerAddress") : input.TC("useAlternativeDeliveryAddress")],
-      [input.TC("deliveryAddressLine"), deliveryAddressText],
-      deliveryDestination.contactPerson ? [input.TC("deliveryContactPerson"), deliveryDestination.contactPerson] : ["", ""],
-      deliveryDestination.phone ? [input.TC("deliveryPhone"), deliveryDestination.phone] : ["", ""],
-      deliveryDestination.note ? [input.TC("deliveryNote"), deliveryDestination.note] : ["", ""],
-    ], y);
+  for (const { unit, destination: deliveryDestination } of deliveryDestinationSections(input.state)) {
+    const deliveryAddressText = [deliveryDestination.address, [deliveryDestination.postalCode, deliveryDestination.city].filter(Boolean).join(" "), deliveryDestination.country].filter(Boolean).join(", ");
+    if (deliveryAddressText || (deliveryDestination.source === "alternative" && (deliveryDestination.contactPerson || deliveryDestination.phone || deliveryDestination.note))) {
+      const title = unit ? `${input.TC("deliveryAddressSection")} – ${input.TC("machineLabel")} ${unit.unitNumber} – ${unit.machineType}` : input.TC("deliveryAddressSection");
+      y = drawLabelValueGrid(pdf, title, [
+        [input.TC("deliveryAddressSource"), input.TC(deliveryDestination.source === "customer" ? "sameAsCustomerAddress" : deliveryDestination.source === "dealer" ? "useDealerDeliveryAddress" : "enterDeliveryAddress")],
+        [input.TC("deliveryAddressLine"), deliveryAddressText],
+        deliveryDestination.contactPerson ? [input.TC("deliveryContactPerson"), deliveryDestination.contactPerson] : ["", ""],
+        deliveryDestination.phone ? [input.TC("deliveryPhone"), deliveryDestination.phone] : ["", ""],
+        deliveryDestination.note ? [input.TC("deliveryNote"), deliveryDestination.note] : ["", ""],
+      ], y, unit !== null);
+    }
   }
 
   const sections = groupMachineSections(input.calcResult.lineItems, input.state);

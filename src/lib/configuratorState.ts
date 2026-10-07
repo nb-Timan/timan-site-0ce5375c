@@ -4,7 +4,7 @@ import {
   EMPTY_CONFIGURATOR_CUSTOMER_SNAPSHOT,
   normalizeConfiguratorCustomerDraftState,
 } from '@/lib/configuratorCustomerMode';
-import { normalizeMachineDeliveryDates } from '@/lib/configuratorDelivery';
+import { normalizeMachineDeliveryDates, normalizeMachineDeliveryAddresses } from '@/lib/configuratorDelivery';
 import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 import { currencyFromLanguage, isCurrency } from '@/lib/currency';
 
@@ -27,6 +27,7 @@ export const createEmptyConfiguratorState = (
   accQty: {},
   date: '',
   machineDeliveryDates: {},
+  machineDeliveryAddresses: {},
   deliveryMethod: '',
   deliveryDeliverStartup: null,
   manualDealerDiscountPct: 0,
@@ -100,6 +101,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
       machineConfigs: Array.isArray(value?.machineConfigs) ? value.machineConfigs : [],
       machineDeliveryDates: value?.machineDeliveryDates,
     }),
+    machineDeliveryAddresses: normalizeMachineDeliveryAddresses({ ...base, ...value, machineDeliveryAddresses: value?.machineDeliveryAddresses }),
     deliveryMethod: value?.deliveryMethod ?? '',
     deliveryDeliverStartup: value?.deliveryDeliverStartup ?? null,
     manualDealerDiscountPct: typeof value?.manualDealerDiscountPct === 'number' ? value.manualDealerDiscountPct : 0,

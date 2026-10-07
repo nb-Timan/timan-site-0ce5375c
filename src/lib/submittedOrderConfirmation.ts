@@ -104,6 +104,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
         req_number: machinePurchaseReference(state, unitNumber),
         delivery_date: machineDeliveryDate(state, unitNumber) || null,
         delivery_date_overridden: hasMachineDeliveryOverride(state, unitNumber),
+        delivery_address: resolveDeliveryDestination(state, unitNumber),
         accessories: accessories.map(line => ({
           id: line.itemNo, varenr: line.itemNo, name: line.description,
           qty: line.quantity, unit_price: line.unitPrice, total: line.total,

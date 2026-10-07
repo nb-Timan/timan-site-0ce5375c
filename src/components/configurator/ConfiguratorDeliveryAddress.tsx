@@ -1,14 +1,10 @@
-import type { ConfiguratorState } from '@/types/configurator';
-import { formatDeliveryDestination, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
-
-type DeliveryField =
-  | 'alternativeDeliveryAddress'
-  | 'alternativeDeliveryPostalCode'
-  | 'alternativeDeliveryCity'
-  | 'alternativeDeliveryCountry'
-  | 'alternativeDeliveryContactPerson'
-  | 'alternativeDeliveryPhone'
-  | 'alternativeDeliveryNote';
+import { ChevronDown } from 'lucide-react';
+import type { ConfiguratorState, MachineDeliveryAddress } from '@/types/configurator';
+import { PRODUCTS, getLocalizedName } from '@/data/machines';
+import {
+  dealerDeliveryAddress, deliveryMachineUnits, formatDeliveryDestination,
+  resolveDeliveryDestination, updateMachineDeliveryAddress,
+} from '@/lib/configuratorDelivery';
 
 interface ConfiguratorDeliveryAddressProps {
   state: ConfiguratorState;
@@ -18,89 +14,62 @@ interface ConfiguratorDeliveryAddressProps {
   onChange: (update: Partial<ConfiguratorState>) => void;
 }
 
+const fields = [
+  ['address', 'deliveryAddressLine'], ['postalCode', 'deliveryPostalCode'], ['city', 'deliveryCity'],
+  ['country', 'deliveryCountry'], ['contactPerson', 'deliveryContactPerson'], ['phone', 'deliveryPhone'],
+  ['note', 'deliveryNote'],
+] as const;
+
 export function ConfiguratorDeliveryAddress({ state, variant, disabled = false, T, onChange }: ConfiguratorDeliveryAddressProps) {
-  const useAlternative = state.useAlternativeDeliveryAddress === true;
-  const setField = (field: DeliveryField, value: string) => onChange({ [field]: value });
-  const inputClass = 'w-full rounded-lg border border-gray-300 bg-white p-2 text-sm disabled:bg-gray-100';
-  const resolved = resolveDeliveryDestination(state);
-
+  const units = deliveryMachineUnits(state);
+  const dealer = dealerDeliveryAddress(state);
   return (
-    <section className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-left" data-testid={`delivery-address-${variant}`}>
-      {variant === 'step4' && <h3 className="mb-3 text-base font-bold text-gray-900">{T('deliveryAddressSection')}</h3>}
-      {variant === 'step2' ? (
-        <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm font-semibold text-gray-800">
-          <input
-            type="checkbox"
-            checked={useAlternative}
-            disabled={disabled}
-            onChange={(event) => onChange({ useAlternativeDeliveryAddress: event.target.checked })}
-          />
-          <span>{T('useAlternativeDeliveryAddress')}</span>
-        </label>
-      ) : (
-        <div className="mb-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={T('deliveryAddressSection')}>
-          <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm">
-            <input
-              type="radio"
-              name="delivery-address-mode"
-              checked={!useAlternative}
-              disabled={disabled}
-              onChange={() => onChange({ useAlternativeDeliveryAddress: false })}
-            />
-            <span>{T('sameAsCustomerAddress')}</span>
-          </label>
-          <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm">
-            <input
-              type="radio"
-              name="delivery-address-mode"
-              checked={useAlternative}
-              disabled={disabled}
-              onChange={() => onChange({ useAlternativeDeliveryAddress: true })}
-            />
-            <span>{T('useAlternativeDeliveryAddress')}</span>
-          </label>
-        </div>
-      )}
-
-      {useAlternative ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2" data-testid="alternative-delivery-fields">
-          <label className="sm:col-span-2 text-sm font-medium text-gray-700">
-            {T('deliveryAddressLine')}
-            <input value={state.alternativeDeliveryAddress ?? ''} onChange={(e) => setField('alternativeDeliveryAddress', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="text-sm font-medium text-gray-700">
-            {T('deliveryPostalCode')}
-            <input value={state.alternativeDeliveryPostalCode ?? ''} onChange={(e) => setField('alternativeDeliveryPostalCode', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="text-sm font-medium text-gray-700">
-            {T('deliveryCity')}
-            <input value={state.alternativeDeliveryCity ?? ''} onChange={(e) => setField('alternativeDeliveryCity', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="sm:col-span-2 text-sm font-medium text-gray-700">
-            {T('deliveryCountry')}
-            <input value={state.alternativeDeliveryCountry ?? ''} onChange={(e) => setField('alternativeDeliveryCountry', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="text-sm font-medium text-gray-700">
-            {T('deliveryContactPerson')}
-            <input value={state.alternativeDeliveryContactPerson ?? ''} onChange={(e) => setField('alternativeDeliveryContactPerson', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="text-sm font-medium text-gray-700">
-            {T('deliveryPhone')}
-            <input value={state.alternativeDeliveryPhone ?? ''} onChange={(e) => setField('alternativeDeliveryPhone', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} />
-          </label>
-          <label className="sm:col-span-2 text-sm font-medium text-gray-700">
-            {T('deliveryNote')}
-            <textarea value={state.alternativeDeliveryNote ?? ''} onChange={(e) => setField('alternativeDeliveryNote', e.target.value)} disabled={disabled} className={`${inputClass} mt-1`} rows={2} />
-          </label>
-        </div>
-      ) : variant === 'step4' ? (
-        <div className="rounded-md border border-emerald-100 bg-white px-3 py-2 text-sm text-gray-700" data-testid="resolved-customer-delivery-address">
-          <p className="mb-1 font-semibold text-emerald-800">{T('sameAsCustomerAddress')}</p>
-          <p className="whitespace-pre-line">{formatDeliveryDestination(resolved) || T('deliveryAddressDerivedHelp')}</p>
-        </div>
-      ) : (
-        <p className="mt-1 text-xs text-gray-500">{T('deliveryAddressDerivedHelp')}</p>
-      )}
-    </section>
+    <div className="space-y-3 text-left" data-testid={`delivery-address-${variant}`}>
+      {units.map(unit => {
+        const destination = resolveDeliveryDestination(state, unit.unitNumber);
+        const snapshot = state.machineDeliveryAddresses?.[unit.key];
+        const mode = snapshot?.mode ?? (destination.source === 'alternative' ? 'manual' : destination.source);
+        const update = (patch: Partial<MachineDeliveryAddress>) => onChange({ machineDeliveryAddresses: updateMachineDeliveryAddress(state, unit.key, patch) });
+        const title = `${T('deliveryAddressSection')} – ${T('machineLabel')} ${unit.unitNumber} – ${getLocalizedName(PRODUCTS[unit.machineType]?.name ?? unit.machineType, state.locale ?? state.language)}`;
+        return (
+          <details key={unit.key} open={variant === 'step2' && units.length === 1} className="group min-w-0 rounded-lg border border-gray-200 bg-gray-50" data-testid={`machine-delivery-${unit.key}`}>
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 p-3 text-sm font-semibold text-gray-900">
+              <span className="min-w-0 break-words">{title}</span>
+              <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 group-open:rotate-180" />
+            </summary>
+            <div className="border-t border-gray-200 p-3">
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={title}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                  <input type="radio" name={`delivery-${variant}-${unit.key}`} checked={mode === 'dealer'} disabled={disabled || !dealer.address}
+                    onChange={() => update(dealer)} />
+                  <span>{T('useDealerDeliveryAddress')}</span>
+                </label>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                  <input type="radio" name={`delivery-${variant}-${unit.key}`} checked={mode === 'manual'} disabled={disabled}
+                    onChange={() => update({ mode: 'manual', company: '' })} />
+                  <span>{T('enterDeliveryAddress')}</span>
+                </label>
+              </div>
+              {mode === 'manual' ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2" data-testid="alternative-delivery-fields">
+                  {fields.map(([field, label]) => (
+                    <label key={field} className={`min-w-0 text-sm font-medium text-gray-700 ${['address', 'country', 'note'].includes(field) ? 'sm:col-span-2' : ''}`}>
+                      {T(label)}
+                      {field === 'note' ? (
+                        <textarea value={destination[field]} onChange={event => update({ [field]: event.target.value })} disabled={disabled} rows={2} className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2 text-sm" />
+                      ) : (
+                        <input value={destination[field]} onChange={event => update({ [field]: event.target.value })} disabled={disabled} className="mt-1 min-h-10 w-full rounded-md border border-gray-300 bg-white p-2 text-sm" />
+                      )}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 whitespace-pre-line break-words text-sm text-gray-700">{formatDeliveryDestination(destination) || '—'}</p>
+              )}
+            </div>
+          </details>
+        );
+      })}
+    </div>
   );
 }

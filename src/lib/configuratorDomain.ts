@@ -12,6 +12,7 @@ import {
 import { shouldEnforceAccessoryParentDependency } from '@/lib/looseToolDependencies';
 import { isProductActive } from '@/lib/publishedProductMaster';
 import type { ConfiguratorState } from '@/types/configurator';
+import { normalizeMachineDeliveryAddresses } from '@/lib/configuratorDelivery';
 
 const SINGLETON_VARENR = new Set(['721059', '721122']);
 
@@ -89,10 +90,12 @@ export function setConfiguratorMachineQuantity(
   }
   const nextQuantity = Math.max(0, config.qty + delta);
   if (nextQuantity === 0) {
-    return { ...state, machineConfigs: configs.filter((machine) => machine.type !== machineType), currentMachineIndex: 0 };
+    const next = { ...state, machineConfigs: configs.filter((machine) => machine.type !== machineType), currentMachineIndex: 0 };
+    return { ...next, machineDeliveryAddresses: normalizeMachineDeliveryAddresses(next) };
   }
   config.qty = nextQuantity;
-  return { ...state, machineConfigs: configs, currentMachineIndex: 0 };
+  const next = { ...state, machineConfigs: configs, currentMachineIndex: 0 };
+  return { ...next, machineDeliveryAddresses: normalizeMachineDeliveryAddresses(next) };
 }
 
 export function setConfiguratorMode(

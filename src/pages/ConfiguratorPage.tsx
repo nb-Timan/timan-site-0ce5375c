@@ -132,7 +132,7 @@ import { calculateConfiguration, configurationCampaignSelection, formatDiscountD
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
-import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
+import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
 import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 import {
@@ -2051,8 +2051,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       : T('multipleDeliveryDates');
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
-    const deliveryDestination = resolveDeliveryDestination(state);
-    const deliveryDestinationHtml = formatDeliveryDestination(deliveryDestination).replace(/\n/g, '<br>') || '-';
+    const escapeDeliveryHtml = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
+    const deliveryDestinationHtml = deliveryDestinationSections(state).map(({ unit, destination }) => `
+      <div class="border-b border-gray-200 py-2">
+        <p class="font-medium">${unit ? `${TC('machineLabel')} ${unit.unitNumber} – ${escapeDeliveryHtml(unit.machineType)} · ` : ''}${TC(destination.source === 'dealer' ? 'useDealerDeliveryAddress' : destination.source === 'customer' ? 'sameAsCustomerAddress' : 'enterDeliveryAddress')}</p>
+        <p class="mt-1 break-words">${escapeDeliveryHtml(formatDeliveryDestination(destination)).replace(/\n/g, '<br>') || '-'}</p>
+      </div>`).join('');
     const renderFlowType = overrides?.flowType ?? state.flowType;
     const pdfTitle = renderFlowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
 
@@ -2114,8 +2118,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       <div class="mt-6 text-sm text-gray-700">
         <h2 class="font-bold text-base mb-2">${TC('deliveryAddressSection')}</h2>
         <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <p class="font-medium">${deliveryDestination.source === 'customer' ? TC('sameAsCustomerAddress') : TC('useAlternativeDeliveryAddress')}</p>
-          <p class="mt-1">${deliveryDestinationHtml}</p>
+          ${deliveryDestinationHtml}
         </div>
       </div>
         </div>

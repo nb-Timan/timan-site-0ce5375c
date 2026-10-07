@@ -22,7 +22,7 @@ import {
 import { configuratorCurrency, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
-import { hasMachineDeliveryOverride, machineDeliveryDate, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
+import { hasMachineDeliveryOverride, machineDeliveryDate, resolveDeliveryDestination, type ConfiguratorDeliveryDestination } from '@/lib/configuratorDelivery';
 import {
   TIMAN_COMPANY_PROFILE,
   type TimanCompanyProfile,
@@ -46,6 +46,7 @@ export interface SummaryMachineUnit {
   req_number: string | null;
   delivery_date: string | null;
   delivery_date_overridden: boolean;
+  delivery_address: ConfiguratorDeliveryDestination;
   accessories: SummaryAccessoryLine[];
   unit_total: number;
 }
@@ -83,7 +84,7 @@ export interface QuoteContentSummary {
     method: string;
     date: string | null;
     startup_option: string | null;
-    address_source: 'customer' | 'alternative';
+    address_source: 'customer' | 'alternative' | 'dealer';
     address: string;
     postal_code: string;
     city: string;
@@ -180,6 +181,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
         req_number: reqNumber && reqNumber.trim() ? reqNumber : null,
         delivery_date: machineDeliveryDate(state, runningUnitNumber) || null,
         delivery_date_overridden: hasMachineDeliveryOverride(state, runningUnitNumber),
+        delivery_address: resolveDeliveryDestination(state, runningUnitNumber),
         accessories: accessoryLines,
         unit_total: unitTotal,
       });

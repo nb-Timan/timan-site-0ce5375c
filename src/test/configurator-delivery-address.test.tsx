@@ -103,16 +103,18 @@ describe('Configurator delivery address and date rules', () => {
 
   it('renders the same editable override in step 2 and step 4', () => {
     const state = stateWithCustomer();
+    state.machineConfigs = [{ id: 'm0', type: 'Timan 3330', qty: 1, configMode: 'shared', acc: [] }];
+    state.machineDeliveryAddresses = undefined;
     state.useAlternativeDeliveryAddress = true;
     state.alternativeDeliveryAddress = 'QA leveringsadresse';
     const onChange = vi.fn();
     const { rerender } = render(<ConfiguratorDeliveryAddress state={state} variant="step2" T={(key) => t(key, 'da')} onChange={onChange} />);
     expect(screen.getByDisplayValue('QA leveringsadresse')).toBeTruthy();
     fireEvent.change(screen.getByDisplayValue('QA leveringsadresse'), { target: { value: 'Ny leveringsadresse' } });
-    expect(onChange).toHaveBeenCalledWith({ alternativeDeliveryAddress: 'Ny leveringsadresse' });
+    expect(onChange).toHaveBeenCalledWith({ machineDeliveryAddresses: { m0_1: expect.objectContaining({ address: 'Ny leveringsadresse', mode: 'manual' }) } });
 
     rerender(<ConfiguratorDeliveryAddress state={state} variant="step4" T={(key) => t(key, 'da')} onChange={onChange} />);
-    expect(screen.getByText('Leveringsadresse')).toBeTruthy();
+    expect(screen.getByText('Leveringsadresse – Maskine 1 – Timan 3330')).toBeTruthy();
     expect(screen.getByDisplayValue('QA leveringsadresse')).toBeTruthy();
   });
 

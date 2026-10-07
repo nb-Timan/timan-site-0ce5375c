@@ -1,10 +1,11 @@
 import { FileText, X } from 'lucide-react';
 import { useOptionalLanguage } from '@/context/LanguageContext';
 import { t as portalT } from '@/lib/i18n/translations';
+import { t as configuratorT } from '@/data/translations';
 import { buildReadOnlySalesDocument } from '@/lib/submittedOrderConfirmation';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
-import { activeMachineDeliveryDates, commonMachineDeliveryDate, formatDeliveryDestination, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
+import { activeMachineDeliveryDates, commonMachineDeliveryDate, formatDeliveryDestination, deliveryDestinationSections } from '@/lib/configuratorDelivery';
 import { configuratorCurrency } from '@/lib/configuratorPricing';
 import {
   buildAccountOrderDiscountRows,
@@ -115,7 +116,7 @@ export default function ReadOnlySalesDocumentModal({ document: saved, documentTy
       || Object.values(state.demoMachines ?? {}).some(Boolean)) ? tx('salesDemoPricing') : null,
   ].filter((value): value is string => Boolean(value));
   const deliveryMethod = ({ pickup: tx('salesPickup'), send: tx('salesFreight'), deliver: tx('salesDeliveryStartup') } as Record<string, string>)[state.deliveryMethod] || '—';
-  const deliveryDestination = resolveDeliveryDestination(state);
+  const deliveryDestinations = deliveryDestinationSections(state);
   const title = tx(isOrder ? 'salesOrderConfirmation' : 'salesQuoteConfirmation');
 
   return (
@@ -167,10 +168,11 @@ export default function ReadOnlySalesDocumentModal({ document: saved, documentTy
                 <Detail label={tx('salesDesiredDelivery')} value={commonDelivery ? formatDate(`${commonDelivery}T12:00:00`, uiLanguage) : tx('salesIndividualDates')} />
                 <Detail label={tx('salesDeliveryMethod')} value={deliveryMethod} />
                 <Detail label={tx('salesPurchaseOrder')} value={purchaseReferences.headerValue} />
-                <Detail
-                  label={tx('salesAlternativeAddress')}
-                  value={formatDeliveryDestination(deliveryDestination) || '—'}
-                />
+                {deliveryDestinations.map(({ unit, destination }) => <Detail
+                  key={unit?.key ?? 'legacy'}
+                  label={unit ? `${configuratorT('deliveryAddressSection', uiLanguage)} · ${tx('salesMachine')} ${unit.unitNumber} – ${unit.machineType}` : tx('salesAlternativeAddress')}
+                  value={formatDeliveryDestination(destination) || '—'}
+                />)}
                 {state.comment && <Detail label={tx('salesComment')} value={state.comment} />}
               </dl>
               {hasIndividualDeliveryDates && (

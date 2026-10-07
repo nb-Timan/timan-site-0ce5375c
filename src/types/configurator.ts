@@ -149,6 +149,19 @@ export interface MachineConfig {
   acc: string[]; // selected accessory ids (for shared mode)
 }
 
+/** Transaction snapshot for one physical unit; never writes dealer masterdata. */
+export interface MachineDeliveryAddress {
+  mode: 'dealer' | 'manual' | 'customer';
+  company: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  contactPerson: string;
+  phone: string;
+  note: string;
+}
+
 /**
  * Immutable unit-price baseline captured when an order is submitted. Keeping it
  * with the saved Configurator state means a later catalogue change cannot alter
@@ -230,6 +243,8 @@ export interface ConfiguratorState {
   date: string;
   /** Optional delivery-date overrides keyed by stable machine id and unit index, e.g. m1_1. */
   machineDeliveryDates?: Record<string, string>;
+  /** Existing configuration snapshot, keyed by stable machine id + unit ordinal. */
+  machineDeliveryAddresses?: Record<string, MachineDeliveryAddress>;
   deliveryMethod: DeliveryMethod | '';
   deliveryDeliverStartup: string | null;
   manualDealerDiscountPct: number;
