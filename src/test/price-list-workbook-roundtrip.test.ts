@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import {
   buildPreview,
+  buildPriceImportPayload,
   mergeCanonicalPriceItems,
   parsePriceCsv,
   parsePriceWorkbook,
   type PriceListItem,
 } from "@/lib/priceListService";
+import { calculatePriceToolValues, DEFAULT_PRICE_TOOL_SETTINGS } from "@/lib/priceListWorkbook";
 import { buildConfiguratorSeed } from "@/lib/configuratorPriceSeed";
 import { buildPriceWorkbookSheet, type PriceWorkbookRow } from "@/pages/backend/BackendPriceListsPage";
 import { RC751_PRICE_TOOL_FIXTURE } from "@/test/fixtures/priceListRc751Roundtrip";
@@ -48,30 +50,57 @@ describe("parsePriceWorkbook", () => {
     expect(ws["J11"]?.v).toBe("Ny pris DKK");
     expect(ws["K11"]?.v).toBe("Prisændring %");
     expect(ws["L11"]?.v).toBe("Masseændring – skriv X");
-    expect(ws["M11"]?.v).toBe("Ny pris DKK");
-    expect(ws["N11"]?.v).toBe("Ny pris SEK");
-    expect(ws["O11"]?.v).toBe("Ny pris EUR");
-    expect(ws["P11"]?.v).toBe("Ny DB DKK");
-    expect(ws["Q11"]?.v).toBe("Ny DG %");
-    expect(ws["R11"]?.v).toBe("Note");
-    expect(ws["S11"]?.v).toBe("Varetekst (GB)");
-    expect(ws["T11"]?.v).toBe("Varetekst (DE)");
-    expect(ws["Z11"]?.v).toBe("Varetekst (CZ)");
-    for (const col of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+    expect(ws["M11"]?.v).toBe("Ændring %");
+    expect(ws["N11"]?.v).toBe("Ændring DKK");
+    expect(ws["O11"]?.v).toBe("Ny pris DKK");
+    expect(ws["P11"]?.v).toBe("Ny pris SEK");
+    expect(ws["Q11"]?.v).toBe("Ny pris EUR");
+    expect(ws["R11"]?.v).toBe("Ny DB DKK");
+    expect(ws["S11"]?.v).toBe("Ny DG %");
+    expect(ws["T11"]?.v).toBe("Note");
+    expect(ws["U11"]?.v).toBe("Varetekst (GB)");
+    expect(ws["V11"]?.v).toBe("Varetekst (DE)");
+    expect(ws["AB11"]?.v).toBe("Varetekst (CZ)");
+    for (const col of [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", "AA", "AB"]) {
       expect(String(ws[`${col}11`]?.v ?? "")).not.toContain("_");
     }
     expect(ws["H12"]?.v).toBe(250);
     expect(ws["I12"]?.v).toBe(0.25);
-    expect(ws["P12"]?.v).toBe(250);
-    expect(ws["Q12"]?.v).toBe(0.25);
+    expect(ws["M12"]?.v).toBe(0);
+    expect(ws["N12"]?.v).toBe(0);
+    expect(ws["R12"]?.v).toBe(250);
+    expect(ws["S12"]?.v).toBe(0.25);
+    expect(ws["M12"]?.z).toBe("+0.00%;-0.00%;0.00%");
+    expect(ws["N12"]?.z).toContain("kr.");
     expect(ws["K12"]?.z).toBe("0.00%");
     expect(ws["!dataValidation"]).toBeUndefined();
-    expect(ws["!autofilter"]?.ref).toBe("A11:Z12");
+    expect(ws["!autofilter"]?.ref).toBe("A11:AB12");
     expect(ws["!merges"]).toEqual(expect.arrayContaining([
       { s: { r: 9, c: 4 }, e: { r: 9, c: 8 } },
       { s: { r: 9, c: 9 }, e: { r: 9, c: 11 } },
-      { s: { r: 9, c: 12 }, e: { r: 9, c: 16 } },
+      { s: { r: 9, c: 12 }, e: { r: 9, c: 13 } },
+      { s: { r: 9, c: 14 }, e: { r: 9, c: 18 } },
     ]));
+  });
+
+  it("beregner positive, negative, nul og sikre blanke deltaer fra den endelige pris", () => {
+    const calculate = (currentDkk: number | null, manualDkk: number | null, rowChangePct = 0, massChangeSelected = false) =>
+      calculatePriceToolValues({
+        currentDkk,
+        manualDkk,
+        rowChangePct,
+        massChangeSelected,
+        costPriceDkk: null,
+        settings: { ...DEFAULT_PRICE_TOOL_SETTINGS, massChangePct: 0.03 },
+      });
+
+    expect(calculate(100000, 103000)).toMatchObject({ changeDkk: 3000, changePct: expect.closeTo(0.03, 8) });
+    expect(calculate(100000, 97000)).toMatchObject({ changeDkk: -3000, changePct: expect.closeTo(-0.03, 8) });
+    expect(calculate(100000, 100000)).toMatchObject({ changeDkk: 0, changePct: 0 });
+    expect(calculate(0, 1000)).toMatchObject({ changeDkk: 1000, changePct: null });
+    expect(calculate(null, 1000)).toMatchObject({ changeDkk: null, changePct: null });
+    expect(calculate(100000, null, 0.02)).toMatchObject({ priceDkk: 102000, changeDkk: 2000, changePct: expect.closeTo(0.02, 8) });
+    expect(calculate(100000, null, 0, true)).toMatchObject({ priceDkk: 103000, changeDkk: 3000, changePct: expect.closeTo(0.03, 8) });
   });
 
   it("læser den eksporterede prisliste-workbook og beregner round-trip ændringer", () => {
@@ -116,7 +145,7 @@ describe("parsePriceWorkbook", () => {
     })));
 
     for (let row = 12; row <= 18; row++) {
-      for (const column of ["M", "N", "O", "P", "Q"]) {
+      for (const column of ["O", "P", "Q", "R", "S"]) {
         ws[`${column}${row}`] = { ...ws[`${column}${row}`], t: "n", v: 999999 };
       }
     }
@@ -144,6 +173,43 @@ describe("parsePriceWorkbook", () => {
         price_eur: String(expected.eur),
       });
     }
+  });
+
+  it("læser og validerer delta-kolonner uden at sende dem som prisinput", () => {
+    const ws = buildPriceWorkbookSheet([{
+      group: "RC-751", item_number: "410040", item_text_da: "RC-751", ...emptyTranslations,
+      cost_price_dkk: 70000, price_dkk: 100000, price_sek: 150375.94, price_eur: 13422.82,
+    }]);
+    ws["J12"] = { ...(ws["J12"] ?? {}), t: "n", v: 103000 };
+    ws["M12"] = { ...(ws["M12"] ?? {}), t: "n", v: 0.03 };
+    ws["N12"] = { ...(ws["N12"] ?? {}), t: "n", v: 3000 };
+    const parsed = parsePriceWorkbook(workbookToArrayBuffer(ws));
+    const canonical = [priceItemFromImportedRow({
+      item_number: "410040", item_text_da: "RC-751", cost_price_dkk: "70000",
+      price_dkk: "100000", price_sek: "150375.94", price_eur: "13422.82",
+    })];
+    const preview = buildPreview(parsed.rows, canonical, "FULL_PRICE_LIST", new Set(["410040"]), canonical);
+
+    expect(parsed.rows[0]).toMatchObject({ change_pct: "0.03", change_dkk: "3000", price_change_source: "DIRECT_PRICE" });
+    expect(preview[0]).toMatchObject({ bucket: "update" });
+    const payload = buildPriceImportPayload(preview, "qa.xlsx", "FULL_PRICE_LIST", "RC-751");
+    expect(payload.rows[0]).not.toHaveProperty("change_pct");
+    expect(payload.rows[0]).not.toHaveProperty("change_dkk");
+  });
+
+  it("afviser en manipuleret automatisk delta-kolonne", () => {
+    const canonical = [priceItemFromImportedRow({
+      item_number: "410040", item_text_da: "RC-751", cost_price_dkk: "70000",
+      price_dkk: "100000", price_sek: "150375.94", price_eur: "13422.82",
+    })];
+    const preview = buildPreview([{
+      item_number: "410040", price_dkk: "103000", price_sek: "154887.22", price_eur: "13825.5",
+      change_pct: "0.03", change_dkk: "9999", delta_validation_present: true,
+    }], canonical, "FULL_PRICE_LIST", new Set(["410040"]), canonical);
+
+    expect(preview[0]).toMatchObject({ bucket: "error" });
+    expect(preview[0].errorMessage).toContain("Ændring DKK matcher ikke");
+    expect(buildPriceImportPayload(preview, "tampered.xlsx", "FULL_PRICE_LIST", "RC-751").rows).toEqual([]);
   });
 
   it("auto-detekterer standard CSV og XLSX uden at bruge prisværktøjsregler", () => {

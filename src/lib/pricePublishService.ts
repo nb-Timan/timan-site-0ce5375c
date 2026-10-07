@@ -88,6 +88,40 @@ export interface PublishLog {
   item_numbers: string[] | null;
 }
 
+export interface PriceListPriceChange {
+  id: string;
+  release_id: string;
+  release_version_number: number;
+  import_log_id: string | null;
+  item_number: string;
+  product_name: string | null;
+  product_group: string | null;
+  old_price_dkk: number | null;
+  new_price_dkk: number | null;
+  change_dkk: number | null;
+  change_pct: number | null;
+  old_price_sek: number | null;
+  new_price_sek: number | null;
+  old_price_eur: number | null;
+  new_price_eur: number | null;
+  change_source: string;
+  changed_by_app_user_id: string;
+  changed_by_name: string | null;
+  changed_at: string;
+  effective_at: string;
+}
+
+export interface PriceChangeFilters {
+  itemNumber?: string;
+  from?: string;
+  to?: string;
+  productGroup?: string;
+  direction?: "increase" | "decrease";
+  changedByAppUserId?: string;
+  versionNumber?: number;
+  limit?: number;
+}
+
 function describeError(e: unknown): string {
   if (!e) return "ukendt fejl";
   if (typeof e === "string") return e;
@@ -145,10 +179,12 @@ export function buildPublishPreview(
 
 export async function publishItems(
   itemNumbers: string[],
+  itemGroups: Record<string, string> = {},
+  itemSources: Record<string, string> = {},
 ): Promise<{ ok: boolean; summary?: PublishSummary; error?: string }> {
   try {
     const { data, error } = await supabase.rpc("release_price_list_items", {
-      payload: { item_numbers: itemNumbers },
+      payload: { item_numbers: itemNumbers, item_groups: itemGroups, item_sources: itemSources },
     });
     if (error) throw error;
     const d = (data ?? {}) as Record<string, unknown>;
@@ -201,4 +237,36 @@ export async function listPublishLogs(): Promise<PublishLog[]> {
     .limit(50);
   if (error) return [];
   return (data ?? []) as PublishLog[];
+}
+
+export async function listPriceChanges(filters: PriceChangeFilters = {}): Promise<PriceListPriceChange[]> {
+  let query = supabase
+    .from("price_list_price_changes")
+    .select("id, release_id, release_version_number, import_log_id, item_number, product_name, product_group, old_price_dkk, new_price_dkk, change_dkk, change_pct, old_price_sek, new_price_sek, old_price_eur, new_price_eur, change_source, changed_by_app_user_id, changed_by_name, changed_at, effective_at");
+
+  if (filters.itemNumber) query = query.eq("item_number", filters.itemNumber);
+  if (filters.from) query = query.gte("changed_at", filters.from);
+  if (filters.to) query = query.lte("changed_at", filters.to);
+  if (filters.productGroup) query = query.eq("product_group", filters.productGroup);
+  if (filters.direction === "increase") query = query.gt("change_dkk", 0);
+  if (filters.direction === "decrease") query = query.lt("change_dkk", 0);
+  if (filters.changedByAppUserId) query = query.eq("changed_by_app_user_id", filters.changedByAppUserId);
+  if (filters.versionNumber != null) query = query.eq("release_version_number", filters.versionNumber);
+
+  const { data, error } = await query
+    .order("changed_at", { ascending: false })
+    .limit(Math.min(Math.max(filters.limit ?? 100, 1), 500));
+  if (error) return [];
+  return (data ?? []).map((row) => ({
+    ...row,
+    release_version_number: Number(row.release_version_number),
+    old_price_dkk: row.old_price_dkk == null ? null : Number(row.old_price_dkk),
+    new_price_dkk: row.new_price_dkk == null ? null : Number(row.new_price_dkk),
+    change_dkk: row.change_dkk == null ? null : Number(row.change_dkk),
+    change_pct: row.change_pct == null ? null : Number(row.change_pct),
+    old_price_sek: row.old_price_sek == null ? null : Number(row.old_price_sek),
+    new_price_sek: row.new_price_sek == null ? null : Number(row.new_price_sek),
+    old_price_eur: row.old_price_eur == null ? null : Number(row.old_price_eur),
+    new_price_eur: row.new_price_eur == null ? null : Number(row.new_price_eur),
+  })) as PriceListPriceChange[];
 }

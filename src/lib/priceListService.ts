@@ -159,9 +159,12 @@ export type PriceField = typeof PRICE_FIELDS[number];
 export const PRICE_IMPORT_MODES = ["COST_ONLY", "FULL_PRICE_LIST"] as const;
 export type PriceImportMode = typeof PRICE_IMPORT_MODES[number];
 export const COST_ONLY_WRITE_FIELDS = ["cost_price_dkk"] as const;
+export const PRICE_CHANGE_SOURCES = ["MANUAL_UPLOAD", "DIRECT_PRICE", "PERCENT_CHANGE", "MASS_CHANGE"] as const;
+export type PriceChangeSource = typeof PRICE_CHANGE_SOURCES[number];
 
 export interface CsvPriceRow {
   item_number: string;
+  product_group?: string;
   item_text_da?: string;
   item_text_en?: string;
   item_text_de?: string;
@@ -175,6 +178,10 @@ export interface CsvPriceRow {
   price_dkk?: string;
   price_eur?: string;
   price_sek?: string;
+  change_dkk?: string;
+  change_pct?: string;
+  price_change_source?: PriceChangeSource;
+  delta_validation_present?: boolean;
 }
 
 export type PreviewBucket = "create" | "update" | "skip" | "error";
@@ -318,8 +325,11 @@ export async function updatePriceItem(input: {
 
 /* ---------------- CSV parsing ---------------- */
 
-const HEADER_ALIASES: Record<keyof CsvPriceRow, string[]> = {
+type CsvHeaderField = Exclude<keyof CsvPriceRow, "price_change_source" | "delta_validation_present">;
+
+const HEADER_ALIASES: Record<CsvHeaderField, string[]> = {
   item_number: ["item_number", "Varenr.", "varenr", "varenummer", "item_no", "itemnumber"],
+  product_group: ["product_group", "Maskintype", "produktgruppe", "product_group_name"],
   item_text_da: ["item_text_da", "Varetekst (DA)", "varetekst_da", "varetekst", "text_da", "tekst"],
   item_text_en: ["item_text_en", "Varetekst (EN)", "Varetekst (GB)", "varetekst_en", "varetekst_gb", "text_en"],
   item_text_de: ["item_text_de", "Varetekst (DE)", "varetekst_de", "text_de"],
@@ -333,6 +343,8 @@ const HEADER_ALIASES: Record<keyof CsvPriceRow, string[]> = {
   price_dkk: ["price_dkk", "Ny pris DKK", "pris_dkk", "ny_pris_dkk", "dkk"],
   price_eur: ["price_eur", "Ny pris EUR", "pris_eur", "ny_pris_eur", "eur"],
   price_sek: ["price_sek", "Ny pris SEK", "pris_sek", "ny_pris_sek", "sek"],
+  change_dkk: ["change_dkk", "Ændring DKK", "aendring_dkk", "prisændring_dkk", "price_change_dkk"],
+  change_pct: ["change_pct", "Ændring %", "aendring_pct", "prisændring_beregnet_pct", "price_change_calculated_pct"],
 };
 
 function normalizeKey(k: string) {
@@ -344,7 +356,7 @@ function normalizeKey(k: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-function pickField(row: Record<string, string>, field: keyof CsvPriceRow): string {
+function pickField(row: Record<string, string>, field: CsvHeaderField): string {
   return pickByAliases(row, HEADER_ALIASES[field]);
 }
 
@@ -452,9 +464,13 @@ export function parsePriceCsv(text: string): ParseResult {
     skipEmptyLines: true,
     transformHeader: (h) => h.trim(),
   });
+  const fields = out.meta.fields ?? [];
+  const hasChangeDkk = fields.some((field) => HEADER_ALIASES.change_dkk.map(normalizeKey).includes(normalizeKey(field)));
+  const hasChangePct = fields.some((field) => HEADER_ALIASES.change_pct.map(normalizeKey).includes(normalizeKey(field)));
   const parseErrors: string[] = (out.errors || []).map((e) => `Linje ${e.row}: ${e.message}`);
   const rows: CsvPriceRow[] = (out.data || []).map((r) => ({
     item_number: pickField(r, "item_number"),
+    product_group: pickField(r, "product_group"),
     item_text_da: pickField(r, "item_text_da"),
     item_text_en: pickField(r, "item_text_en"),
     item_text_de: pickField(r, "item_text_de"),
@@ -468,6 +484,10 @@ export function parsePriceCsv(text: string): ParseResult {
     price_dkk: pickField(r, "price_dkk"),
     price_eur: pickField(r, "price_eur"),
     price_sek: pickField(r, "price_sek"),
+    change_dkk: pickField(r, "change_dkk"),
+    change_pct: pickField(r, "change_pct"),
+    price_change_source: "MANUAL_UPLOAD",
+    delta_validation_present: hasChangeDkk && hasChangePct,
   }));
   return { rows, parseErrors, format: "standard" };
 }
@@ -488,6 +508,9 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
 
   const headers = rawRows[headerIndex].map((value) => String(value ?? "").trim());
   const data = rawRows.slice(headerIndex + 1);
+  const normalizedHeaders = headers.map(normalizeKey);
+  const hasChangeDkk = HEADER_ALIASES.change_dkk.some((alias) => normalizedHeaders.includes(normalizeKey(alias)));
+  const hasChangePct = HEADER_ALIASES.change_pct.some((alias) => normalizedHeaders.includes(normalizeKey(alias)));
 
   const readSetting = (labelPattern: RegExp, percent = false): number | null => {
     for (const row of rawRows.slice(0, headerIndex)) {
@@ -507,6 +530,7 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
     const rows: CsvPriceRow[] = data
       .map((values) => ({
         item_number: pickWorkbookCell(values, headers, HEADER_ALIASES.item_number),
+        product_group: pickWorkbookCell(values, headers, HEADER_ALIASES.product_group),
         item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da),
         item_text_en: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_en),
         item_text_de: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_de),
@@ -520,6 +544,10 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
         price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.price_dkk),
         price_eur: pickWorkbookCell(values, headers, HEADER_ALIASES.price_eur),
         price_sek: pickWorkbookCell(values, headers, HEADER_ALIASES.price_sek),
+        change_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.change_dkk),
+        change_pct: pickWorkbookCell(values, headers, HEADER_ALIASES.change_pct),
+        price_change_source: "MANUAL_UPLOAD" as const,
+        delta_validation_present: hasChangeDkk && hasChangePct,
       }))
       .filter((row) => row.item_number.trim() !== "");
     return { rows, parseErrors: [], format: "standard" };
@@ -558,6 +586,7 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
       });
       return {
         item_number: itemNumber,
+        product_group: pickWorkbookCell(values, headers, HEADER_ALIASES.product_group, [0]),
         item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da, [2]),
         item_text_en: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_en),
         item_text_de: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_de),
@@ -571,6 +600,16 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
         price_dkk: formatWorkbookNumber(calculated.priceDkk),
         price_eur: formatWorkbookNumber(calculated.priceEur),
         price_sek: formatWorkbookNumber(calculated.priceSek),
+        change_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.change_dkk, [13]),
+        change_pct: pickWorkbookCell(values, headers, HEADER_ALIASES.change_pct, [12]),
+        price_change_source: manualDkk != null
+          ? "DIRECT_PRICE" as const
+          : massSelected
+            ? "MASS_CHANGE" as const
+            : rowChangePct != null && rowChangePct !== 0
+              ? "PERCENT_CHANGE" as const
+              : "MANUAL_UPLOAD" as const,
+        delta_validation_present: hasChangeDkk && hasChangePct,
       };
     })
     .filter((r) => {
@@ -614,14 +653,51 @@ function rawValue(r: CsvPriceRow, field: PriceField): string {
   return n == null ? "" : String(n);
 }
 
+export interface PriceDeltaValidation {
+  changeDkk: number | null;
+  changePct: number | null;
+  error: string | null;
+}
+
+const DKK_DELTA_TOLERANCE = 0.02;
+const PCT_DELTA_TOLERANCE = 0.0001;
+
+/** Recalculates workbook deltas from canonical active DKK and the uploaded final DKK. */
+export function validateUploadedPriceDelta(
+  raw: CsvPriceRow,
+  canonicalCurrentDkk: number | null,
+): PriceDeltaValidation {
+  const newPriceDkk = parsePrice(raw.price_dkk);
+  const changeDkk = newPriceDkk != null && canonicalCurrentDkk != null
+    ? Math.round((newPriceDkk - canonicalCurrentDkk) * 100) / 100
+    : null;
+  const changePct = newPriceDkk != null && canonicalCurrentDkk != null && canonicalCurrentDkk !== 0
+    ? (newPriceDkk / canonicalCurrentDkk) - 1
+    : null;
+
+  if (!raw.delta_validation_present) return { changeDkk, changePct, error: null };
+
+  const workbookDkk = parsePrice(raw.change_dkk);
+  const workbookPct = parseWorkbookPercent(raw.change_pct ?? "");
+  if (changeDkk == null ? workbookDkk != null : workbookDkk == null || Math.abs(workbookDkk - changeDkk) > DKK_DELTA_TOLERANCE) {
+    return { changeDkk, changePct, error: "Ændring DKK matcher ikke canonical nuværende pris og uploadet ny pris." };
+  }
+  if (changePct == null ? workbookPct != null : workbookPct == null || Math.abs(workbookPct - changePct) > PCT_DELTA_TOLERANCE) {
+    return { changeDkk, changePct, error: "Ændring % matcher ikke canonical nuværende pris og uploadet ny pris." };
+  }
+  return { changeDkk, changePct, error: null };
+}
+
 export function buildPreview(
   rows: CsvPriceRow[],
   existing: PriceListItem[],
   mode: PriceImportMode,
   persistedItemNumbers: ReadonlySet<string> = new Set(existing.map((item) => item.item_number.trim())),
+  canonicalActiveItems: PriceListItem[] = existing,
 ): PreviewRow[] {
   const byKey = new Map<string, PriceListItem>();
   for (const x of existing) byKey.set(x.item_number.trim(), x);
+  const activeByKey = new Map(canonicalActiveItems.map((item) => [item.item_number.trim(), item]));
 
   const seen = new Set<string>();
   const out: PreviewRow[] = [];
@@ -666,6 +742,18 @@ export function buildPreview(
     }
 
     const existingRow = byKey.get(key) ?? null;
+    if (mode === "FULL_PRICE_LIST") {
+      const canonicalActive = activeByKey.get(key) ?? null;
+      const validation = validateUploadedPriceDelta(raw, canonicalActive?.price_dkk ?? null);
+      if (validation.error) {
+        out.push({
+          rowIndex, bucket: "error", item_number: key,
+          raw, existing: existingRow, existingPersisted: persistedItemNumbers.has(key), changes: [],
+          errorMessage: validation.error,
+        });
+        return;
+      }
+    }
     if (!existingRow) {
       if (mode === "COST_ONLY") {
         out.push({
@@ -762,9 +850,9 @@ export function buildPriceImportPayload(
   mode: PriceImportMode,
   machineScope: string,
 ): PriceImportPayload {
-  const importableRows = mode === "COST_ONLY"
-    ? preview.filter((entry) => entry.existing !== null && entry.bucket !== "error")
-    : preview;
+  const importableRows = preview.filter((entry) =>
+    entry.bucket !== "error" && (mode !== "COST_ONLY" || entry.existing !== null),
+  );
   const rows = importableRows.map((entry) => {
     const raw = entry.raw;
     const itemNumber = (entry.item_number ?? raw.item_number ?? "").trim();
@@ -784,6 +872,8 @@ export function buildPriceImportPayload(
     const sek = parsePrice(raw.price_sek);
     return {
       ...costOnlyRow,
+      product_group: raw.product_group?.trim() || "",
+      price_change_source: raw.price_change_source ?? "MANUAL_UPLOAD",
       item_text_da: raw.item_text_da?.trim() || "",
       item_text_en: raw.item_text_en?.trim() || "",
       item_text_de: raw.item_text_de?.trim() || "",

@@ -20,6 +20,8 @@ export interface PriceToolCalculation {
   priceDkk: number | null;
   priceSek: number | null;
   priceEur: number | null;
+  changeDkk: number | null;
+  changePct: number | null;
   contributionMarginDkk: number | null;
   contributionMarginPct: number | null;
 }
@@ -55,6 +57,12 @@ export function calculatePriceToolValues(input: PriceToolCalculationInput): Pric
   const priceEur = priceDkk != null && settings.eurRateDkkPer1 > 0
     ? roundPriceToolMoney(priceDkk / settings.eurRateDkkPer1)
     : null;
+  const changeDkk = priceDkk != null && input.currentDkk != null
+    ? roundPriceToolMoney(priceDkk - input.currentDkk)
+    : null;
+  const changePct = priceDkk != null && input.currentDkk != null && input.currentDkk !== 0
+    ? (priceDkk / input.currentDkk) - 1
+    : null;
   const contributionMarginDkk = priceDkk != null && input.costPriceDkk != null
     ? roundPriceToolMoney(priceDkk * (1 - settings.standardDiscountPct) - input.costPriceDkk)
     : null;
@@ -62,17 +70,19 @@ export function calculatePriceToolValues(input: PriceToolCalculationInput): Pric
     ? contributionMarginDkk / priceDkk
     : null;
 
-  return { priceDkk, priceSek, priceEur, contributionMarginDkk, contributionMarginPct };
+  return { priceDkk, priceSek, priceEur, changeDkk, changePct, contributionMarginDkk, contributionMarginPct };
 }
 
 export function priceToolFormulas(row: number) {
   return {
     currentDb: `IF(OR(E${row}="",D${row}=""),"",ROUND(E${row}*(1-$B$5)-D${row},2))`,
     currentDg: `IF(OR(E${row}="",E${row}=0,H${row}=""),"",H${row}/E${row})`,
+    changePct: `IF(OR(E${row}="",E${row}=0,O${row}=""),"",O${row}/E${row}-1)`,
+    changeDkk: `IF(OR(E${row}="",O${row}=""),"",ROUND(O${row}-E${row},2))`,
     priceDkk: `IF(ISNUMBER(J${row}),J${row},IF(LOWER(TRIM(L${row}))="x",ROUND(E${row}*(1+$B$6),2),IF(ISNUMBER(K${row}),ROUND(E${row}*(1+K${row}),2),E${row})))`,
-    priceSek: `IF(M${row}="","",ROUND(M${row}/$B$3*100,2))`,
-    priceEur: `IF(M${row}="","",ROUND(M${row}/$B$4,2))`,
-    newDb: `IF(OR(M${row}="",D${row}=""),"",ROUND(M${row}*(1-$B$5)-D${row},2))`,
-    newDg: `IF(OR(M${row}="",M${row}=0,P${row}=""),"",P${row}/M${row})`,
+    priceSek: `IF(O${row}="","",ROUND(O${row}/$B$3*100,2))`,
+    priceEur: `IF(O${row}="","",ROUND(O${row}/$B$4,2))`,
+    newDb: `IF(OR(O${row}="",D${row}=""),"",ROUND(O${row}*(1-$B$5)-D${row},2))`,
+    newDg: `IF(OR(O${row}="",O${row}=0,R${row}=""),"",R${row}/O${row})`,
   };
 }

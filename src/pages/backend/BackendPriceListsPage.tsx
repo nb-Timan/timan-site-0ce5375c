@@ -287,10 +287,20 @@ export default function BackendPriceListsPage() {
           ? parsePriceWorkbook(reader.result as ArrayBuffer)
           : parsePriceCsv(String(reader.result ?? ""));
         const { rows, parseErrors: pe, format } = parsed;
-        const scopedRows = filterCsvRowsByScope(rows, productScope, groupMap);
+        const canonicalRows = rows.map((row) => ({
+          ...row,
+          product_group: groupMap.get(row.item_number.trim()) ?? "Options/accessories/other",
+        }));
+        const scopedRows = filterCsvRowsByScope(canonicalRows, productScope, groupMap);
         setParseErrors(pe);
         setImportFormat(format);
-        setPreview(buildPreview(scopedRows, exportItems, importMode, new Set(items.map((item) => item.item_number.trim()))));
+        setPreview(buildPreview(
+          scopedRows,
+          exportItems,
+          importMode,
+          new Set(items.map((item) => item.item_number.trim())),
+          activeExportItems,
+        ));
         if (scopedRows.length !== rows.length) {
           toast.info(`${rows.length - scopedRows.length} rækker blev sprunget over pga. valgt maskine.`);
         }
@@ -312,6 +322,7 @@ export default function BackendPriceListsPage() {
       const seed = buildConfiguratorSeed().filter((s) => scope === "all" || s.group === scope);
       const rows: CsvPriceRow[] = seed.map((s) => ({
         item_number: s.item_number,
+        product_group: s.group,
         item_text_da: s.item_text_da,
         cost_price_dkk: "",
         price_dkk: s.price_dkk == null ? "" : String(s.price_dkk),
@@ -320,7 +331,13 @@ export default function BackendPriceListsPage() {
       }));
       setFileName("konfigurator-seed");
       setImportFormat("standard");
-      setPreview(buildPreview(rows, exportItems, "FULL_PRICE_LIST", new Set(items.map((item) => item.item_number.trim()))));
+      setPreview(buildPreview(
+        rows,
+        exportItems,
+        "FULL_PRICE_LIST",
+        new Set(items.map((item) => item.item_number.trim())),
+        activeExportItems,
+      ));
       setTab("import");
       toast.success(`${rows.length} varer hentet fra konfiguratoren – tjek forhåndsvisning.`);
     } catch (err) {
@@ -393,7 +410,17 @@ export default function BackendPriceListsPage() {
     const nums = publishPreview.map((r) => r.item_number);
     if (nums.length === 0) return;
     setPublishBusy(true);
-    const res = await publishItems(nums);
+    const res = await publishItems(
+      nums,
+      Object.fromEntries(nums.map((itemNumber) => [
+        itemNumber,
+        groupMap.get(itemNumber) ?? "Options/accessories/other",
+      ])),
+      Object.fromEntries(nums.map((itemNumber) => [
+        itemNumber,
+        preview?.find((row) => row.item_number === itemNumber)?.raw.price_change_source ?? "",
+      ])),
+    );
     setPublishBusy(false);
     if (!res.ok || !res.summary) {
       toast.error(res.error ?? "Frigivelse fejlede.");
@@ -1026,6 +1053,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     "Ny pris DKK",
     "Prisændring %",
     "Masseændring – skriv X",
+    "Ændring %",
+    "Ændring DKK",
     "Ny pris DKK",
     "Ny pris SEK",
     "Ny pris EUR",
@@ -1052,7 +1081,7 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     ["", "", "", "Systemet beregner automatisk nye priser og avance.", "", "", "", "5. Vare A = X, B = tom, C = X, D = x. Resultat: A, C og D får +3,00%. B ændres ikke."],
     ["", "", "", "Upload samme Excel-fil igen. Systemet indlæser de nye pris-kolonner.", "", "", "", "6. Slet ikke kolonner eller rækker."],
     ["2. PRISLISTE"],
-    ["VAREDATA / IDENTIFIKATION", "", "", "", "NUVÆRENDE VÆRDIER", "", "", "", "", "DINE ÆNDRINGER - udfyld kun her", "", "", "NYE BEREGNEDE VÆRDIER - automatisk", "", "", "", "", "NOTE"],
+    ["VAREDATA / IDENTIFIKATION", "", "", "", "NUVÆRENDE VÆRDIER", "", "", "", "", "DINE ÆNDRINGER - udfyld kun her", "", "", "ÆNDRING FRA NUVÆRENDE PRIS - automatisk", "", "NYE BEREGNEDE VÆRDIER - automatisk", "", "", "", "", "NOTE"],
     headers,
     ...rows.map((row) => [
       row.group,
@@ -1062,7 +1091,11 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       row.price_dkk,
       row.price_sek,
       row.price_eur,
-      "", "", "", "", "", "", "", "", "", "", "",
+      "", "", // current DB/DG
+      "", "", "", // user changes
+      "", "", // calculated change
+      "", "", "", "", "", // calculated new values
+      "", // note
       row.item_text_en,
       row.item_text_de,
       row.item_text_it,
@@ -1100,11 +1133,13 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     ws[`H${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.currentDb };
     ws[`I${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.currentDg };
     ws[`K${r}`] = { t: "n", v: 0 };
-    ws[`M${r}`] = { t: calculated.priceDkk == null ? "s" : "n", v: calculated.priceDkk ?? "", f: formulas.priceDkk };
-    ws[`N${r}`] = { t: calculated.priceSek == null ? "s" : "n", v: calculated.priceSek ?? "", f: formulas.priceSek };
-    ws[`O${r}`] = { t: calculated.priceEur == null ? "s" : "n", v: calculated.priceEur ?? "", f: formulas.priceEur };
-    ws[`P${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.newDb };
-    ws[`Q${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.newDg };
+    ws[`M${r}`] = { t: calculated.changePct == null ? "s" : "n", v: calculated.changePct ?? "", f: formulas.changePct };
+    ws[`N${r}`] = { t: calculated.changeDkk == null ? "s" : "n", v: calculated.changeDkk ?? "", f: formulas.changeDkk };
+    ws[`O${r}`] = { t: calculated.priceDkk == null ? "s" : "n", v: calculated.priceDkk ?? "", f: formulas.priceDkk };
+    ws[`P${r}`] = { t: calculated.priceSek == null ? "s" : "n", v: calculated.priceSek ?? "", f: formulas.priceSek };
+    ws[`Q${r}`] = { t: calculated.priceEur == null ? "s" : "n", v: calculated.priceEur ?? "", f: formulas.priceEur };
+    ws[`R${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.newDb };
+    ws[`S${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.newDg };
   }
 
   const border = {
@@ -1183,6 +1218,17 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     border,
     alignment: { horizontal: "center", vertical: "center", wrapText: true },
   };
+  const deltaStyle = {
+    fill: { fgColor: { rgb: "DDEBF7" } },
+    border,
+    alignment: { vertical: "top" },
+  };
+  const deltaHeaderStyle = {
+    font: { bold: true, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "BDD7EE" } },
+    border,
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  };
   const noteStyle = {
     fill: { fgColor: { rgb: "FFFFFF" } },
     border,
@@ -1200,6 +1246,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
   };
   const numberFormat = "#,##0.00";
   const percentFormat = "0.00%";
+  const signedDeltaFormat = '+#,##0.00 "kr.";-#,##0.00 "kr.";0.00 "kr."';
+  const signedPercentFormat = "+0.00%;-0.00%;0.00%";
 
   styleCell(ws, "A1", titleStyle);
   for (let r = 2; r <= 7; r++) {
@@ -1223,7 +1271,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     if (c <= 4) styleCell(ws, groupCell, dataHeaderStyle);
     else if (c <= 9) styleCell(ws, groupCell, currentHeaderStyle);
     else if (c <= 12) styleCell(ws, groupCell, changeHeaderStyle);
-    else if (c <= 17) styleCell(ws, groupCell, outputHeaderStyle);
+    else if (c <= 14) styleCell(ws, groupCell, deltaHeaderStyle);
+    else if (c <= 19) styleCell(ws, groupCell, outputHeaderStyle);
     else styleCell(ws, groupCell, dataHeaderStyle);
   }
   for (let c = 0; c < headers.length; c++) {
@@ -1231,7 +1280,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     if (c <= 3) styleCell(ws, cell, dataHeaderStyle);
     else if (c <= 8) styleCell(ws, cell, currentHeaderStyle);
     else if (c <= 11) styleCell(ws, cell, changeHeaderStyle);
-    else if (c <= 16) styleCell(ws, cell, outputHeaderStyle);
+    else if (c <= 13) styleCell(ws, cell, deltaHeaderStyle);
+    else if (c <= 18) styleCell(ws, cell, outputHeaderStyle);
     else styleCell(ws, cell, dataHeaderStyle);
   }
   for (let r = firstDataRow; r <= lastRow; r++) {
@@ -1243,7 +1293,11 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       const cell = `${col}${r}`;
       styleCell(ws, cell, changeStyle);
     }
-    for (const col of ["M", "N", "O", "P", "Q"]) {
+    for (const col of ["M", "N"]) {
+      const cell = `${col}${r}`;
+      styleCell(ws, cell, deltaStyle);
+    }
+    for (const col of ["O", "P", "Q", "R", "S"]) {
       const cell = `${col}${r}`;
       styleCell(ws, cell, outputStyle);
     }
@@ -1251,16 +1305,18 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       const cell = `${col}${r}`;
       styleCell(ws, cell, dataStyle);
     }
-    styleCell(ws, `R${r}`, noteStyle);
-    for (const col of ["S", "T", "U", "V", "W", "X", "Y", "Z"]) styleCell(ws, `${col}${r}`, dataStyle);
-    for (const col of ["D", "E", "F", "G", "H", "J", "M", "N", "O", "P"]) {
+    styleCell(ws, `T${r}`, noteStyle);
+    for (const col of ["U", "V", "W", "X", "Y", "Z", "AA", "AB"]) styleCell(ws, `${col}${r}`, dataStyle);
+    for (const col of ["D", "E", "F", "G", "H", "J", "N", "O", "P", "Q", "R"]) {
       const cell = ws[`${col}${r}`];
       if (cell) cell.z = numberFormat;
     }
-    for (const col of ["I", "K", "Q"]) {
+    for (const col of ["I", "K", "M", "S"]) {
       const cell = ws[`${col}${r}`];
       if (cell) cell.z = percentFormat;
     }
+    if (ws[`M${r}`]) ws[`M${r}`].z = signedPercentFormat;
+    if (ws[`N${r}`]) ws[`N${r}`].z = signedDeltaFormat;
   }
 
   ws[`A${legendRow}`] = { t: "s", v: "FARVEFORKLARING" };
@@ -1268,17 +1324,19 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
   ws[`C${legendRow + 1}`] = { t: "s", v: "Grøn = nuværende værdier" };
   ws[`E${legendRow + 1}`] = { t: "s", v: "Pink = dine ændringer" };
   ws[`G${legendRow + 1}`] = { t: "s", v: "Gul = nye beregnede værdier" };
+  ws[`I${legendRow + 1}`] = { t: "s", v: "Blå = ændring fra nuværende pris" };
   styleCell(ws, `A${legendRow}`, boxHeaderStyle);
   styleCell(ws, `A${legendRow + 1}`, inputStyle);
   styleCell(ws, `C${legendRow + 1}`, currentStyle);
   styleCell(ws, `E${legendRow + 1}`, changeStyle);
   styleCell(ws, `G${legendRow + 1}`, outputStyle);
+  styleCell(ws, `I${legendRow + 1}`, deltaStyle);
 
   ws["!cols"] = [
     { wch: 22 }, { wch: 14 }, { wch: 46 }, { wch: 14 }, { wch: 15 },
     { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 15 },
-    { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-    { wch: 14 }, { wch: 12 }, { wch: 26 },
+    { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 15 }, { wch: 15 },
+    { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 26 },
     { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
     { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
   ];
@@ -1300,22 +1358,23 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     { s: { r: 4, c: 7 }, e: { r: 4, c: 12 } },
     { s: { r: 5, c: 7 }, e: { r: 5, c: 12 } },
     { s: { r: 6, c: 7 }, e: { r: 6, c: 12 } },
-    { s: { r: 8, c: 0 }, e: { r: 8, c: 17 } },
+    { s: { r: 8, c: 0 }, e: { r: 8, c: 19 } },
     { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
     { s: { r: 9, c: 4 }, e: { r: 9, c: 8 } },
     { s: { r: 9, c: 9 }, e: { r: 9, c: 11 } },
-    { s: { r: 9, c: 12 }, e: { r: 9, c: 16 } },
+    { s: { r: 9, c: 12 }, e: { r: 9, c: 13 } },
+    { s: { r: 9, c: 14 }, e: { r: 9, c: 18 } },
     { s: { r: legendRow - 1, c: 0 }, e: { r: legendRow - 1, c: 7 } },
     { s: { r: legendRow, c: 0 }, e: { r: legendRow, c: 1 } },
     { s: { r: legendRow, c: 2 }, e: { r: legendRow, c: 3 } },
     { s: { r: legendRow, c: 4 }, e: { r: legendRow, c: 5 } },
     { s: { r: legendRow, c: 6 }, e: { r: legendRow, c: 7 } },
   ];
-  ws["!autofilter"] = { ref: `A${headerRow}:Z${lastRow}` };
+  ws["!autofilter"] = { ref: `A${headerRow}:AB${lastRow}` };
   ws["!freeze"] = { xSplit: 0, ySplit: headerRow };
 
-  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:Z1");
-  range.e.c = Math.max(range.e.c, 25);
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:AB1");
+  range.e.c = Math.max(range.e.c, 27);
   range.e.r = Math.max(range.e.r, legendRow);
   ws["!ref"] = XLSX.utils.encode_range(range);
 
