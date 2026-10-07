@@ -203,7 +203,10 @@ describe('Configurator final commercial-state matrix', () => {
   it('does not use locale as a Configurator capability or delivery-startup condition', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/ConfiguratorPage.tsx'), 'utf8');
     expect(source).not.toMatch(/\b(?:lang|state\.language)\s*===\s*['"]/);
-    expect(source).toContain("const needsStartup = displayCurrency === 'DKK' && state.deliveryMethod === 'deliver';");
+    expect(source).toContain("const needsStartup = state.deliveryMethod === 'deliver';");
+    expect(source).toContain('resolveConfiguratorMarketCountry(');
+    expect(source).toContain('selectedCustomerDealer?.country');
+    expect(source).toContain('effectiveUser?.country');
   });
 
   it('keeps campaign-disabled and demo state independent from locale presentation', () => {

@@ -60,6 +60,7 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     portal_role: (row.portal_role as string | null) ?? null,
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,
+    country: (row.country as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
     portal_variant: (row.portal_variant as string | null) ?? 'standard',
     module_access: ((row.allowed_modules as string[] | null) ?? (row.module_access as string[] | null)) ?? null,
@@ -223,6 +224,7 @@ export function mergeEffectivePortalUser(
     initials: target.initials || appUser.initials,
     dealer_number: viewUser?.dealerNumber ?? target.dealer_number ?? null,
     company_dealer: viewUser?.companyDealer ?? target.company_dealer ?? null,
+    country: target.country ?? appUser.country ?? null,
   };
 }
 

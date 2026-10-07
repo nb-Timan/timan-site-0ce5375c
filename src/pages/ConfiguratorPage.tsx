@@ -41,6 +41,7 @@ import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
 import { ConfiguratorDeliveryAddress } from '@/components/configurator/ConfiguratorDeliveryAddress';
 import { ConfiguratorNettoLines } from '@/components/configurator/ConfiguratorNettoLines';
+import { ConfiguratorStartupOptions } from '@/components/configurator/ConfiguratorStartupOptions';
 import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
 import {
   ConfiguratorDemoMachineControl,
@@ -136,6 +137,10 @@ import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
 import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
+import {
+  reconcileConfiguratorStartupOption,
+  resolveConfiguratorMarketCountry,
+} from '@/lib/configuratorStartup';
 import {
   canApplyExtraDealerDiscount as resolveExtraDealerDiscountPermission,
   canSelectConfiguratorDemo,
@@ -659,6 +664,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       });
     return () => { cancelled = true; };
   }, [isAcademyMode, selectedCustomerDealer]);
+
+  const activeConfiguratorCountry = resolveConfiguratorMarketCountry(
+    selectedCustomerDealer?.country,
+    viewAsResolving ? null : effectiveUser?.country,
+    isAcademyMode ? 'DK' : null,
+  );
+
+  useEffect(() => {
+    if (!activeConfiguratorCountry || hasFrozenPricing) return;
+    const reconciled = reconcileConfiguratorStartupOption(activeConfiguratorCountry, state.deliveryDeliverStartup);
+    if (reconciled === state.deliveryDeliverStartup) return;
+    setState(current => ({ ...current, deliveryDeliverStartup: reconciled }));
+  }, [activeConfiguratorCountry, hasFrozenPricing, setState, state.deliveryDeliverStartup]);
 
   useEffect(() => {
     if (!selectedCustomerDealer || dealerContactsLoading) return;
@@ -3131,7 +3149,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   ]);
 
   // ======== Delivery startup required check ========
-  const needsStartup = displayCurrency === 'DKK' && state.deliveryMethod === 'deliver';
+  const needsStartup = state.deliveryMethod === 'deliver';
   const canProceedStep2 = !!state.date && !!state.deliveryMethod && (!needsStartup || !!state.deliveryDeliverStartup);
 
   // ======== Startup pricing in calc ========
@@ -3936,28 +3954,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   ))}
                 </div>
 
-                {/* Delivery startup sub-options (Danish only, deliver method) */}
+                {/* Delivery startup sub-options are controlled by the canonical market country. */}
                 {needsStartup && (
-                  <div className="mt-6 max-w-2xl mx-auto text-left">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">{T('startupTitle')}</h3>
-                    <div className="space-y-2">
-                      {[
-                        { value: 'no_bridge', label: T('startupNoBridge') },
-                        { value: 'with_bridge', label: T('startupWithBridge') },
-                        { value: 'other', label: T('startupOther') },
-                      ].map(opt => (
-                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
-                          <input type="radio" name="deliver-startup" value={opt.value} className="accent-emerald-600"
-                            checked={state.deliveryDeliverStartup === opt.value}
-                            onChange={() => setState(s => ({ ...s, deliveryDeliverStartup: opt.value }))} />
-                          <span className="text-sm text-gray-700">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {!state.deliveryDeliverStartup && (
-                      <p className="text-red-500 text-xs mt-2">{T('startupRequired')}</p>
-                    )}
-                  </div>
+                  <ConfiguratorStartupOptions
+                    country={activeConfiguratorCountry}
+                    value={state.deliveryDeliverStartup}
+                    translate={T}
+                    onChange={option => setState(current => ({ ...current, deliveryDeliverStartup: option }))}
+                  />
                 )}
 
                 <div className="flex justify-between max-w-md mx-auto mt-8">
