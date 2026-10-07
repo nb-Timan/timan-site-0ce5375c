@@ -6,6 +6,8 @@ import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlannin
 import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { PlanningAvailabilityBadge } from '@/components/configurator/PlanningAvailabilityBadge';
 import { canReadConfiguratorPlanningAvailability } from '@/lib/portalAccess';
+import { t } from '@/lib/i18n/translations';
+import { PORTAL_LANGUAGE_CODES } from '@/lib/portalLanguages';
 import type { ConfiguratorState } from '@/types/configurator';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
@@ -17,7 +19,7 @@ describe('Planning Configurator gate', () => {
   it('waits for View-as resolution before enabling Planning in Configurator', () => {
     const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
     expect(source).toContain('useEffectivePortalUserState(appUser)');
-    expect(source).toContain("!viewAsResolving\n    && hasAreaAccess(resolvedEffectiveUser, 'planning')");
+    expect(source).toMatch(/!viewAsResolving\r?\n\s+&& canReadConfiguratorPlanningAvailability\(effectiveUser\)/);
   });
 
   it('makes no Planning request while the capability is off', async () => {
@@ -53,24 +55,22 @@ describe('Planning Configurator gate', () => {
     expect(worstPlanningStatus(['green', 'red'])).toBe('red');
   });
 
-  it('shows missing supply as neutral unknown rather than a false red shortage', () => {
+  it('shows missing supply explicitly instead of implying confirmed availability', () => {
     render(<PlanningAvailabilityBadge language="da" availability={{
       status: 'unknown', sku: '712000', free_stock_qty: 0,
       next_incoming_date: null, next_incoming_qty: 0,
     }} />);
-    expect(screen.getByText('Tilgængelighed ukendt')).toBeInTheDocument();
-    expect(screen.queryByText('Ledige ved ønsket dato')).not.toBeInTheDocument();
-    expect(document.querySelector('.bg-slate-400')).toBeInTheDocument();
+    expect(screen.getByText('Lagerstatus:')).toBeInTheDocument();
+    expect(screen.getByText('Næste levering:')).toBeInTheDocument();
+    expect(screen.getAllByText('Kendes ikke')).toHaveLength(2);
+    expect(screen.queryByText('Tilgængelig')).not.toBeInTheDocument();
   });
 
-  it.each([
-    ['green', 'Tilgængelig', 'bg-emerald-600'],
-    ['yellow', 'Kræver planlægning', 'bg-amber-500'],
-    ['red', 'Ikke tilgængelig', 'bg-red-600'],
-    ['unknown', 'Tilgængelighed ukendt', 'bg-slate-400'],
-  ] as const)('renders the server %s status unchanged in Configurator', async (status, label, color) => {
+  it.each(['green', 'yellow', 'red'] as const)(
+    'shows canonical stock and delivery values for the server %s status',
+    async (status) => {
     mocks.rpc.mockResolvedValue({ data: {
-      availability_status: status, sku: '712000', free_stock_qty: 8,
+      availability_status: status, sku: '712000', free_stock_qty: status === 'red' ? 0 : 8,
       next_incoming_date: '2026-12-01', next_incoming_qty: 5,
     }, error: null });
     const { result } = renderHook(() => usePlanningAvailability(true,
@@ -80,8 +80,27 @@ describe('Planning Configurator gate', () => {
       p_sku: '712000', p_requested_date: '2026-12-15', p_quantity: 8,
     });
     render(<PlanningAvailabilityBadge language="da" availability={result.current['712000']} />);
-    expect(screen.getByText(label)).toBeInTheDocument();
-    expect(document.querySelector(`.${color}`)).toBeInTheDocument();
+    expect(screen.getByText(status === 'red' ? '0 stk.' : '8 stk.')).toBeInTheDocument();
+    expect(screen.getByText('01-12-2026')).toBeInTheDocument();
+    expect(screen.queryByText('2026-12-01')).not.toBeInTheDocument();
+  });
+
+  it('keeps stock and delivery unknown states independent', () => {
+    render(<PlanningAvailabilityBadge language="da" availability={{
+      status: 'green', sku: '712000', free_stock_qty: 2,
+      next_incoming_date: null, next_incoming_qty: 0,
+    }} />);
+    expect(screen.getByText('2 stk.')).toBeInTheDocument();
+    expect(screen.getByText('Kendes ikke')).toBeInTheDocument();
+  });
+
+  it('localizes the stock labels, unknown value, units and delivery date in all portal languages', () => {
+    PORTAL_LANGUAGE_CODES.forEach((language) => {
+      expect(t('planningStockStatus', language)).not.toBe('planningStockStatus');
+      expect(t('planningNextDelivery', language)).not.toBe('planningNextDelivery');
+      expect(t('planningValueUnknown', language)).not.toBe('planningValueUnknown');
+      expect(t('planningUnitShort', language)).not.toBe('planningUnitShort');
+    });
   });
 
   it.each([

@@ -2,37 +2,52 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import type { PlanningAvailability } from '@/hooks/usePlanningAvailability';
 
-const STATUS_KEY = {
-  green: 'planningGreen',
-  yellow: 'planningYellow',
-  red: 'planningRed',
-  unknown: 'planningUnknown',
-} as const;
-const STATUS_COLOR = {
-  green: 'bg-emerald-600',
-  yellow: 'bg-amber-500',
-  red: 'bg-red-600',
-  unknown: 'bg-slate-400',
-} as const;
+const DATE_LOCALE: Record<PortalUiLanguage, string> = {
+  da: 'da-DK',
+  en: 'en-GB',
+  de: 'de-DE',
+  it: 'it-IT',
+  hu: 'hu-HU',
+  sv: 'sv-SE',
+  fr: 'fr-FR',
+  pl: 'pl-PL',
+  cs: 'cs-CZ',
+};
+
+function formatPlanningAvailabilityDate(value: string, language: PortalUiLanguage): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const formatter = new Intl.DateTimeFormat(DATE_LOCALE[language], {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  if (language !== 'da') return formatter.format(date);
+
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return `${parts.day}-${parts.month}-${parts.year}`;
+}
 
 export function PlanningAvailabilityBadge({ availability, language }: {
   availability: PlanningAvailability | null | undefined;
   language: PortalUiLanguage;
 }) {
-  const status = availability?.status ?? 'unknown';
+  const unknownValue = t('planningValueUnknown', language);
+  const stockValue = availability && availability.status !== 'unknown'
+    ? `${availability.free_stock_qty} ${t('planningUnitShort', language)}`
+    : unknownValue;
+  const nextDeliveryValue = availability?.next_incoming_date
+    ? formatPlanningAvailabilityDate(availability.next_incoming_date, language)
+    : unknownValue;
+
   return (
-    <details className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-700">
-      <summary className="flex min-h-9 cursor-pointer items-center gap-2 font-medium">
-        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_COLOR[status]}`} aria-hidden="true" />
-        <span>{t(STATUS_KEY[status], language)}</span>
-      </summary>
-      {availability && status !== 'unknown' && (
-        <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 pb-1">
-          <dt>{t('planningStock', language)}</dt><dd className="tabular-nums">{availability.free_stock_qty}</dd>
-          <dt>{t('planningNextAvailable', language)}</dt><dd>{availability.next_incoming_date ?? '—'}</dd>
-          <dt>{t('planningIncomingUnits', language)}</dt><dd className="tabular-nums">{availability.next_incoming_qty}</dd>
-        </dl>
-      )}
-    </details>
+    <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t border-slate-200 pt-2 text-xs text-slate-700">
+      <dt>{t('planningStockStatus', language)}:</dt>
+      <dd className="text-right font-medium tabular-nums">{stockValue}</dd>
+      <dt>{t('planningNextDelivery', language)}:</dt>
+      <dd className="text-right font-medium tabular-nums">{nextDeliveryValue}</dd>
+    </dl>
   );
 }
