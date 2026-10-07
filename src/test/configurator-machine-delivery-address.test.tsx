@@ -64,10 +64,16 @@ describe('per-machine delivery destination snapshots', () => {
     render(<Editor qty={1} />);
     expect(screen.getAllByTestId(/^machine-delivery-/)).toHaveLength(1);
     expect(screen.getByTestId('machine-delivery-m0_1')).toHaveAttribute('open');
+    expect(screen.queryByText('Tilpas leveringsadresse pr. maskine')).toBeNull();
   });
 
   it('has two compact sections for two identical machines and no old helper', () => {
     render(<Editor />);
+    expect(screen.queryByTestId('machine-delivery-m0_1')).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Tilpas leveringsadresse pr. maskine' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByTestId(/^machine-delivery-/)).toHaveLength(2);
     expect(screen.getByTestId('machine-delivery-m0_1')).not.toHaveAttribute('open');
     expect(screen.queryByText('Adressen hentes fra kunde-/forhandleroplysningerne i Trin 4.')).toBeNull();
@@ -75,15 +81,22 @@ describe('per-machine delivery destination snapshots', () => {
 
   it('copies canonical dealer data for machine 1, edits machine 2 and reuses both in step 4', () => {
     render(<Editor />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tilpas leveringsadresse pr. maskine' }));
     const first = within(screen.getByTestId('machine-delivery-m0_1'));
     const second = within(screen.getByTestId('machine-delivery-m0_2'));
     fireEvent.click(first.getByLabelText('Brug forhandlerens adresse'));
     fireEvent.change(second.getByLabelText('Adresse'), { target: { value: 'QA Warehouse 9' } });
     expect(first.getByText(/Dealer Street 2/)).toBeTruthy();
     expect(second.getByLabelText('Indtast anden adresse')).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Tilpas leveringsadresse pr. maskine' }));
+    expect(screen.queryByTestId('machine-delivery-m0_1')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tilpas leveringsadresse pr. maskine' }));
     fireEvent.click(screen.getByText('Step 4'));
-    expect(first.getByLabelText('Brug forhandlerens adresse')).toBeChecked();
-    expect(second.getByLabelText('Adresse')).toHaveValue('QA Warehouse 9');
+    expect(screen.queryByRole('button', { name: 'Tilpas leveringsadresse pr. maskine' })).toBeNull();
+    const reopenedFirst = within(screen.getByTestId('machine-delivery-m0_1'));
+    const reopenedSecond = within(screen.getByTestId('machine-delivery-m0_2'));
+    expect(reopenedFirst.getByLabelText('Brug forhandlerens adresse')).toBeChecked();
+    expect(reopenedSecond.getByLabelText('Adresse')).toHaveValue('QA Warehouse 9');
   });
 
   it('does not overwrite customer data or dealer master snapshot', () => {
@@ -222,6 +235,7 @@ describe('per-machine delivery destination snapshots', () => {
     for (const language of ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs']) {
       expect(t('useDealerDeliveryAddress', language)).not.toBe('useDealerDeliveryAddress');
       expect(t('enterDeliveryAddress', language)).not.toBe('enterDeliveryAddress');
+      expect(t('customizeMachineDeliveryAddresses', language)).not.toBe('customizeMachineDeliveryAddresses');
     }
   });
 });

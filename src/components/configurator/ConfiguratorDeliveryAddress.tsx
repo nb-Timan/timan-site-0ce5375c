@@ -1,4 +1,5 @@
-import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, MapPin } from 'lucide-react';
 import type { ConfiguratorState, MachineDeliveryAddress } from '@/types/configurator';
 import { PRODUCTS, getLocalizedName } from '@/data/machines';
 import {
@@ -23,9 +24,22 @@ const fields = [
 export function ConfiguratorDeliveryAddress({ state, variant, disabled = false, T, onChange }: ConfiguratorDeliveryAddressProps) {
   const units = deliveryMachineUnits(state);
   const dealer = dealerDeliveryAddress(state);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const hasMultipleAddresses = variant === 'step2' && units.length > 1;
   return (
     <div className="space-y-3 text-left" data-testid={`delivery-address-${variant}`}>
-      {units.map(unit => {
+      {hasMultipleAddresses && (
+        <button
+          type="button"
+          aria-expanded={editorOpen}
+          onClick={() => setEditorOpen(open => !open)}
+          className="mx-auto flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+        >
+          <MapPin aria-hidden="true" className="h-4 w-4" />
+          {T('customizeMachineDeliveryAddresses')}
+        </button>
+      )}
+      {(!hasMultipleAddresses || editorOpen) && units.map(unit => {
         const destination = resolveDeliveryDestination(state, unit.unitNumber);
         const snapshot = state.machineDeliveryAddresses?.[unit.key];
         const mode = snapshot?.mode ?? (destination.source === 'alternative' ? 'manual' : destination.source);
