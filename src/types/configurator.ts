@@ -90,6 +90,10 @@ export interface SubItem {
   specs?: TechSpec[];
   subItems?: SubItem[];
   isNew?: boolean;
+  /** Canonical relation metadata used by the shared Configurator hierarchy. */
+  group?: string;
+  relationType?: 'variant' | 'option';
+  variantLabelKey?: string;
 }
 
 export interface Accessory {
@@ -115,6 +119,10 @@ export interface Accessory {
   subItems?: SubItem[];
   looseToolMachine?: 'RC-1000S' | 'Timan 3330' | 'Timan 2620';
   isNew?: boolean;
+  /** Non-commercial family node. It is never persisted or priced as a line. */
+  isProductGroup?: boolean;
+  relationType?: 'variant' | 'option';
+  variantLabelKey?: string;
 }
 
 export interface Machine {

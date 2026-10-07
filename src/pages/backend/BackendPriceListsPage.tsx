@@ -62,6 +62,7 @@ import {
   groupOrderIndex,
   type ProductGroupKey,
 } from "@/lib/configuratorPriceSeed";
+import { configuratorProductRelations } from '@/lib/configuratorProductHierarchy';
 import {
   buildPublishPreview,
   listPriceListReleases,
@@ -351,6 +352,17 @@ export default function BackendPriceListsPage() {
     const wb = XLSX.utils.book_new();
     const ws = buildPriceWorkbookSheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, "Prisliste");
+    const hierarchyRows = configuratorProductRelations('Timan 3330').map((relation) => ({
+      Maskintype: relation.machine_type,
+      'Overordnet varenr.': relation.parent_item_number,
+      'Underordnet varenr.': relation.child_item_number,
+      Relation: relation.relation_type,
+      Valggruppe: relation.selection_group || '',
+      Sortering: relation.sort_order,
+    }));
+    if (hierarchyRows.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hierarchyRows), 'Produktstruktur');
+    }
     const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);

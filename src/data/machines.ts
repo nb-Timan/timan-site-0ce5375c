@@ -2,6 +2,11 @@ import { Machine, Accessory, Language, type ConfiguratorLocale } from '@/types/c
 import { getCurrentProductPrice, notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
 import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
 import { convertCurrency, currencyFromLanguage, type Currency } from '@/lib/currency';
+import {
+  buildConfiguratorProductHierarchy,
+  replaceConfiguratorProductRelations,
+  type ConfiguratorProductRelation,
+} from '@/lib/configuratorProductHierarchy';
 
 // ===== CONSTANTS =====
 export const ACC_ID_WIRE_HARNESS = '412614';
@@ -62,7 +67,24 @@ function resolveCatalogAccessory(item: Accessory): Accessory {
 export function replacePublishedConfiguratorPrices(rows: PublishedConfiguratorPrice[]): void {
   replaceProductMaster(rows);
   PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]));
-  ACCESSORIES = Object.fromEntries(Object.entries(BASE_ACCESSORIES).map(([key, items]) => [key, items.map(resolveCatalogAccessory)]));
+  ACCESSORIES = resolveAccessories();
+  notifyProductMaster();
+}
+
+export function replacePublishedConfiguratorRelations(rows: ConfiguratorProductRelation[]): void {
+  replaceConfiguratorProductRelations(rows);
+  ACCESSORIES = resolveAccessories();
+  notifyProductMaster();
+}
+
+export function replacePublishedConfiguratorCatalog(
+  rows: PublishedConfiguratorPrice[],
+  relations: ConfiguratorProductRelation[],
+): void {
+  replaceProductMaster(rows);
+  replaceConfiguratorProductRelations(relations);
+  PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]));
+  ACCESSORIES = resolveAccessories();
   notifyProductMaster();
 }
 
@@ -73,16 +95,39 @@ export function clearPublishedConfiguratorPricesForTest(): void {
 // ===== SUB-ITEMS FACTORY =====
 const SWEEPER_SUB_ITEMS_TEMPLATE = [
   { id: '721122', varenr: '721122',
-    name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz' },
+    name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz', sv: 'Fabriksmontering av centerslang för sop-/sugenhet T2 och T3', fr: 'Montage en usine du flexible central pour balayeuse-aspiratrice T2 et T3', pl: 'Montaż fabryczny węża centralnego do zamiatarko-odkurzacza T2 i T3', cs: 'Tovární montáž středové hadice pro zametací/sací jednotku T2 a T3' },
     priceDKK: 3100, priceEUR: 420
   },
   { id: 'V34-029', varenr: 'V34-029',
-    name: { da: 'Vogn for afmontering af redskaber bag', en: 'Trolley for removing rear implements', de: 'Wagen zum Abmontieren von Heckgeräten', it: 'Carrello per smontaggio attrezzi posteriori', hu: 'Kocsi a hátsó eszközök leszereléséhez' },
+    name: { da: 'Vogn for afmontering af redskaber bag', en: 'Trolley for removing rear implements', de: 'Wagen zum Abmontieren von Heckgeräten', it: 'Carrello per smontaggio attrezzi posteriori', hu: 'Kocsi a hátsó eszközök leszereléséhez', sv: 'Vagn för demontering av bakre redskap', fr: 'Chariot pour le démontage des outils arrière', pl: 'Wózek do demontażu osprzętu tylnego', cs: 'Vozík pro demontáž zadního nářadí' },
     priceDKK: 6600, priceEUR: 890,
     videoUrl: 'https://www.youtube.com/watch?v=7_rCEdoygp8',
     imageUrl: 'https://img.youtube.com/vi/7_rCEdoygp8/maxresdefault.jpg'
   }
 ];
+
+const SWEEPER_PRODUCT_GROUPS: Record<string, Accessory> = {
+  '720131': {
+    id: '720131', varenr: '720131', priceDKK: 0, priceEUR: 0,
+    name: {
+      da: 'T2 Opsamlingstank med recirkulering', en: 'T2 collection tank with recirculation',
+      de: 'T2 Sammelbehälter mit Rezirkulation', it: 'Serbatoio di raccolta T2 con ricircolo',
+      hu: 'T2 gyűjtőtartály recirkulációval', sv: 'T2 uppsamlingstank med recirkulation',
+      fr: 'Cuve de récupération T2 avec recirculation', pl: 'Zbiornik zbiorczy T2 z recyrkulacją',
+      cs: 'Sběrná nádrž T2 s recirkulací',
+    },
+  },
+  '331122': {
+    id: '331122', varenr: '331122', priceDKK: 0, priceEUR: 0,
+    name: {
+      da: 'T3 Opsamlingstank med tørsug', en: 'T3 collection tank with dry vacuum',
+      de: 'T3 Sammelbehälter mit Trockensaugung', it: 'Serbatoio di raccolta T3 con aspirazione a secco',
+      hu: 'T3 gyűjtőtartály száraz szívással', sv: 'T3 uppsamlingstank med torrsug',
+      fr: 'Cuve de récupération T3 avec aspiration à sec', pl: 'Zbiornik zbiorczy T3 z odsysaniem na sucho',
+      cs: 'Sběrná nádrž T3 se suchým odsáváním',
+    },
+  },
+};
 
 function createUniqueSweeperSubItems(parentId: string) {
   return SWEEPER_SUB_ITEMS_TEMPLATE.map(item => ({
@@ -651,10 +696,10 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
     { id: '712174', varenr: '712174', name: { da: 'Solskærm justerbar', en: 'Adjustable sun visor', de: 'Verstellbare Sonnenblende', it: 'Aletta parasole regolabile', hu: 'Állítható napellenző' }, priceDKK: 775, priceEUR: 105, sectionStart: 'misc_section' },
     // Sweeper implements
     { id: 'SWEEP_HEADER', varenr: '', name: { da: 'Feje/Sug Redskaber', en: 'Sweep/Vac Implements', de: 'Kehr-/Sauggeräte', it: 'Attrezzature spazzatura/aspirazione', hu: 'Seprés/szívó eszközök' }, priceDKK: 0, priceEUR: 0, isHeader: true },
-    { id: '720125', varenr: '720125', name: { da: 'T2 Opsamlingstank uden højtryksslange', en: 'T2 collection tank without pressure washer hose', de: 'T2 Sammelbehälter ohne Hochdruckschlauch', it: 'Serbatoio di raccolta T2 senza tubo alta pressione', hu: 'T2 gyűjtőtartály magasnyomású tömlő nélkül' }, priceDKK: 94860, priceEUR: 12770, videoUrl: 'https://www.youtube.com/watch?v=3v-5j569Rik', imageUrl: 'https://img.youtube.com/vi/3v-5j569Rik/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720125') },
-    { id: '720130', varenr: '720130', name: { da: 'T2 Opsamlingstank inkl. højtryksrenser', en: 'T2 collection tank incl. pressure washer', de: 'T2 Sammelbehälter inkl. Hochdruckreiniger', it: 'Serbatoio di raccolta T2 incl. idropulitrice', hu: 'T2 gyűjtőtartály magasnyomású mosóval' }, priceDKK: 107800, priceEUR: 14510, videoUrl: 'https://www.youtube.com/watch?v=SNy30jHCCvo', imageUrl: 'https://img.youtube.com/vi/SNy30jHCCvo/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720130') },
-    { id: '720132', varenr: '720132', name: { da: 'T3 Opsamlingstank med tørsug', en: 'T3 collection tank with dry vacuum', de: 'T3 Sammelbehälter mit Trockensaugung', it: 'Serbatoio di raccolta T3 con aspirazione a secco', hu: 'T3 gyűjtőtartály száraz szívással' }, priceDKK: 84860, priceEUR: 10370, subItems: createUniqueSweeperSubItems('720132') },
-    { id: '720133', varenr: '720133', name: { da: 'T3 Opsamlingstank med tørsug og højtryksrenser', en: 'T3 collection tank with dry vacuum and pressure washer', de: 'T3 Sammelbehälter mit Trockensaugung und Hochdruckreiniger', it: 'Serbatoio di raccolta T3 con aspirazione a secco e idropulitrice', hu: 'T3 gyűjtőtartály száraz szívással és magasnyomású mosóval' }, priceDKK: 97860, priceEUR: 11440, subItems: createUniqueSweeperSubItems('720133') },
+    { id: '720125', varenr: '720125', name: { da: 'T2 Opsamlingstank uden højtryksslange', en: 'T2 collection tank without pressure washer hose', de: 'T2 Sammelbehälter ohne Hochdruckschlauch', it: 'Serbatoio di raccolta T2 senza tubo alta pressione', hu: 'T2 gyűjtőtartály magasnyomású tömlő nélkül', sv: 'T2 uppsamlingstank utan högtrycksslang', fr: 'Cuve de récupération T2 sans flexible haute pression', pl: 'Zbiornik zbiorczy T2 bez węża wysokociśnieniowego', cs: 'Sběrná nádrž T2 bez vysokotlaké hadice' }, priceDKK: 94860, priceEUR: 12770, videoUrl: 'https://www.youtube.com/watch?v=3v-5j569Rik', imageUrl: 'https://img.youtube.com/vi/3v-5j569Rik/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720125') },
+    { id: '720130', varenr: '720130', name: { da: 'T2 Opsamlingstank inkl. højtryksrenser', en: 'T2 collection tank incl. pressure washer', de: 'T2 Sammelbehälter inkl. Hochdruckreiniger', it: 'Serbatoio di raccolta T2 incl. idropulitrice', hu: 'T2 gyűjtőtartály magasnyomású mosóval', sv: 'T2 uppsamlingstank inkl. högtryckstvätt', fr: 'Cuve de récupération T2 avec nettoyeur haute pression', pl: 'Zbiornik zbiorczy T2 z myjką ciśnieniową', cs: 'Sběrná nádrž T2 včetně vysokotlakého čističe' }, priceDKK: 107800, priceEUR: 14510, videoUrl: 'https://www.youtube.com/watch?v=SNy30jHCCvo', imageUrl: 'https://img.youtube.com/vi/SNy30jHCCvo/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720130') },
+    { id: '720132', varenr: '720132', name: { da: 'T3 Opsamlingstank med tørsug', en: 'T3 collection tank with dry vacuum', de: 'T3 Sammelbehälter mit Trockensaugung', it: 'Serbatoio di raccolta T3 con aspirazione a secco', hu: 'T3 gyűjtőtartály száraz szívással', sv: 'T3 uppsamlingstank med torrsug', fr: 'Cuve de récupération T3 avec aspiration à sec', pl: 'Zbiornik zbiorczy T3 z odsysaniem na sucho', cs: 'Sběrná nádrž T3 se suchým odsáváním' }, priceDKK: 84860, priceEUR: 10370, subItems: createUniqueSweeperSubItems('720132') },
+    { id: '720133', varenr: '720133', name: { da: 'T3 Opsamlingstank med tørsug og højtryksrenser', en: 'T3 collection tank with dry vacuum and pressure washer', de: 'T3 Sammelbehälter mit Trockensaugung und Hochdruckreiniger', it: 'Serbatoio di raccolta T3 con aspirazione a secco e idropulitrice', hu: 'T3 gyűjtőtartály száraz szívással és magasnyomású mosóval', sv: 'T3 uppsamlingstank med torrsug och högtryckstvätt', fr: 'Cuve de récupération T3 avec aspiration à sec et nettoyeur haute pression', pl: 'Zbiornik zbiorczy T3 z odsysaniem na sucho i myjką ciśnieniową', cs: 'Sběrná nádrž T3 se suchým odsáváním a vysokotlakým čističem' }, priceDKK: 97860, priceEUR: 11440, subItems: createUniqueSweeperSubItems('720133') },
     { id: '730030', varenr: '730030', name: { da: 'Forkostesæt med 2 koste til fejesug forberedt til venstre og højre sidekost', en: 'Front broom set with 2 brooms (prepared for left/right side broom)', de: 'Frontbesensatz mit 2 Besen', it: 'Kit spazzole anteriori con 2 spazzole', hu: 'Első seprőkészlet 2 seprővel' }, priceDKK: 53800, priceEUR: 7245, videoUrl: 'https://www.youtube.com/watch?v=N9S1NkYlDgg&t=21s', imageUrl: 'https://img.youtube.com/vi/N9S1NkYlDgg/maxresdefault.jpg' },
     { id: '720121', varenr: '720121', name: { da: 'Sidebørste arm højre/venstre med vanddyse', en: 'Side broom arm left/right with water nozzle', de: 'Seitenbesenarm rechts/links mit Wasserdüse', it: 'Braccio spazzola laterale destra/sinistra con ugello acqua', hu: 'Oldalseprő kar jobb/bal vízfúvókával' }, priceDKK: 9150, priceEUR: 1235, requires: '730030', isQtyInput: true },
     { id: '720599', varenr: '720599', name: { da: 'Børste for sidekost (Low noise)', en: 'Side broom brush (Low noise)', de: 'Bürste für Seitenbesen (Low noise)', it: 'Spazzola per spazzola laterale (Low noise)', hu: 'Oldalseprő kefe (Low noise)' }, priceDKK: 900, priceEUR: 125, requires: '730030', isQtyInput: true },
@@ -969,6 +1014,29 @@ const LOOSE_TERMIT_ITEMS: Accessory[] = [
 const ALLOWED_EXTRA_VARENR = new Set(['411891', '411908']);
 const LOOSE_3330_WEEDBRUSH_VARENR = new Set(['730600', '730601', '50101017', '50101018', '50101019', '50101020']);
 
+function remapFactoryCenterHoseForLoose(item: Accessory): Accessory {
+  const varenr = String(item.varenr || '');
+  const nested = item.subItems?.map((sub) => remapFactoryCenterHoseForLoose(sub as Accessory));
+  if (!PACKAGING_TRIGGER_IDS.includes(varenr)) return { ...item, ...(nested ? { subItems: nested } : {}) };
+  return {
+    ...item,
+    subItems: (nested || []).map((sub) => String(sub.varenr || '') !== '721122' ? sub : {
+      ...sub,
+      id: `721059_${varenr}`,
+      varenr: '721059',
+      name: {
+        da: 'Centerslange til T2 Timan 3330 (eftermontering)',
+        en: 'Center hose for T2 Timan 3330 (retrofit)',
+        de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)',
+        it: 'Tubo centrale per T2 Timan 3330 (retrofit)',
+        hu: 'Központi tömlő T2 Timan 3330 (utólagos)',
+      },
+      priceDKK: 2550,
+      priceEUR: 345,
+    }),
+  };
+}
+
 export function getLooseToolAccessories(): Accessory[] {
   const rcAll = ACCESSORIES['RC-1000S'] || [];
   const timanAll = ACCESSORIES['Timan 3330'] || [];
@@ -1031,30 +1099,7 @@ export function getLooseToolAccessories(): Accessory[] {
   const timanRedskaberForLoose = timanRedskaber.map(item => {
     if (!item || item.isHeader) return item;
     const varenr = String(item.varenr || '');
-    let next: Accessory = item;
-    // For loose-tool flow, swap factory-mount 721122 sub-item with
-    // retrofit 721059 under the T2/T3 collection tank sweeper trigger items.
-    if (PACKAGING_TRIGGER_IDS.includes(varenr) && Array.isArray(item.subItems)) {
-      const remappedSubs = item.subItems.map(sub => {
-        if (!sub) return sub;
-        if (String(sub.varenr || '') !== '721122') return sub;
-        return {
-          ...sub,
-          id: `721059_${varenr}`,
-          varenr: '721059',
-          name: {
-            da: 'Centerslange til T2 Timan 3330 (eftermontering)',
-            en: 'Center hose for T2 Timan 3330 (retrofit)',
-            de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)',
-            it: 'Tubo centrale per T2 Timan 3330 (retrofit)',
-            hu: 'Központi tömlő T2 Timan 3330 (utólagos)',
-          },
-          priceDKK: 2550,
-          priceEUR: 345,
-        };
-      });
-      next = { ...item, subItems: remappedSubs };
-    }
+    const next = remapFactoryCenterHoseForLoose(item);
     if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return { ...next, looseToolMachine: 'Timan 3330' as const };
     const cloned = { ...next, id: `LT3330_${next.id || varenr}` };
     if (varenr !== '730600') cloned.requires = 'LT3330_730600';
@@ -1161,13 +1206,18 @@ export function getMachineById(id: string): Machine | undefined {
   return PRODUCTS[id];
 }
 
+function resolveAccessories(): Record<string, Accessory[]> {
+  return Object.fromEntries(Object.entries(BASE_ACCESSORIES).map(([key, items]) => [
+    key,
+    buildConfiguratorProductHierarchy(key, items, SWEEPER_PRODUCT_GROUPS).map(resolveCatalogAccessory),
+  ]));
+}
+
 // Resolved current catalog; structural originals are never mutated.
 export let PRODUCTS = Object.fromEntries(
   Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]),
 ) as Record<string, Machine>;
-export let ACCESSORIES = Object.fromEntries(
-  Object.entries(BASE_ACCESSORIES).map(([key, items]) => [key, items.map(resolveCatalogAccessory)]),
-) as Record<string, Accessory[]>;
+export let ACCESSORIES = resolveAccessories();
 
 // Legacy compatibility (structural catalog only)
 export const machines = Object.values(PRODUCTS);

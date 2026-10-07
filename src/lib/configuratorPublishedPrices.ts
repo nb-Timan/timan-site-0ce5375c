@@ -1,7 +1,8 @@
 import {
-  replacePublishedConfiguratorPrices,
+  replacePublishedConfiguratorCatalog,
   type PublishedConfiguratorPrice,
 } from '@/data/machines';
+import type { ConfiguratorProductRelation } from '@/lib/configuratorProductHierarchy';
 import { supabase } from '@/lib/supabase';
 
 const nullableNumber = (value: unknown) => value == null || value === '' ? null
@@ -165,6 +166,34 @@ async function fetchMaster(): Promise<number> {
     })
     .filter((row): row is PublishedConfiguratorPrice => row !== null);
 
-  replacePublishedConfiguratorPrices(rows);
+  const relationResult = await supabase.rpc('list_published_configurator_product_relations', undefined, { get: true })
+    ?? { data: null, error: { code: 'PGRST202' } };
+  const relationError = relationResult.error as { code?: string } | null;
+  if (relationError && relationError.code !== 'PGRST202') throw relationError;
+
+  const relations = Array.isArray(relationResult.data)
+    ? relationResult.data.map((row): ConfiguratorProductRelation | null => {
+      if (!row || typeof row !== 'object') return null;
+      const value = row as Record<string, unknown>;
+      const relationType = value.relation_type === 'variant' || value.relation_type === 'option'
+        ? value.relation_type
+        : null;
+      const machineType = typeof value.machine_type === 'string' ? value.machine_type.trim() : '';
+      const parentItemNumber = typeof value.parent_item_number === 'string' ? value.parent_item_number.trim() : '';
+      const childItemNumber = typeof value.child_item_number === 'string' ? value.child_item_number.trim() : '';
+      if (!relationType || !machineType || !parentItemNumber || !childItemNumber) return null;
+      return {
+        machine_type: machineType,
+        parent_item_number: parentItemNumber,
+        child_item_number: childItemNumber,
+        relation_type: relationType,
+        selection_group: typeof value.selection_group === 'string' ? value.selection_group : null,
+        variant_label_key: typeof value.variant_label_key === 'string' ? value.variant_label_key : null,
+        sort_order: Number.isFinite(Number(value.sort_order)) ? Number(value.sort_order) : 0,
+      };
+    }).filter((row): row is ConfiguratorProductRelation => row !== null)
+    : [];
+
+  replacePublishedConfiguratorCatalog(rows, relations);
   return rows.length;
 }

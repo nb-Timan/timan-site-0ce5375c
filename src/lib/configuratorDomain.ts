@@ -172,21 +172,39 @@ export function toggleConfiguratorAccessory(
   const accessories = [...before];
   const flat = getAccessoriesFlat(unit.modelType);
   const clicked = flat.find((item) => item.id === accessoryId);
+  const preservedCompatibleOptions = new Set<string>();
+
+  const removeVariantOptions = (variantId: string, preserve: boolean) => {
+    flat.filter((item) => item.parentId === variantId).forEach((option) => {
+      const index = accessories.indexOf(option.id);
+      if (index === -1) return;
+      if (preserve) preservedCompatibleOptions.add(String(option.varenr || ''));
+      accessories.splice(index, 1);
+    });
+  };
 
   if (clicked?.group) {
     flat.filter((item) => item.group === clicked.group).forEach((item) => {
       const index = accessories.indexOf(item.id);
       if (index !== -1) {
         accessories.splice(index, 1);
+        if (item.relationType === 'variant') removeVariantOptions(item.id, !wasSelected);
         removeDependents(unit.modelType, accessories, item.id);
       }
     });
   }
 
-  if (!wasSelected) accessories.push(accessoryId);
+  if (!wasSelected) {
+    accessories.push(accessoryId);
+    if (clicked?.relationType === 'variant' && preservedCompatibleOptions.size > 0) {
+      flat.filter((item) => item.parentId === clicked.id && preservedCompatibleOptions.has(String(item.varenr || '')))
+        .forEach((item) => accessories.push(item.id));
+    }
+  }
   else {
     const index = accessories.indexOf(accessoryId);
     if (index !== -1) accessories.splice(index, 1);
+    if (clicked?.relationType === 'variant') removeVariantOptions(clicked.id, false);
     removeDependents(unit.modelType, accessories, accessoryId);
   }
   applyAutomaticDependencies(unit.modelType, accessories);

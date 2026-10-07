@@ -58,7 +58,7 @@ export function configurationCampaignSelection(state: ConfiguratorState) {
       const key = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index}`;
       const selected = machine.configMode === 'shared' ? machine.acc ?? [] : state.individualUnitConfigs?.[key]?.acc ?? [];
       for (const accessory of getAccessoriesFlat(machine.type)) {
-        if (accessory.isHeader) continue;
+        if (accessory.isHeader || accessory.isProductGroup) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 0;
         if (selected.includes(accessory.id) || shouldIncludeQuantityAccessory(machine.type, accessory, selected, quantity)) {
           selection.push({ productKey: `${machine.type}::${accessory.id}`, itemNumber: accessory.varenr, quantity: quantity || 1, demo });
@@ -106,7 +106,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       const machineDescription = snapshotProductName(state, product.varenr, getLocalizedName(product.name, state.language));
       add({ txt: `${T('machineLabel')} ${unit} (${machineDescription})`, description: machineDescription, price: snapshotMachinePrice(state, machine.type, getPriceForCurrency(product, currency)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
       for (const accessory of getAccessoriesFlat(machine.type)) {
-        if (accessory.isHeader) continue;
+        if (accessory.isHeader || accessory.isProductGroup) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
         if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
         const description = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language));

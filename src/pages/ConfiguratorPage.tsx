@@ -2,7 +2,7 @@ import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
-import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
+import { CalendarIcon, ChevronDown, ChevronRight, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPriceForCurrency, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { formatMoney, resolveDisplayCurrency } from '@/lib/currency';
@@ -229,6 +229,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
+  const [openProductGroups, setOpenProductGroups] = useState<Record<string, boolean>>({});
   const stepContentRef = useRef<HTMLFieldSetElement>(null);
   const equipmentScrollRef = useRef<HTMLDivElement>(null);
   const pendingStepScrollRef = useRef<number | null>(null);
@@ -2005,21 +2006,24 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1) => {
     const isSelected = selectedIds.includes(sub.id);
     const hasNestedSubs = sub.subItems && sub.subItems.length > 0;
+    const isVariant = sub.relationType === 'variant';
     const marketingContent = marketingContentFor(machineType, sub.id);
     return (
       <div key={sub.id}>
         <div onClick={e => { e.stopPropagation(); handleToggleAcc(sub.id); }}
           className={`p-2 border rounded-lg cursor-pointer transition flex items-start gap-3 ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-          <div className="selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 rounded border-2"
+          <div className={`selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 border-2 ${isVariant ? 'rounded-full' : 'rounded'}`}
             style={{ backgroundColor: isSelected ? '#059669' : 'white', borderColor: isSelected ? '#059669' : '#9ca3af' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+            {isVariant
+              ? <span className={`h-2 w-2 rounded-full ${isSelected ? 'bg-white' : 'bg-transparent'}`} />
+              : <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>}
             {hasNestedSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>}
           </div>
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
-              <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(sub.name, uiLanguage)}</div>
+              <div className="text-sm text-gray-800">{sub.variantLabelKey ? T(sub.variantLabelKey) : marketingContent?.title || getLocalizedName(sub.name, uiLanguage)}</div>
               <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {sub.varenr}</div>
               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
               {renderActionLinks(sub as any, machineType)}
@@ -2027,8 +2031,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(sub, displayCurrency)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
           </div>
         </div>
-        {(isSelected || isLooseToolMode(machineType)) && hasNestedSubs && (
+        {(isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs && (
           <div className="ml-8 mt-2 space-y-2">
+            {isVariant && <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>}
             {sub.subItems!.map(sub2 => renderSubItem(sub2 as SubItem, selectedIds, machineType, level + 1))}
           </div>
         )}
@@ -4079,6 +4084,32 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   const indentClass = a.requires ? 'ml-4 bg-gray-50' : '';
                   const hasSubs = hasSubOptions(a, accs);
                   const marketingContent = marketingContentFor(machineType, a.id);
+
+                  if (a.isProductGroup) {
+                    const groupKey = `${currentUnit.configKey}:${a.id}`;
+                    const selectedVariant = a.subItems?.some((variant) => selectedIds.includes(variant.id)) ?? false;
+                    const isOpen = openProductGroups[groupKey] ?? selectedVariant;
+                    elements.push(
+                      <div key={a.id} data-testid={`product-group-${a.varenr}`} className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        <button type="button" aria-expanded={isOpen}
+                          onClick={() => setOpenProductGroups((current) => ({ ...current, [groupKey]: !isOpen }))}
+                          className="flex w-full items-start justify-between gap-3 p-3 text-left transition hover:bg-gray-50">
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-gray-900">{getLocalizedName(a.name, uiLanguage)}</span>
+                            <span className="block text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
+                          </span>
+                          {isOpen ? <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" /> : <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" />}
+                        </button>
+                        {isOpen && (
+                          <div className="space-y-2 border-t border-gray-200 bg-gray-50 p-3">
+                            <div className="text-xs font-semibold text-gray-700">{T('chooseVariant')}</div>
+                            {a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType))}
+                          </div>
+                        )}
+                      </div>,
+                    );
+                    return;
+                  }
 
                   // Qty input items
                   if (a.isQtyInput) {

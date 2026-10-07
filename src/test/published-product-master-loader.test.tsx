@@ -38,11 +38,11 @@ describe('Product Master loading and publishing', () => {
   it('deduplicates in-flight reads, accepts explicit zero and never converts null to zero', async () => {
     rpc.mockResolvedValue({ data: [row], error: null });
     await Promise.all([loadPublishedConfiguratorPrices(), loadPublishedConfiguratorPrices()]);
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledTimes(2);
     expect(rpc).toHaveBeenCalledWith('list_published_product_master', undefined, { get: true });
     expect(publishedProduct('725132')).toMatchObject({ price_dkk: 0, price_eur: null, price_sek: 123 });
     await loadPublishedConfiguratorPrices();
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(4);
     expect(publishedProduct('725132')).toMatchObject({
       item_text_de: row.item_text_de,
       item_text_en: row.item_text_en,
@@ -66,7 +66,7 @@ describe('Product Master loading and publishing', () => {
     expect(rpc).not.toHaveBeenCalled();
     await act(async () => finishSession({ data: { session: null }, error: null }));
     await screen.findByText('Current catalog');
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
   it('still reads the public catalog when session hydration fails', async () => {
@@ -74,14 +74,14 @@ describe('Product Master loading and publishing', () => {
     getSession.mockRejectedValue(new TypeError('offline'));
     rpc.mockResolvedValue({ data: [row], error: null });
     await expect(loadPublishedConfiguratorPricesWithRetry({ retryDelayMs: 0 })).resolves.toBe(1);
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledTimes(2);
     expect(classifyProductMasterFailure(new Error('Browser is offline')).category).toBe('network');
   });
 
   it('retries a transient network failure and recovers without reload', async () => {
     rpc.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce({ data: [row], error: null });
     await expect(loadPublishedConfiguratorPricesWithRetry({ retryDelayMs: 0 })).resolves.toBe(1);
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(3);
   });
 
   it('refreshes an expired session once before retrying a 401', async () => {
@@ -89,7 +89,7 @@ describe('Product Master loading and publishing', () => {
       .mockResolvedValueOnce({ data: [row], error: null });
     await expect(loadPublishedConfiguratorPricesWithRetry({ retryDelayMs: 0 })).resolves.toBe(1);
     expect(refreshSession).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(3);
   });
 
   it('does not retry a permanent 403 and preserves its diagnostic category', async () => {
@@ -127,7 +127,7 @@ describe('Product Master loading and publishing', () => {
     const retry = await screen.findByRole('button', { name: /Produktdata kunne ikke hentes/ });
     fireEvent.click(retry);
     await screen.findByText('Current catalog');
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(3);
   });
 
   it('does not block authentication when product data is unavailable', async () => {

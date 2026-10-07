@@ -2,7 +2,7 @@ import { getAccessoriesFlat, getLocalizedName, getPriceForCurrency, PRODUCTS, DE
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { convertCurrency, currencyFromLanguage, isCurrency, type Currency } from '@/lib/currency';
-import { publishedProduct, publishedProductText } from '@/lib/publishedProductMaster';
+import { publishedProduct, publishedProductStoredText } from '@/lib/publishedProductMaster';
 import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
@@ -23,8 +23,8 @@ export function snapshotProductName(state: ConfiguratorState, itemNumber: string
 /** Commercial identity excludes catalog/Marketing presentation suffixes. */
 export function currentProductDescription(itemNumber: string, language: PortalUiLanguage, fallback: string): string {
   const row = publishedProduct(itemNumber);
-  if (row?.item_text_da?.trim() && !publishedProductText(itemNumber, language)) return fallback;
-  return publishedProductText(itemNumber, language) ?? fallback;
+  if (!row?.item_text_da?.trim()) return fallback;
+  return publishedProductStoredText(itemNumber, language) ?? fallback;
 }
 
 /** Explicit edit boundary only. Historical readers retain the original snapshot. */
