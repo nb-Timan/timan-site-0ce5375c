@@ -44,6 +44,7 @@ import {
 import { summarizeWonOrderValues } from '@/lib/crmClosedOrderValue';
 import { calculateAverageSalesCycle } from '@/lib/crmSalesCycle';
 import { classifyCrmLostReason, type CrmLostReasonAnalyticsCategory } from '@/lib/crmLostReason';
+import { classifyPortalStartupFailure, markPortalStartup } from '@/lib/portalStartupDiagnostics';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -238,7 +239,7 @@ export default function CrmDashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       // Resolve the active scope. For admins with a top-filter selection we
       // re-scope every dashboard fetch as that seller. "Alle" → unscoped.
       const sellerView = getActiveSellerView(appUser?.email);
@@ -349,7 +350,12 @@ export default function CrmDashboardPage() {
       setServerLeadKpis(rpcKpis);
       setServerQuoteOrderKpis(quoteOrderKpis);
       setServerSalesOutcomeKpis(salesOutcomeKpis);
-    })();
+    })().catch((error) => {
+      if (cancelled) return;
+      const category = classifyPortalStartupFailure(error, 'rpc_error');
+      markPortalStartup(category, { once: false, errorCategory: category });
+      console.error('[portal-startup] CRM dashboard data failed', { category });
+    });
     return () => { cancelled = true; };
   }, [appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, externalCrm, topSellerInitials, leadRefreshToken]);
 

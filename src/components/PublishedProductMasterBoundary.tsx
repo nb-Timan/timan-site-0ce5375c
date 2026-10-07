@@ -5,6 +5,12 @@ import {
   ProductMasterLoadError,
 } from '@/lib/configuratorPublishedPrices';
 
+function isProductMasterBlockingRoute(pathname: string): boolean {
+  return pathname === '/configurator'
+    || pathname === '/messe/konfigurator'
+    || pathname === '/portal/marketing/configurator';
+}
+
 /** Load once before current catalog consumers mount, including non-Configurator routes. */
 export default function PublishedProductMasterBoundary({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
@@ -39,7 +45,8 @@ export default function PublishedProductMasterBoundary({ children }: { children:
     return () => { cancelled = true; window.removeEventListener('timan:product-master-published', load); };
   }, []);
   const authRoute = /(?:login|password|auth)(?:\/|$)/.test(pathname);
-  if (!ready && !authRoute) return <div role="status" className="p-6 text-sm">{failed
+  const mustWaitForCatalog = isProductMasterBlockingRoute(pathname);
+  if (!ready && !authRoute && mustWaitForCatalog) return <div role="status" className="p-6 text-sm">{failed
     ? <button type="button" onClick={() => void refresh()}>Produktdata kunne ikke hentes. Prøv igen</button>
     : 'Henter produktdata...'}</div>;
   return children;

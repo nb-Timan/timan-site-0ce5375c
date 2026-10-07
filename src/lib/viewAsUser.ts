@@ -32,14 +32,20 @@ import {
 } from '@/lib/activeMode';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
+import {
+  classifyPortalStartupFailure,
+  markPortalStartup,
+  withPortalStartupTimeout,
+} from '@/lib/portalStartupDiagnostics';
 
 async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
   const norm = email.toLowerCase();
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from('app_users')
     .select('*')
     .eq('email', norm)
     .maybeSingle();
+  if (error) throw error;
   if (!row) return null;
   const u: SessionUser = {
     id: (row.id as string | null) ?? null,
@@ -87,6 +93,7 @@ export function clearViewAsCache(email?: string | null) {
  */
 export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser | null {
   const state = useEffectivePortalUserState(appUser);
+  if (state.error) return null;
   return state.effectiveUser ?? appUser;
 }
 
@@ -99,9 +106,11 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
 export function useEffectivePortalUserState(appUser: SessionUser | null): {
   effectiveUser: SessionUser | null;
   resolving: boolean;
+  error: Error | null;
 } {
   const [target, setTarget] = useState<SessionUser | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [resolutionError, setResolutionError] = useState<Error | null>(null);
   const [rev, setRev] = useState(0);
 
   // Listen for view-as switches and user-edit-driven cache busts.
@@ -133,20 +142,26 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
   );
 
   useEffect(() => {
-    if (!appUser || !canSwitchMode(appUser)) { setTarget(null); setResolving(false); return; }
-    if (!viewUser) { setTarget(null); setResolving(false); return; }
+    if (!appUser || !canSwitchMode(appUser)) { setTarget(null); setResolving(false); setResolutionError(null); return; }
+    if (!viewUser) { setTarget(null); setResolving(false); setResolutionError(null); return; }
     let cancelled = false;
     setResolving(true);
-    fetchUserByEmail(viewUser.email)
+    setResolutionError(null);
+    withPortalStartupTimeout(fetchUserByEmail(viewUser.email), 8_000, 'permission_error')
       .then((u) => {
         if (cancelled) return;
+        if (!u) throw new Error('View-as user profile is unavailable');
         setTarget(u);
         setResolving(false);
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return;
+        const category = classifyPortalStartupFailure(error, 'permission_error');
+        markPortalStartup(category, { once: false, errorCategory: category });
+        console.error('[portal-startup] View-as permission resolution failed', { category });
         setTarget(null);
         setResolving(false);
+        setResolutionError(error instanceof Error ? error : new Error(category));
       });
     return () => { cancelled = true; };
   }, [appUser, rev, viewUser]);
@@ -169,30 +184,33 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
     [appUser, target, viewUser],
   );
 
-  if (!appUser) return { effectiveUser: null, resolving: false };
-  if (!canSwitchMode(appUser)) return { effectiveUser: appUser, resolving: false };
+  if (!appUser) return { effectiveUser: null, resolving: false, error: null };
+  if (!canSwitchMode(appUser)) return { effectiveUser: appUser, resolving: false, error: null };
 
   // Role preview (no actual user row to fetch — clear module_access so
   // role defaults apply).
   if (typeof mode === 'string' && mode.startsWith('role:')) {
-    if (!rolePreviewUser) return { effectiveUser: appUser, resolving: false };
+    if (!rolePreviewUser) return { effectiveUser: appUser, resolving: false, error: null };
     return {
       effectiveUser: rolePreviewUser,
       resolving: false,
+      error: null,
     };
   }
 
+  if (resolutionError) return { effectiveUser: null, resolving: false, error: resolutionError };
   if (viewUser && !target) {
-    return { effectiveUser: null, resolving: true };
+    return { effectiveUser: null, resolving: true, error: null };
   }
 
   if (viewedUser) {
     return {
       effectiveUser: viewedUser,
       resolving: false,
+      error: null,
     };
   }
-  return { effectiveUser: appUser, resolving };
+  return { effectiveUser: appUser, resolving, error: null };
 }
 
 export function mergeEffectivePortalUser(

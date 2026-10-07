@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 
 describe('Configurator reopen route resilience', () => {
-  it('recovers a stale Configurator code-split chunk once instead of leaving the shared reopen route blank', () => {
+  it('uses the shared loop-protected chunk recovery for the Configurator route', () => {
     const app = readFileSync('src/App.tsx', 'utf8');
+    const diagnostics = readFileSync('src/lib/portalStartupDiagnostics.ts', 'utf8');
 
-    expect(app).toContain('const CONFIGURATOR_CHUNK_RELOAD_KEY = "timan.configurator.chunk-reload"');
-    expect(app).toContain('const ConfiguratorPage = lazyWithDynamicImportRecovery(');
-    expect(app).toContain('CONFIGURATOR_CHUNK_RELOAD_KEY,');
-    expect(app).toContain('sessionStorage.removeItem(reloadKey)');
-    expect(app).toContain('sessionStorage.setItem(reloadKey, "1")');
+    expect(app).toContain('const ConfiguratorPage = lazy(() => import("./pages/ConfiguratorPage"))');
+    expect(app).toContain('attemptAutomaticChunkRecovery(error)');
+    expect(diagnostics).toContain("const RECOVERY_KEY = 'timan.portal.chunk-recovery.v1'");
+    expect(diagnostics).toContain('shouldAttemptChunkRecovery(previous)');
   });
 
   it('keeps the canonical CRM deep link shared by offer and order reopen flows', () => {

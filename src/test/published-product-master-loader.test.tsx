@@ -58,22 +58,29 @@ describe('Product Master loading and publishing', () => {
     expect(screen.getByText('Current catalog')).toBeInTheDocument();
   });
 
-  it('waits for auth session hydration before the Product Master read', async () => {
-    let finishSession!: (value: unknown) => void;
-    getSession.mockReturnValue(new Promise(resolve => { finishSession = resolve; }));
+  it('reads the public Product Master without waiting for auth hydration', async () => {
     rpc.mockResolvedValue({ data: [row], error: null });
-    render(<MemoryRouter initialEntries={['/portal']}><PublishedProductMasterBoundary><div>Current catalog</div></PublishedProductMasterBoundary></MemoryRouter>);
-    expect(rpc).not.toHaveBeenCalled();
-    await act(async () => finishSession({ data: { session: null }, error: null }));
+    render(<MemoryRouter initialEntries={['/configurator']}><PublishedProductMasterBoundary><div>Current catalog</div></PublishedProductMasterBoundary></MemoryRouter>);
     await screen.findByText('Current catalog');
+    expect(getSession).not.toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 
-  it('still reads the public catalog when session hydration fails', async () => {
+  it('does not block the Portal shell while Product Master loads in the background', async () => {
+    let finish!: (value: unknown) => void;
+    rpc.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    render(<MemoryRouter initialEntries={['/portal']}><PublishedProductMasterBoundary><div>Portal shell</div></PublishedProductMasterBoundary></MemoryRouter>);
+    expect(screen.getByText('Portal shell')).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledWith('list_published_product_master', undefined, { get: true });
+    await act(async () => finish({ data: [row], error: null }));
+  });
+
+  it('keeps the public catalog independent from a broken auth client', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     getSession.mockRejectedValue(new TypeError('offline'));
     rpc.mockResolvedValue({ data: [row], error: null });
     await expect(loadPublishedConfiguratorPricesWithRetry({ retryDelayMs: 0 })).resolves.toBe(1);
+    expect(getSession).not.toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledTimes(2);
     expect(classifyProductMasterFailure(new Error('Browser is offline')).category).toBe('network');
   });
@@ -123,7 +130,7 @@ describe('Product Master loading and publishing', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     rpc.mockResolvedValueOnce({ data: null, error: { status: 403, message: 'permission denied' } })
       .mockResolvedValueOnce({ data: [row], error: null });
-    render(<MemoryRouter initialEntries={['/portal']}><PublishedProductMasterBoundary><div>Current catalog</div></PublishedProductMasterBoundary></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/configurator']}><PublishedProductMasterBoundary><div>Current catalog</div></PublishedProductMasterBoundary></MemoryRouter>);
     const retry = await screen.findByRole('button', { name: /Produktdata kunne ikke hentes/ });
     fireEvent.click(retry);
     await screen.findByText('Current catalog');

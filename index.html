@@ -16,12 +16,65 @@
   <meta name="twitter:description" content="Business portal for quotes, orders and service">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <script>
-    document.write('<script src="/runtime-config.js?v=' + Date.now() + '"><\/script>');
+    (function () {
+      var timer;
+      var recoveryKey = 'timan.portal.chunk-recovery.v1';
+      function showFailure() {
+        var loading = document.getElementById('portal-startup-loading');
+        var failure = document.getElementById('portal-startup-failure');
+        if (loading) loading.hidden = true;
+        if (failure) failure.hidden = false;
+      }
+      function recoverAsset(event) {
+        var target = event && event.target;
+        var assetUrl = target && (target.src || target.href || '');
+        if (!/\/assets\/.*\.(?:js|css)(?:\?|$)/i.test(assetUrl)) return;
+        var previous = null;
+        try { previous = JSON.parse(sessionStorage.getItem(recoveryKey) || 'null'); } catch (_) { previous = null; }
+        if (!previous || previous.route !== location.pathname || Date.now() - Number(previous.at || 0) > 300000) {
+          try { sessionStorage.setItem(recoveryKey, JSON.stringify({ buildId: 'entry', route: location.pathname, at: Date.now() })); } catch (_) {}
+          var next = new URL(location.href);
+          next.searchParams.set('__timan_recover', String(Date.now()));
+          location.replace(next.toString());
+          return;
+        }
+        showFailure();
+      }
+      window.addEventListener('error', recoverAsset, true);
+      window.__TIMAN_ENTRY_READY__ = function () { window.clearTimeout(timer); };
+      timer = window.setTimeout(showFailure, 10000);
+      window.__TIMAN_STATIC_RETRY__ = function () { location.reload(); };
+      window.__TIMAN_STATIC_LOGIN__ = function () {
+        try {
+          Object.keys(localStorage).forEach(function (key) {
+            if (/^sb-.*-auth-token$/.test(key)) localStorage.removeItem(key);
+          });
+          sessionStorage.removeItem('timan.appUser');
+        } catch (_) {}
+        location.assign('/portal');
+      };
+    })();
   </script>
+  <script defer src="/runtime-config.js"></script>
 </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main style="min-height:100vh;background:#f8fafc;padding:64px 20px;font-family:Inter,Arial,sans-serif;color:#0f172a">
+        <section style="max-width:448px;margin:0 auto;border:1px solid #e2e8f0;background:#fff;padding:24px;box-shadow:0 1px 2px rgba(15,23,42,.08)">
+          <div style="display:inline-flex;background:#2d5a27;color:#fff;font-size:18px;font-weight:700;padding:4px 12px;margin-bottom:20px">TIMAN</div>
+          <div id="portal-startup-loading" role="status" style="font-size:14px;color:#475569">Henter Timan Portal...</div>
+          <div id="portal-startup-failure" hidden>
+            <h1 style="font-size:20px;margin:0">Portalen kunne ikke indlæses</h1>
+            <p style="font-size:14px;color:#475569;line-height:1.5">Prøv at indlæse portalen igen. Hvis problemet fortsætter, kan du logge ind på ny.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:20px">
+              <button type="button" onclick="window.__TIMAN_STATIC_RETRY__()" style="border:0;border-radius:6px;background:#2d5a27;color:#fff;padding:9px 16px;font-weight:600">Prøv igen</button>
+              <button type="button" onclick="window.__TIMAN_STATIC_LOGIN__()" style="border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b;padding:9px 16px;font-weight:600">Log ind igen</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

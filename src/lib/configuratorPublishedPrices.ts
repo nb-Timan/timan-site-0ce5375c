@@ -4,6 +4,7 @@ import {
 } from '@/data/machines';
 import type { ConfiguratorProductRelation } from '@/lib/configuratorProductHierarchy';
 import { supabase } from '@/lib/supabase';
+import { PortalStartupTimeoutError, withPortalStartupTimeout } from '@/lib/portalStartupDiagnostics';
 
 const nullableNumber = (value: unknown) => value == null || value === '' ? null
   : Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
@@ -42,6 +43,9 @@ export function classifyProductMasterFailure(error: unknown): ProductMasterFailu
   const name = error instanceof Error ? error.name : String(value.name || '');
   const normalized = message.toLowerCase();
 
+  if (error instanceof PortalStartupTimeoutError) {
+    return { category: 'timeout', message, status, code, transient: true };
+  }
   if (value.productMasterCategory === 'invalid_response') {
     return { category: 'invalid_response', message, status, code, transient: false };
   }
@@ -81,7 +85,8 @@ const wait = (delayMs: number) => delayMs > 0
 
 /** No localStorage cache. Parallel consumers share only the current network request. */
 export function loadPublishedConfiguratorPrices(): Promise<number> {
-  if (!pending) pending = fetchMaster().finally(() => { pending = null; });
+  if (!pending) pending = withPortalStartupTimeout(fetchMaster(), 8_000, 'rpc_error')
+    .finally(() => { pending = null; });
   return pending;
 }
 
@@ -91,20 +96,6 @@ export async function loadPublishedConfiguratorPricesWithRetry(options: {
 } = {}): Promise<number> {
   const maxAttempts = Math.max(1, Math.min(3, options.maxAttempts ?? 3));
   const retryDelayMs = Math.max(0, options.retryDelayMs ?? 250);
-
-  // getSession waits for the browser auth client to initialize and refreshes an
-  // expired access token when possible. The catalog RPC itself remains readable
-  // by both anon and authenticated users and never depends on app_user/View-as.
-  try {
-    const { error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      console.warn('[product-master] Session hydration failed before catalog read', classifyProductMasterFailure(sessionError));
-    }
-  } catch (sessionError) {
-    // The catalog is also readable by anon. A local auth hydration problem must
-    // therefore not prevent the canonical Product Master request itself.
-    console.warn('[product-master] Session hydration failed before catalog read', classifyProductMasterFailure(sessionError));
-  }
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

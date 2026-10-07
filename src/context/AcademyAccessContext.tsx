@@ -17,6 +17,7 @@ type AcademyAccessState = {
   effectiveUser: SessionUser | null;
   completionIds: string[];
   resolving: boolean;
+  error: Error | null;
   isUnlocked: (capability: AcademyCapability) => boolean;
 };
 
@@ -39,7 +40,7 @@ export function AcademyAccessProvider({ children }: { children: ReactNode }) {
   const localAcademyActive = academySandbox.isActive() && import.meta.env.DEV;
   const localUser = useMemo(() => localAcademyActive ? getLocalAcademyUser() : null, [localAcademyActive]);
   const accessUser = appUser ?? localUser;
-  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(accessUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser, error: effectiveUserError } = useEffectivePortalUserState(accessUser);
   const [canonicalCompletionIds, setCanonicalCompletionIds] = useState<string[]>([]);
   const [cycleResolving, setCycleResolving] = useState(false);
   const [localRevision, setLocalRevision] = useState(0);
@@ -92,8 +93,9 @@ export function AcademyAccessProvider({ children }: { children: ReactNode }) {
     effectiveUser,
     completionIds,
     resolving: resolvingEffectiveUser || cycleResolving,
+    error: effectiveUserError,
     isUnlocked: (capability) => isAcademyCapabilityUnlocked(effectiveUser, capability, completionIds),
-  }), [completionIds, cycleResolving, effectiveUser, resolvingEffectiveUser]);
+  }), [completionIds, cycleResolving, effectiveUser, effectiveUserError, resolvingEffectiveUser]);
 
   return <AcademyAccessContext.Provider value={value}>{children}</AcademyAccessContext.Provider>;
 }

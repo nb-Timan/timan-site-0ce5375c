@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __TIMAN_BUILD_ID__: string;
+
 interface ImportMetaEnv {
   readonly VITE_PORTAL_SITE_URL?: string;
   readonly VITE_SUPABASE_URL?: string;
@@ -14,6 +16,11 @@ interface ImportMetaEnv {
 }
 
 interface Window {
+  __TIMAN_BUILD_ID__?: string;
+  __TIMAN_STARTUP_DIAGNOSTICS__?: () => import('@/lib/portalStartupDiagnostics').PortalStartupDiagnostic[];
+  __TIMAN_ENTRY_READY__?: () => void;
+  __TIMAN_STATIC_RETRY__?: () => void;
+  __TIMAN_STATIC_LOGIN__?: () => void;
   __TIMAN_PUBLIC_CONFIG__?: {
     VITE_PORTAL_SITE_URL?: string;
     VITE_CARTO_BASEMAP_KEY?: string;

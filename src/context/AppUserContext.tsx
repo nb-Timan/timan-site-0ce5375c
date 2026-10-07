@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { AppUser, SLUTKUNDE_DEFAULTS } from '@/data/appUsers';
 import { supabase } from '@/lib/supabase';
 import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
@@ -8,6 +8,12 @@ import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermis
 import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 import { normalizeOrganizationAccessRole, type OrganizationAccessRole } from '@/lib/organizationAccess';
+import {
+  classifyPortalStartupFailure,
+  markPortalStartup,
+  setPortalStartupIdentity,
+  withPortalStartupTimeout,
+} from '@/lib/portalStartupDiagnostics';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -38,6 +44,7 @@ export interface DealerAccessStatus {
 interface AppUserContextValue {
   appUser: SessionUser | null;
   loading: boolean;
+  startupError: Error | null;
   setAppUser: (user: SessionUser | null) => void;
   logout: () => Promise<void>;
   dealerStatus: DealerAccessStatus | null;
@@ -108,11 +115,18 @@ function normalizeKnownSessionUser(user: SessionUser): SessionUser {
 export function AppUserProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUserState] = useState<SessionUser | null>(() => loadFromStorage());
   const [loading, setLoading] = useState(true);
+  const [startupError, setStartupError] = useState<Error | null>(null);
   const [dealerStatus, setDealerStatus] = useState<DealerAccessStatus | null>(null);
+  const cachedUserAtStart = useRef(appUser);
 
   const setAppUser = useCallback((user: SessionUser | null) => {
     const normalizedUser = user ? normalizeKnownSessionUser(user) : null;
     setAppUserState(normalizedUser);
+    setStartupError(null);
+    setPortalStartupIdentity({
+      userId: normalizedUser?.id ?? null,
+      role: normalizedUser?.portal_role ?? normalizedUser?.role ?? null,
+    });
     if (normalizedUser) {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...normalizedUser, __identity_cache_version: SESSION_CACHE_VERSION }));
     } else {
@@ -146,10 +160,17 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error: sessionError } = await withPortalStartupTimeout(
+          supabase.auth.getSession(),
+          8_000,
+          'auth_timeout',
+        );
+        if (sessionError) throw sessionError;
+        markPortalStartup('auth_resolved');
         const session = data.session;
         if (!session?.user?.email) {
-          setLoading(false);
+          markPortalStartup('profile_resolved');
+          markPortalStartup('permissions_resolved');
           return;
         }
 
@@ -157,13 +178,19 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
         // Admins can change portal_role / allowed modules while a user still
         // has an old browser session; the DB row must win over stale cache.
         const email = session.user.email.toLowerCase();
-        const { data: row } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('email', email)
-          .maybeSingle();
+        const { data: row, error: profileError } = await withPortalStartupTimeout(
+          supabase
+            .from('app_users')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle(),
+          8_000,
+          'profile_error',
+        );
+        if (profileError) throw profileError;
 
         if (cancelled) return;
+        markPortalStartup('profile_resolved');
 
         if (row && row.approved && row.is_active) {
           // Best-effort: link auth uid to app_users row if not yet linked.
@@ -172,9 +199,22 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
         } else {
           // Session present but not approved/missing -> make sure Backend can
           // see the signup/login request as a pending app_users row.
-          const syncResult = await syncSelfAppUser();
-          if (!syncResult.ok) console.error('[app_users sync] pending profile failed:', syncResult.error);
+          void syncSelfAppUser().then(syncResult => {
+            if (!syncResult.ok) console.error('[app_users sync] pending profile failed:', syncResult.error);
+          });
           setAppUser(createLimitedDealerUser(email, session.user.user_metadata));
+        }
+        markPortalStartup('permissions_resolved');
+        setStartupError(null);
+      } catch (error) {
+        if (cancelled) return;
+        const category = classifyPortalStartupFailure(error, 'auth_error');
+        markPortalStartup(category, { once: false, errorCategory: category });
+        console.error('[portal-startup] Session/profile bootstrap failed', { category });
+        // A verified session cache keeps the shell usable during a transient
+        // profile read. Without a cache, render the controlled startup fallback.
+        if (!cachedUserAtStart.current) {
+          setStartupError(error instanceof Error ? error : new Error(category));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -223,7 +263,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   return (
-    <AppUserContext.Provider value={{ appUser, loading, setAppUser, logout, dealerStatus, refreshAppUser }}>
+    <AppUserContext.Provider value={{ appUser, loading, startupError, setAppUser, logout, dealerStatus, refreshAppUser }}>
       {children}
     </AppUserContext.Provider>
   );

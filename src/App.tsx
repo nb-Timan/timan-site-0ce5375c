@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Component, Suspense, lazy, useEffect, useRef, useState, type ComponentType, type ErrorInfo, type ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { Component, Suspense, lazy as reactLazy, useEffect, useRef, useState, type ComponentType, type ErrorInfo, type ReactNode } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
-import { AcademyAccessProvider } from "@/context/AcademyAccessContext";
+import { AcademyAccessProvider, useAcademyAccess } from "@/context/AcademyAccessContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import AcademyPortalBasicsStepSuccessModal from "@/components/academy/AcademyPortalBasicsStepSuccessModal";
 import AcademyCaseCompletionModalHost from "@/components/academy/AcademyCaseCompletionModalHost";
@@ -18,6 +18,13 @@ import { supabase } from "@/lib/supabase";
 import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 import PublishedProductMasterBoundary from '@/components/PublishedProductMasterBoundary';
 import TimanSupportHost from '@/components/support/TimanSupportHost';
+import { PortalStartupFailure } from '@/components/PortalStartupBoundary';
+import {
+  attemptAutomaticChunkRecovery,
+  markFirstMeaningfulRender,
+  markPortalStartup,
+  setPortalStartupIdentity,
+} from '@/lib/portalStartupDiagnostics';
 
 function PreferredLanguageBootstrap() {
   const { appUser } = useAppUser();
@@ -108,31 +115,23 @@ ensureAkrSeed();
 
 const queryClient = new QueryClient();
 
-const CRM_MY_DEALERS_CHUNK_RELOAD_KEY = "timan.crm-my-dealers.chunk-reload";
-const CONFIGURATOR_CHUNK_RELOAD_KEY = "timan.configurator.chunk-reload";
-
 function lazyWithDynamicImportRecovery<T extends ComponentType>(
   factory: () => Promise<{ default: T }>,
-  reloadKey = CRM_MY_DEALERS_CHUNK_RELOAD_KEY,
 ) {
-  return lazy(async () => {
+  return reactLazy(async () => {
     try {
-      const module = await factory();
-      sessionStorage.removeItem(reloadKey);
-      return module;
+      return await factory();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const isStaleChunk = /failed to fetch dynamically imported module|importing a module script failed|loading chunk/i.test(message);
-
-      if (isStaleChunk && !sessionStorage.getItem(reloadKey)) {
-        sessionStorage.setItem(reloadKey, "1");
-        window.location.reload();
+      if (attemptAutomaticChunkRecovery(error)) {
         return new Promise<{ default: T }>(() => undefined);
       }
-
       throw error;
     }
   });
+}
+
+function lazy<T extends ComponentType>(factory: () => Promise<{ default: T }>) {
+  return lazyWithDynamicImportRecovery(factory);
 }
 
 const PortalPage = lazy(() => import("./pages/PortalPage"));
@@ -163,10 +162,7 @@ const CrmBudgetPage = lazy(() => import("./pages/crm/CrmBudgetPage"));
 const CrmBudgetDashboardPage = lazy(() => import("./pages/crm/CrmBudgetDashboardPage"));
 const CrmCalendarPage = lazy(() => import("./pages/crm/CrmCalendarPage"));
 
-const ConfiguratorPage = lazyWithDynamicImportRecovery(
-  () => import("./pages/ConfiguratorPage"),
-  CONFIGURATOR_CHUNK_RELOAD_KEY,
-);
+const ConfiguratorPage = lazy(() => import("./pages/ConfiguratorPage"));
 const AcademyPage = lazy(() => import("./pages/AcademyPage"));
 const AcademyCrmLeadsPage = lazy(() => import("./pages/crm/AcademyCrmLeadsPage"));
 const AcademyCrmRoute = lazy(() => import("./pages/crm/AcademyCrmLeadsPage").then((module) => ({ default: module.AcademyCrmRoute })));
@@ -243,10 +239,47 @@ const MessePartnerMapPage = lazy(() =>
 
 function RouteFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
-      Henter...
+    <div role="status" className="min-h-screen flex items-center justify-center bg-slate-50 px-6 text-sm text-slate-600">
+      Henter Timan Portal...
     </div>
   );
+}
+
+function PortalBootstrapGate({ children }: { children: ReactNode }) {
+  const { appUser, loading, startupError } = useAppUser();
+  const academyAccess = useAcademyAccess();
+  if (!loading && !appUser && startupError) return <PortalStartupFailure reference="AUTH" />;
+  if (academyAccess?.error) return <PortalStartupFailure reference="VIEW-AS" />;
+  return children;
+}
+
+function PortalStartupObserver() {
+  const { appUser, loading } = useAppUser();
+  const academyAccess = useAcademyAccess();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (loading || academyAccess?.resolving || academyAccess?.error) return;
+    const effectiveUser = academyAccess?.effectiveUser ?? appUser;
+    setPortalStartupIdentity({
+      userId: effectiveUser?.id ?? appUser?.id ?? null,
+      role: appUser?.portal_role ?? appUser?.role ?? null,
+      effectiveRole: effectiveUser?.portal_role ?? effectiveUser?.role ?? null,
+    });
+    markPortalStartup('permissions_resolved');
+    markPortalStartup('route_ready');
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      markPortalStartup('initial_data_ready');
+      secondFrame = window.requestAnimationFrame(markFirstMeaningfulRender);
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [academyAccess?.effectiveUser, academyAccess?.error, academyAccess?.resolving, appUser, loading, location.pathname]);
+
+  return null;
 }
 
 type ConfiguratorRouteErrorBoundaryProps = {
@@ -319,10 +352,11 @@ const App = () => (
         <AppUserProvider>
           <AcademyAccessProvider>
           <LanguageProvider>
+            <PortalBootstrapGate>
             <AcademyCaseCompletionModalHost />
             <AcademyPortalBasicsStepSuccessModal />
             <Suspense fallback={<RouteFallback />}>
-            <AcademyTrackGuard><Routes>
+            <><AcademyTrackGuard><Routes>
               {/* Public Messe / exhibition routes (no auth required) */}
               <Route path="/messe" element={<MesseRouteGuard><MesseHomePage /></MesseRouteGuard>} />
               <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
@@ -463,11 +497,12 @@ const App = () => (
               <Route path="/configurator" element={<ConfiguratorRouteErrorBoundary><PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard></ConfiguratorRouteErrorBoundary>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes></AcademyTrackGuard>
+            </Routes></AcademyTrackGuard><PortalStartupObserver /></>
             </Suspense>
             <VisitorTracker />
             <PreferredLanguageBootstrap />
             <TimanSupportHost />
+            </PortalBootstrapGate>
           </LanguageProvider>
           </AcademyAccessProvider>
         </AppUserProvider>
