@@ -176,6 +176,8 @@ export interface ConfiguratorPricingSnapshot {
   totalsOnly?: boolean;
   /** Absent on legacy snapshots, which remain frozen. */
   discountEngineVersion?: 2;
+  /** Netto exclusion applies only to new commercial snapshots. */
+  nettoPricingVersion?: 1;
   discountDetails?: DiscountDetail[];
   deliveryDiscounts?: MachineDeliveryDiscount[];
   campaignLines?: CampaignLineSnapshot[];
@@ -302,6 +304,7 @@ export interface ConfiguratorState {
 }
 
 export interface LineItem {
+  isNetto?: boolean;
   campaign?: CampaignLineSnapshot;
   txt: string;
   /** Canonical localized product description without generated quantity text. */
@@ -336,6 +339,8 @@ export interface DiscountDetail {
 }
 
 export interface CalcResult {
+  /** Included in subtotal/currentPrice but never in any discount basis. */
+  nettoTotal?: number;
   campaignLines?: CampaignLineSnapshot[];
   deliveryDiscounts?: MachineDeliveryDiscount[];
   lineItems: LineItem[];

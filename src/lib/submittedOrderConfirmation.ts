@@ -1,6 +1,6 @@
 import type { CalcResult, ConfiguratorState } from '@/types/configurator';
 import { buildAccountCaseLines, type AccountCaseLine } from '@/lib/configuratorAccountSummaries';
-import { configuratorCurrency, hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNettoSku } from '@/lib/configuratorPricing';
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
@@ -55,6 +55,8 @@ export function buildReadOnlySalesDocument(state: ConfiguratorState) {
   const lines = buildAccountCaseLines(state, state.language);
   const { machineGroups, ungroupedLines } = groupSubmittedOrderLines(state, lines);
   const totals = state.pricingSnapshot!.totals!;
+  const isNetto = (itemNo: string) => state.pricingSnapshot?.nettoPricingVersion === 1 && isConfiguratorNettoSku(itemNo);
+  const nettoTotal = lines.filter(line => isNetto(line.itemNo)).reduce((total, line) => total + line.total, 0);
   const sum = lines.reduce((total, line) => total + line.total, 0);
   if (![sum, totals.subtotal, totals.totalDiscount, totals.finalPrice].every(Number.isFinite)
     || Math.abs(sum - totals.subtotal) > 0.02
@@ -63,6 +65,7 @@ export function buildReadOnlySalesDocument(state: ConfiguratorState) {
   }
   const calcResult: CalcResult = {
     lineItems: lines.map(line => ({
+      ...(isNetto(line.itemNo) ? { isNetto: true } : {}),
       campaign: state.pricingSnapshot?.campaignLines?.find(campaign => campaign.itemNumber === line.itemNo && campaign.unitNumber === line.unitNumber),
       txt: line.description,
       description: line.description,
@@ -71,9 +74,10 @@ export function buildReadOnlySalesDocument(state: ConfiguratorState) {
       varenr: line.itemNo, price: line.total,
     })),
     subtotal: totals.subtotal,
+    ...(nettoTotal ? { nettoTotal } : {}),
     totalDiscount: totals.totalDiscount,
     currentPrice: totals.finalPrice,
-    totalPct: totals.subtotal ? totals.totalDiscount / totals.subtotal * 100 : 0,
+    totalPct: totals.subtotal - nettoTotal ? totals.totalDiscount / (totals.subtotal - nettoTotal) * 100 : 0,
     qtyPct: 0,
     discountDetails: state.pricingSnapshot?.discountDetails ?? [{ txt: 'Rabat', amount: totals.totalDiscount }],
     deliveryDiscounts: state.pricingSnapshot?.deliveryDiscounts,
@@ -108,6 +112,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
         accessories: accessories.map(line => ({
           id: line.itemNo, varenr: line.itemNo, name: line.description,
           qty: line.quantity, unit_price: line.unitPrice, total: line.total,
+          ...(state.pricingSnapshot?.nettoPricingVersion === 1 && isConfiguratorNettoSku(line.itemNo) ? { is_netto: true } : {}),
         })),
         unit_total: unitLines.reduce((sum, line) => sum + line.total, 0),
       };

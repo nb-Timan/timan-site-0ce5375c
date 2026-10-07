@@ -19,7 +19,7 @@ import {
   getPriceForCurrency,
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
-import { configuratorCurrency, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNettoSku, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate, resolveDeliveryDestination, type ConfiguratorDeliveryDestination } from '@/lib/configuratorDelivery';
@@ -37,6 +37,7 @@ export interface SummaryAccessoryLine {
   total: number;
   is_ral_color?: boolean;
   ral_code?: string;
+  is_netto?: boolean;
 }
 
 export interface SummaryMachineUnit {
@@ -161,6 +162,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
           qty,
           unit_price: accUnitPrice,
           total,
+          ...((!hasFrozenConfiguratorPricing(state) || state.pricingSnapshot?.nettoPricingVersion === 1) && isConfiguratorNettoSku(a.varenr) ? { is_netto: true } : {}),
           is_ral_color: a.isRAL || undefined,
           ral_code: ral,
         };

@@ -400,7 +400,7 @@ function drawPriceSummary(
   input: Pick<BuildConfiguratorPdfInput, "state" | "uiLanguage" | "showPrices" | "TC">,
 ): number {
   const lines: Array<{ label: string; value: string; red?: boolean; bold?: boolean; large?: boolean }> = [
-    { label: input.TC(input.state.pricingMode === 'direct' ? "directNetPrice" : "confirmSubtotal"), value: money(calc.subtotal, input.state, input.showPrices) },
+    { label: input.TC(input.state.pricingMode === 'direct' ? "directNetPrice" : "confirmSubtotal"), value: money(calc.subtotal - (calc.nettoTotal ?? 0), input.state, input.showPrices) },
     ...discounts.filter((d) => d.amount > 0).map((d) => ({
       label: formatDiscountDetailLabel(d, true, input.uiLanguage),
       value: `-${money(d.amount, input.state, input.showPrices)}`,
@@ -415,6 +415,7 @@ function drawPriceSummary(
       bold: true,
     });
   }
+  if (calc.nettoTotal) lines.push({ label: input.TC("nettoProducts"), value: money(calc.nettoTotal, input.state, input.showPrices) });
   lines.push({ label: input.TC("confirmTotal"), value: money(calc.currentPrice, input.state, input.showPrices), bold: true, large: true });
 
   y = ensureSpace(pdf, y, 16 + lines.length * 7);
@@ -513,10 +514,12 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     }
   }
 
-  const sections = groupMachineSections(input.calcResult.lineItems, input.state);
+  const sections = groupMachineSections(input.calcResult.lineItems.filter(line => !line.isNetto), input.state);
   sections.forEach((section) => {
     y = drawMachineSection(pdf, section, y, input);
   });
+  const nettoLines = input.calcResult.lineItems.filter(line => line.isNetto);
+  if (nettoLines.length) y = drawMachineSection(pdf, { title: input.TC('nettoProducts'), rows: nettoLines }, y, input);
 
   y = drawPriceSummary(pdf, input.calcResult, input.calcResult.discountDetails, y, input);
 

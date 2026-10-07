@@ -1,7 +1,7 @@
 import type { CalcResult, ConfiguratorLineDiscountApplication, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
 import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, getPriceForCurrency } from '@/data/machines';
 import { t } from '@/data/translations';
-import { configuratorCurrency, hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNettoSku, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { convertCurrency } from '@/lib/currency';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
@@ -81,6 +81,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const T = (key: string) => t(key, state.language);
   const lineItems: LineItem[] = [];
   const lines: EconomicLine[] = [];
+  const nettoPricing = !hasFrozenConfiguratorPricing(state) || state.pricingSnapshot?.nettoPricingVersion === 1;
   const details: DiscountDetail[] = [];
   let deliveryDiscounts: MachineDeliveryDiscount[] = [];
   let eligibleUnits = 0;
@@ -89,6 +90,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     item.price = roundPricingMoney(item.price);
     item.quantity = quantity;
     item.unitPrice = roundPricingMoney(item.price / Math.max(1, quantity));
+    if (nettoPricing && isConfiguratorNettoSku(item.varenr)) item.isNetto = true;
     lineItems.push(item);
     lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder, discountApplications: [] });
   };
@@ -116,7 +118,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         const description = snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, T('demoMachineLabel'));
         add({ txt: `- ${description}`, description, price: snapshotDemoFee(state, currency), varenr: DEMO_FEE_ITEM_NUMBER, sub: true }, 1, true, false);
       }
-      lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
+      lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit && !line.item.isNetto).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
     }
   }
   if (unit && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
@@ -129,10 +131,11 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     add({ txt: `- ${description}`, description, price: snapshotStartupPrice(state, currency, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
   }
   const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
+  const nettoTotal = roundPricingMoney(lines.filter(line => line.item.isNetto).reduce((sum, line) => sum + line.gross, 0));
   const apply = (kind: NonNullable<DiscountDetail['kind']>, percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
     if (!(percent > 0)) return;
     // Demo is an exclusive per-unit regime, including its existing surcharge.
-    const affected = lines.filter(line => (kind === 'demo' || !line.demo) && eligible(line));
+    const affected = lines.filter(line => !line.item.isNetto && (kind === 'demo' || !line.demo) && eligible(line));
     const basis = roundPricingMoney(affected.reduce((sum, line) => sum + line.net, 0));
     // Allocate rounded aggregate discount deterministically, conserving every cent.
     const amount = roundPricingMoney(basis * Math.min(100, percent) / 100);
@@ -180,7 +183,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         ? [...lines].sort((a, b) => b.selectionOrder - a.selectionOrder || a.unit - b.unit)
         : lines;
       for (const line of benefitLines) {
-        if (line.campaignApplied) continue;
+        if (line.campaignApplied || line.item.isNetto) continue;
         const benefit = benefitLinks.find(product => product.itemNumber === line.item.varenr || product.productKey === line.productKey);
         if (!benefit) continue;
         const remaining = remainingBenefitQuantity;
@@ -238,7 +241,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     const eligibleDeliveryUnits = new Set<number>();
     const deliveryBasisByUnit = new Map<number, number>();
     for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {
-      const basis = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
+      const basis = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo && !line.item.isNetto).reduce((sum, line) => sum + line.net, 0));
       deliveryBasisByUnit.set(unitNumber, basis);
       if (basis > 0 && isDeliveryDiscountEligible(machineDeliveryDate(state, unitNumber), now)) eligibleDeliveryUnits.add(unitNumber);
     }
@@ -248,7 +251,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     deliveryDiscounts = Array.from({ length: unit }, (_, index) => {
       const unitNumber = index + 1;
       const basis = deliveryBasisByUnit.get(unitNumber) ?? 0;
-      const netAfter = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
+      const netAfter = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo && !line.item.isNetto).reduce((sum, line) => sum + line.net, 0));
       const eligible = eligibleDeliveryUnits.has(unitNumber);
       return {
         unitNumber,
@@ -277,7 +280,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     finalNetAmount: line.net,
     discountApplications: line.discountApplications,
   }));
-  return { lineItems, subtotal, discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines, commercialLines };
+  const discountBasis = roundPricingMoney(subtotal - nettoTotal);
+  return { lineItems, subtotal, ...(nettoTotal ? { nettoTotal } : {}), discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: discountBasis ? totalDiscount / discountBasis * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines, commercialLines };
 }
 
 export function calcConfigurationTotals(state: ConfiguratorState, options: PricingOptions = {}): { subtotal: number; totalDiscount: number; finalPrice: number } {

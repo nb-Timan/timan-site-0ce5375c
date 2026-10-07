@@ -40,6 +40,7 @@ import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlannin
 import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
 import { ConfiguratorDeliveryAddress } from '@/components/configurator/ConfiguratorDeliveryAddress';
+import { ConfiguratorNettoLines } from '@/components/configurator/ConfiguratorNettoLines';
 import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
 import {
   ConfiguratorDemoMachineControl,
@@ -2168,7 +2169,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       html += `<div class="grid min-w-0 items-start gap-x-3 gap-y-1 border-b border-gray-100 px-2 py-2 text-sm ${i.bold ? 'font-semibold text-gray-800' : 'text-gray-600'} ${permissions.canSeePrices ? 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'grid-cols-1 sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem]'}">
         <div class="hidden min-w-0 font-mono text-[11px] font-normal opacity-80 sm:block">${varenr}</div>
         <div class="min-w-0 ${paddingClass} leading-snug break-words">
-          ${description}${autoTag}
+          ${description}${i.isNetto ? ` · ${TC('nettoProducts')}` : ''}${autoTag}
           <div class="mt-1 text-[11px] font-normal text-gray-500 sm:hidden">
             <span class="font-mono">${varenr}</span> · ${TC('pdfQuantity')} ${quantity}${permissions.canSeePrices ? ` · ${TC('pdfUnitPrice')} ${formatDisplayMoney(unitPrice)}` : ''}
           </div>
@@ -2182,7 +2183,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     html += `<div data-pdf-keep="1" class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
         <span>${TC(isDirectPricing ? 'directNetPrice' : 'confirmSubtotal')}</span>
-        <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal)}</span>
+        <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal - (displayCalc!.nettoTotal ?? 0))}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
       const discLabel = formatDiscountDetailLabel(d, state.flowType === 'order', uiLanguage);
@@ -2195,6 +2196,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <span class="price-col">-${formatDisplayMoney(displayCalc!.totalDiscount)}</span>
       </div>`;
     }
+    if (displayCalc!.nettoTotal) html += `<div class="flex justify-between w-full text-xs mt-1"><span>${TC('nettoProducts')}</span><span class="price-col">${formatDisplayMoney(displayCalc!.nettoTotal)}</span></div>`;
     html += `<div class="flex justify-between w-full text-base font-bold mt-2">
         <span>${TC('confirmTotal')}</span>
         <span class="price-col">${formatDisplayMoney(displayCalc!.currentPrice)}</span>
@@ -4801,7 +4803,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             ) : (
               <>
                 <div className="space-y-1 text-sm mb-6 max-h-[60vh] overflow-y-auto">
-                  {displayCalc!.lineItems.map((item, idx) => {
+                  {displayCalc!.lineItems.filter(item => !item.isNetto).map((item, idx) => {
                     if (item.subtotal) {
                       return (
                         <div key={idx} className="mt-2 mb-4 pb-3 border-b border-dashed border-emerald-400">
@@ -4896,13 +4898,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     );
 
                   })}
+                  <ConfiguratorNettoLines lines={displayCalc!.lineItems} label={T('nettoProducts')} showPrices={permissions.canSeePrices} formatMoney={formatDisplayMoney} />
                 </div>
 
                 {permissions.canSeePrices && (
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
                       <span>{T(isDirectPricing ? 'directNetPrice' : 'subtotal')}</span>
-                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal)}</span>
+                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal - (displayCalc!.nettoTotal ?? 0))}</span>
                     </div>
                     {displayCalc!.totalDiscount > 0 && (
                       <div className="text-red-600 text-sm space-y-1">
@@ -4919,6 +4922,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       </div>
                     )}
                     {/* Dealer discount - only for permitted roles */}
+                    {!!displayCalc!.nettoTotal && <div className="flex justify-between text-gray-600">
+                      <span>{T('nettoProducts')}</span>
+                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.nettoTotal)}</span>
+                    </div>}
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">

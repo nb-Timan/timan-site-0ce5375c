@@ -1507,6 +1507,7 @@ export async function finalizeConfiguratorPricingSnapshot(
     capturedAt: sameCurrency ? state.pricingSnapshot?.capturedAt ?? currentSnapshot.capturedAt : currentSnapshot.capturedAt,
     currency: currentSnapshot.currency,
     discountEngineVersion: state.pricingSnapshot ? state.pricingSnapshot.discountEngineVersion : 2 as const,
+    nettoPricingVersion: 1 as const,
     prices: sameCurrency ? { ...currentSnapshot.prices, ...state.pricingSnapshot?.prices } : currentSnapshot.prices,
     names: sameCurrency ? { ...currentSnapshot.names, ...state.pricingSnapshot?.names } : currentSnapshot.names,
     signature: configuratorPricingSignature(state),

@@ -10,6 +10,9 @@ const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${
 const demoKey = (currency: Currency) => `demo:${currency}`;
 const startupKey = (currency: Currency, option: string) => `startup:${currency}:${option}`;
 
+const NETTO_ITEM_NUMBERS = new Set(['795050', '795015', '795016', '795017', '795018']);
+export const isConfiguratorNettoSku = (itemNumber: string): boolean => NETTO_ITEM_NUMBERS.has(itemNumber);
+
 export function configuratorCurrency(state: Pick<ConfiguratorState, 'currency' | 'language'>): Currency {
   return isCurrency(state.currency) ? state.currency : currencyFromLanguage(state.language);
 }
@@ -217,6 +220,7 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
   return {
     version: 1,
     discountEngineVersion: 2,
+    nettoPricingVersion: 1,
     capturedAt: new Date().toISOString(),
     currency,
     prices,
