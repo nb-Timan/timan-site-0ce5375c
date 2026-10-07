@@ -18,7 +18,7 @@ function build(kind, overrides = {}) {
     order_number: kind === 'order' ? 'O-QA-TEST' : '',
     firma: 'Timan QA',
     kontaktperson: 'Intern test',
-    email_udfylder: 'nb@timan.dk',
+    email_udfylder: 'udfylder@timan.dk',
     email_modtager: 'nb@timan.dk',
     recipients: ['nb@timan.dk'],
     kommentar: '',
@@ -81,4 +81,18 @@ test('malformed T-number does not appear on an order', () => {
 test('production workflow rejects the former QA placeholder PDF', () => {
   const placeholder = Buffer.from(`%PDF-1.4\n${'x'.repeat(1200)}Timan internal QA only\n%%EOF`).toString('base64');
   assert.throws(() => build('quote', { pdf_base64: placeholder }), /Placeholder PDF rejected/);
+});
+
+test('selected recipients are exact and the submitter stays outside To', () => {
+  const mail = build('quote', {
+    email_udfylder: 'udfylder@timan.dk',
+    email_modtager: 'nb@timan.dk; qa@timan.dk',
+    recipients: ['nb@timan.dk', 'qa@timan.dk'],
+  });
+  assert.equal(mail.json.to, 'nb@timan.dk,qa@timan.dk');
+  assert.equal(mail.json.to.includes('udfylder@timan.dk'), false);
+  assert.throws(
+    () => build('quote', { email_modtager: 'nb@timan.dk', recipients: ['nb@timan.dk', 'udfylder@timan.dk'] }),
+    /exactly match selected recipient/,
+  );
 });

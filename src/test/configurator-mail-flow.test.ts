@@ -22,6 +22,15 @@ describe('configurator quote/order mail flow', () => {
     expect(source).not.toContain('nb@timan.dk');
   });
 
+  it('keeps the Configurator-selected recipient separate from the filler email', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+
+    expect(source.match(/const recipients = Array\.from\(new Set\(modtagerList\)\);/g)).toHaveLength(2);
+    expect(source).not.toContain('[emailUdfylder, ...modtagerList]');
+    expect(source).toContain('email_udfylder: emailUdfylder');
+    expect(source).toContain('email_modtager: emailModtager');
+  });
+
   it('records each verified Configurator outcome in the canonical mail audit', () => {
     const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
 

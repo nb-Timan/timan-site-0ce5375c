@@ -2618,26 +2618,30 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             : buildQuoteContentSummary(documentState);
 
           // Order recipients:
-          //  - Always include "E-mail på udfylder".
-          //  - Also include "E-mail modtager" if filled (may contain multiple
-          //    addresses separated by , or ;).
+          //  - Use only the address(es) selected in "E-mail modtager".
+          //  - Keep "E-mail på udfylder" as separate payload metadata.
+          //  - The recipient field may contain multiple addresses separated by
+          //    , or ;.
           //  - Customer/dealer mail is PDF-only. The internal sales copy is
           //    sent separately after the order has been frozen successfully.
-          //  - Deduplicate if both fields contain the same address.
+          //  - Deduplicate repeated selected addresses.
           const emailUdfylder = (documentState.email || '').trim().toLowerCase();
           const emailModtagerRaw = (documentState.emailRecipient || '').trim().toLowerCase();
           const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
           const modtagerList = splitAddrs(emailModtagerRaw);
-          const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
-          const invalid = allEmails.filter(e => !emailRe.test(e));
+          const recipients = Array.from(new Set(modtagerList));
+          const invalid = recipients.filter(e => !emailRe.test(e));
           if (invalid.length > 0) {
             toast.error(T('invalidEmailRecipient'), {
               description: invalid.join(', '),
             });
             return false;
           }
-          const recipients = Array.from(new Set(allEmails));
+          if (recipients.length === 0) {
+            toast.error(T('invalidEmailRecipient'));
+            return false;
+          }
           const emailModtager = modtagerList.join(', ');
 
           // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -2922,29 +2926,29 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         }
 
         // Quote recipients:
-        //  - Always include "E-mail på udfylder".
-        //  - Also include "E-mail modtager" if filled (may contain multiple
-        //    addresses separated by , or ;).
+        //  - Use only the address(es) selected in "E-mail modtager".
+        //  - Keep "E-mail på udfylder" as separate payload metadata.
+        //  - The recipient field may contain multiple addresses separated by
+        //    , or ;.
         //  - Send Timan's internal copy as BCC.
-        //  - Deduplicate if both fields contain the same address.
+        //  - Deduplicate repeated selected addresses.
         const emailUdfylder = (state.email || '').trim().toLowerCase();
         const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
         const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
         const modtagerList = splitAddrs(emailModtagerRaw);
-        const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
-        const invalid = allEmails.filter(e => !emailRe.test(e));
+        const recipients = Array.from(new Set(modtagerList));
+        const invalid = recipients.filter(e => !emailRe.test(e));
         if (invalid.length > 0) {
           toast.error(T('invalidEmailRecipient'), {
             description: invalid.join(', '),
           });
           return false;
         }
-        if (allEmails.length === 0) {
+        if (recipients.length === 0) {
           toast.error(T('invalidEmailRecipient'));
           return false;
         }
-        const recipients = Array.from(new Set(allEmails));
         const bccRecipients = [INTERNAL_TIMAN_ORDER_EMAIL];
         const emailModtager = modtagerList.join(', ');
 

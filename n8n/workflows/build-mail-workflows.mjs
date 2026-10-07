@@ -17,8 +17,11 @@ const recipients = [...new Set((Array.isArray(p.recipients) ? p.recipients : [])
 if (!recipients.length || recipients.some(v => !address.test(v))) throw new Error('Valid Portal recipients required');
 const submitter = text(p.email_udfylder);
 const selectedRecipient = text(p.email_modtager);
-if (submitter && !recipients.includes(submitter.toLowerCase())) throw new Error('Submitter missing from recipients');
-if (selectedRecipient && !recipients.includes(selectedRecipient.toLowerCase())) throw new Error('Selected recipient missing from recipients');
+const selectedRecipients = [...new Set(selectedRecipient.split(/[,;\\s]+/).map(v => text(v).toLowerCase()).filter(Boolean))];
+if (!selectedRecipients.length || selectedRecipients.some(v => !address.test(v))) throw new Error('Valid selected recipient required');
+if (recipients.length !== selectedRecipients.length || recipients.some(v => !selectedRecipients.includes(v))) {
+  throw new Error('Portal recipients must exactly match selected recipient(s)');
+}
 const ref = text(kind === 'quote' ? p.quote_number : p.order_number);
 if (!ref) throw new Error('Document number required');
 const filename = text(p.pdf_filename);
