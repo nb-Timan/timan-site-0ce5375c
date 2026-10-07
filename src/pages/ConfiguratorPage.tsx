@@ -73,7 +73,7 @@ import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { getActiveSellerView } from '@/lib/activeMode';
-import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
+import { getC5NavOrderWebhookUrl, getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { buildMainCategories } from '@/lib/mainCategories';
 import { logMailAuditEvent } from '@/lib/mailAuditService';
@@ -2815,7 +2815,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 sellerInitials: submitted.seller_initials,
               });
               const internalPayload = buildInternalOrderMailPayload(baseOrderWebhookPayload, csv);
-              const internalRes = await fetch(orderWebhookUrl, {
+              const c5NavWebhookUrl = getC5NavOrderWebhookUrl();
+              const internalRes = await fetch(c5NavWebhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(internalPayload),
