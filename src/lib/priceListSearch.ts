@@ -1,6 +1,18 @@
-import type { PriceListItem } from "@/lib/priceListService";
-
 const SKU_TOKEN = /^(?=.*\d)[a-z0-9]+(?:-[a-z0-9]+)*$/i;
+
+type SearchablePriceListItem = {
+  item_number: string;
+  renamed_from_item_number?: string | null;
+  item_text_da?: string | null;
+  item_text_de?: string | null;
+  item_text_en?: string | null;
+  item_text_it?: string | null;
+  item_text_hu?: string | null;
+  item_text_sv?: string | null;
+  item_text_fr?: string | null;
+  item_text_pl?: string | null;
+  item_text_cs?: string | null;
+};
 
 export function normalizePriceListSku(value: string): string {
   return value.trim().toUpperCase();
@@ -24,11 +36,11 @@ export function parsePriceListSkuTokens(value: string): string[] {
   return [...new Set(tokens.map(normalizePriceListSku))];
 }
 
-export function filterPriceListItems(
-  items: PriceListItem[],
+export function filterPriceListItems<T extends SearchablePriceListItem>(
+  items: T[],
   skuFilters: string[],
   textFilter: string,
-): PriceListItem[] {
+): T[] {
   const selectedSkus = new Set(skuFilters.map(normalizePriceListSku));
   const term = textFilter.trim().toLowerCase();
 

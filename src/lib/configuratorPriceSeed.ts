@@ -168,3 +168,12 @@ export function groupOrderIndex(g: ProductGroupKey): number {
   const i = PRODUCT_GROUP_ORDER.indexOf(g);
   return i === -1 ? PRODUCT_GROUP_ORDER.length : i;
 }
+
+export function filterByProductGroup<T extends { item_number: string }>(
+  items: T[],
+  group: "all" | ProductGroupKey,
+  map: Map<string, ProductGroupKey> = buildVarenrGroupMap(),
+): T[] {
+  if (group === "all") return items;
+  return items.filter((item) => map.get(item.item_number) === group);
+}

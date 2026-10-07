@@ -58,6 +58,7 @@ import {
 import {
   buildConfiguratorSeed,
   buildVarenrGroupMap,
+  filterByProductGroup,
   PRODUCT_GROUP_ORDER,
   groupOrderIndex,
   type ProductGroupKey,
@@ -108,6 +109,16 @@ const PRODUCT_SCOPE_GROUPS = PRODUCT_GROUP_ORDER.filter(
   (g) => g !== "Options/accessories/other",
 );
 
+const PRODUCT_GROUP_LABELS: Record<Exclude<ProductScope, "all">, string> = {
+  "RC-751": "RC-751",
+  "RC-1000s": "RC-1000s",
+  "Timan 3330": "Timan 3330",
+  "Timan 2620": "Timan 2620",
+  "Loader-Line and CS-200 Traktor": "Loader-Line & CS-200 Traktor",
+  "Løse redskaber / attachments": "Løse redskaber / attachments",
+  "Options/accessories/other": "Øvrige",
+};
+
 export default function BackendPriceListsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
@@ -121,6 +132,7 @@ export default function BackendPriceListsPage() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [q, setQ] = useState("");
   const [skuFilters, setSkuFilters] = useState<string[]>([]);
+  const [listCategory, setListCategory] = useState<ProductScope>("all");
   const [editing, setEditing] = useState<PriceListItem | null>(null);
 
   // Import state
@@ -204,14 +216,17 @@ export default function BackendPriceListsPage() {
 
   const filteredItems = useMemo(() => {
     const base = filterPriceListItems(exportItems, skuFilters, q);
-    return [...base].sort((a, b) => {
+    const categoryItems = filterByProductGroup(base, listCategory, groupMap);
+    return [...categoryItems].sort((a, b) => {
       const ga = groupMap.get(a.item_number) ?? "Options/accessories/other";
       const gb = groupMap.get(b.item_number) ?? "Options/accessories/other";
       const oi = groupOrderIndex(ga as ProductGroupKey) - groupOrderIndex(gb as ProductGroupKey);
       if (oi !== 0) return oi;
       return a.item_number.localeCompare(b.item_number, "da", { numeric: true });
     });
-  }, [exportItems, skuFilters, q, groupMap]);
+  }, [exportItems, skuFilters, q, listCategory, groupMap]);
+
+  const listIsFiltered = listCategory !== "all" || skuFilters.length > 0 || q.trim().length > 0;
 
   function addSkuFilters(value: string): boolean {
     const tokens = parsePriceListSkuTokens(value);
@@ -456,10 +471,27 @@ export default function BackendPriceListsPage() {
 
         {tab === "list" && (
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
-            <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-slate-200 pb-3 text-xs text-slate-600">
-              <span><strong className="text-slate-900">Aktiv version:</strong> {activeRelease ? `#${activeRelease.version_number}` : 'Eksisterende publiceret katalog'}</span>
-              <span><strong className="text-slate-900">Ikrafttrådt:</strong> {activeRelease?.effective_at ? new Date(activeRelease.effective_at).toLocaleString('da-DK') : '—'}</span>
-              <span><strong className="text-slate-900">Varer:</strong> {activeItems.length}</span>
+            <div className="mb-4 border-b border-slate-200 pb-3 text-xs text-slate-600">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+                <span><strong className="text-slate-900">Aktiv version:</strong> {activeRelease ? `#${activeRelease.version_number}` : 'Eksisterende publiceret katalog'}</span>
+                <span><strong className="text-slate-900">Ikrafttrådt:</strong> {activeRelease?.effective_at ? new Date(activeRelease.effective_at).toLocaleString('da-DK') : '—'}</span>
+                <span><strong className="text-slate-900">Varer:</strong> {exportItems.length}</span>
+                {listIsFiltered && <span><strong className="text-slate-900">Vist:</strong> {filteredItems.length}</span>}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filtrér prisliste efter produktkategori">
+                <CategoryFilterButton active={listCategory === "all"} onClick={() => setListCategory("all")}>
+                  Alle
+                </CategoryFilterButton>
+                {PRODUCT_SCOPE_GROUPS.map((group) => (
+                  <CategoryFilterButton
+                    key={group}
+                    active={listCategory === group}
+                    onClick={() => setListCategory(group)}
+                  >
+                    {PRODUCT_GROUP_LABELS[group]}
+                  </CategoryFilterButton>
+                ))}
+              </div>
             </div>
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <div className="flex-1 min-w-[260px] max-w-2xl">
@@ -1438,6 +1470,31 @@ function FlowStepButton({ active, onClick, children }: { active: boolean; onClic
         active
           ? "border-emerald-600 bg-emerald-50 text-emerald-900"
           : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CategoryFilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+        active
+          ? "border-indigo-600 bg-indigo-50 text-indigo-800"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
       }`}
     >
       {children}
