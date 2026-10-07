@@ -129,6 +129,12 @@ import {
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
+import {
+  downloadCanonicalPdfDocument,
+  materializeCanonicalPdfDocument,
+  resolveCanonicalPdfDocument,
+  type CanonicalPdfDocument,
+} from '@/lib/canonicalPdfDocument';
 import { configuratorCurrency, createConfiguratorPricingSnapshot, currentDemoFee, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive, shouldShowCampaignDisableControl } from '@/lib/calcConfiguration';
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
@@ -961,6 +967,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const submitInFlightRef = useRef(false);
+  const canonicalPdfCacheRef = useRef<{ cacheKey: string; documentFile: CanonicalPdfDocument } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
@@ -2423,6 +2430,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       }
     }
 
+    // A newly-created quote can be returned without a T-number. Reserve it
+    // before PDF generation so the document body, filename and n8n payload
+    // all identify the same canonical quote.
+    if (activeCaseId && effectiveFlowType === 'quote' && !activeQuoteNumber) {
+      try {
+        const refs = await ensureReferenceNumbers(activeCaseId, false, { pricingMode: isExhibition ? 'messe' : undefined });
+        if (!refs.quote_number) throw new Error('Tilbuddet mangler et canonical tilbudsnummer.');
+        activeQuoteNumber = refs.quote_number;
+        setSavedQuoteNumber(refs.quote_number);
+      } catch (err) {
+        console.error('Failed to ensure quote number before PDF:', err);
+        toast.error(T('saveFailed'), { description: err instanceof Error ? err.message : String(err) });
+        return false;
+      }
+    }
+
     if (activeCaseId && effectiveFlowType === 'order') {
       try {
         const flowRes = await updateConfigurationFlowType(activeCaseId, 'order', ownershipPayload, { pricingMode: isExhibition ? 'messe' : undefined });
@@ -2484,31 +2507,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       const selectedRecArr = recommendationData
         ? recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b))
         : [];
-      const pdf = buildConfiguratorPdf({
-        jsPDF,
-        state: documentState,
-        calcResult: documentCalc,
-        revisionNumber: confirmationRevisionNumber,
-        flowType: effectiveFlowType,
-        quoteNumber: activeQuoteNumber,
-        orderNumber: activeOrderNumber,
-        sourceQuoteNumber: activeSourceQuoteNumber,
-        showPrices: permissions.canSeePrices,
-        uiLanguage,
-        contentLanguage: contentUiLang as Language,
-        T,
-        TC,
-        includeSalesArgs,
-        salesArguments: salesArgsData ? {
+      const salesArguments = salesArgsData ? {
           title: { da: 'Fordele ved den valgte løsning', en: 'Benefits of the chosen solution', de: 'Vorteile der gewählten Lösung', it: 'Vantaggi della soluzione scelta', hu: 'A választott megoldás előnyei' }[lang] || 'Benefits of the chosen solution',
           body: `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`,
-        } : null,
-        includeRecommendation,
-        recommendation: recommendationData ? {
+        } : null;
+      const recommendation = recommendationData ? {
           title: { da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang] || 'Timan Recommends',
           body: `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`,
-        } : null,
-      });
+        } : null;
 
       const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
       const pdfFilename = buildConfiguratorPdfFilename({
@@ -2517,18 +2523,49 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         revisionNumber: confirmationRevisionNumber,
         T,
       });
-      pdf.save(pdfFilename);
-
-      // Capture PDF as base64 for webhook payload (strip data URI prefix)
-      let pdfBase64 = '';
-      let pdfBlob: Blob | null = null;
-      try {
-        const dataUri = pdf.output('datauristring');
-        pdfBase64 = dataUri.includes(',') ? dataUri.split(',')[1] : '';
-        pdfBlob = pdf.output('blob');
-      } catch (b64Err) {
-        console.error('Failed to encode PDF as base64:', b64Err);
-      }
+      const pdfCacheKey = JSON.stringify({
+        flowType: effectiveFlowType,
+        quoteNumber: activeQuoteNumber,
+        orderNumber: activeOrderNumber,
+        sourceQuoteNumber: activeSourceQuoteNumber,
+        revisionNumber: confirmationRevisionNumber,
+        state: documentState,
+        calcResult: documentCalc,
+        showPrices: permissions.canSeePrices,
+        uiLanguage,
+        contentLanguage: contentUiLang,
+        includeSalesArgs,
+        salesArguments,
+        includeRecommendation,
+        recommendation,
+      });
+      const cachedPdf = resolveCanonicalPdfDocument(canonicalPdfCacheRef.current, pdfCacheKey, () => {
+        const pdf = buildConfiguratorPdf({
+          jsPDF,
+          state: documentState,
+          calcResult: documentCalc,
+          revisionNumber: confirmationRevisionNumber,
+          flowType: effectiveFlowType,
+          quoteNumber: activeQuoteNumber,
+          orderNumber: activeOrderNumber,
+          sourceQuoteNumber: activeSourceQuoteNumber,
+          showPrices: permissions.canSeePrices,
+          uiLanguage,
+          contentLanguage: contentUiLang as Language,
+          T,
+          TC,
+          includeSalesArgs,
+          salesArguments,
+          includeRecommendation,
+          recommendation,
+        });
+        return materializeCanonicalPdfDocument(pdf, pdfFilename);
+      });
+      canonicalPdfCacheRef.current = cachedPdf;
+      const canonicalPdf = cachedPdf.documentFile;
+      downloadCanonicalPdfDocument(canonicalPdf);
+      const pdfBase64 = canonicalPdf.base64;
+      const pdfBlob = canonicalPdf.blob;
 
       let revisionPdfPath: string | null = null;
       if (completedRevisionId && activeCaseId) {
