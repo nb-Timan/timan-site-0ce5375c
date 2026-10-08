@@ -283,7 +283,13 @@ export default function LoanCasePage() {
   const reopen = async () => {
     if (!caseId) return;
     setBusy(true); setError(''); setNotice('');
-    try { await reopenLoanForEdit(caseId); await refresh(); setNotice(label('loansReopened')); }
+    try {
+      await reopenLoanForEdit(caseId);
+      setSerialConfirmed(false);
+      setValidationIssues([]);
+      await refresh();
+      setNotice(label('loansReopened'));
+    }
     catch (cause) { setError(errorText(cause, label)); }
     finally { setBusy(false); }
   };

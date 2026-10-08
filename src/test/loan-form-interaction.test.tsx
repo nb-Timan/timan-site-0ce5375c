@@ -156,11 +156,14 @@ describe('Loan form interactions', () => {
   });
 
   it('lets Backend reopen a review-ready loan for audited editing', async () => {
-    mocks.getLoanCase.mockResolvedValue({ loanCase: { ...loan, status: 'READY_FOR_REVIEW' }, items: [item], photos: [photo] });
+    mocks.getLoanCase
+      .mockResolvedValueOnce({ loanCase: { ...loan, status: 'READY_FOR_REVIEW', serial_numbers_confirmed_at: '2026-10-07T12:00:00Z' }, items: [item], photos: [photo] })
+      .mockResolvedValueOnce({ loanCase: { ...loan, status: 'DRAFT', serial_numbers_confirmed_at: null }, items: [item], photos: [photo] });
     mount();
     await screen.findByText('QA-LOAN');
     fireEvent.click(screen.getByRole('button', { name: 'Genåbn for redigering' }));
     await waitFor(() => expect(mocks.reopenLoanForEdit).toHaveBeenCalledWith('case'));
+    expect(await screen.findByLabelText(/Jeg bekræfter, at serienumrene/)).not.toBeChecked();
   });
 
   it('submits complete checkout to review, not partner acceptance', async () => {
