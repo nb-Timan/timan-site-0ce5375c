@@ -4,12 +4,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoanCasePage from '@/pages/loans/LoanCasePage';
+import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import type { LoanCase, LoanCaseItem, LoanItemPhoto } from '@/lib/loanService';
 
 const mocks = vi.hoisted(() => ({
   getLoanCase: vi.fn(), listLoanCaseHistory: vi.fn(), listLoanSellers: vi.fn(), listLoanPartners: vi.fn(), listLoanContacts: vi.fn(),
   listEligibleLoanAssets: vi.fn(), createLoanCase: vi.fn(), updateLoanDraft: vi.fn(), updateLoanCaseRelationships: vi.fn(),
-  addLoanAsset: vi.fn(), removeLoanItem: vi.fn(), removeLoanItemPhoto: vi.fn(),
+  addLoanAsset: vi.fn(), addFabricLoanAsset: vi.fn(), removeLoanItem: vi.fn(), removeLoanItemPhoto: vi.fn(),
   updateLoanItemUsage: vi.fn(), uploadLoanItemPhoto: vi.fn(), validateLoanImage: vi.fn(),
   submitLoanCaseForReview: vi.fn(),
   confirmLoanDraftSerials: vi.fn(),
@@ -17,12 +18,20 @@ const mocks = vi.hoisted(() => ({
 }));
 const identity = vi.hoisted(() => ({ role: 'timan_backend' }));
 vi.mock('@/lib/loanService', () => mocks);
+vi.mock('@/lib/fabricLoanStockService', () => ({ addFabricLoanAsset: mocks.addFabricLoanAsset }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
 vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: {
   id: 'seller', portal_role: identity.role, approved: true, is_active: true, allowed_areas: ['loans'],
 } }) }));
 vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: ReactNode }) => <main>{children}</main> }));
-vi.mock('@/pages/loans/LoanStockPanel', () => ({ default: () => <section aria-label="Salgslager" /> }));
+vi.mock('@/pages/loans/LoanStockPanel', () => ({ default: ({ onSelect }: { onSelect: (asset: FabricLoanAsset) => void }) => <section aria-label="Salgslager"><button type="button" onClick={() => onSelect({
+  asset_id: 'asset-2', company: 'TIMAN', account_number: '1010', order_number: null, line_number: 2,
+  item_number: 'QA-SKU-2', item_name: 'QA machine 2', line_text: null, serial_number: 'QA-SERIAL-2',
+  serial_number_normalized: 'QA-SERIAL-2', warehouse_location_code: '2', warehouse_location_name: 'Lager 2',
+  inventory_qty: 1, reserved_qty: 0, stock_last_changed: '2026-10-08', classification: 'LOAN_CANDIDATE',
+  review_required: false, review_reason: null, identity_conflict: false, source_present: true, item_type: 'machine',
+  allocated: false, brik_number: null,
+})}>Vælg QA-aktiv</button></section> }));
 
 const loan = {
   id: 'case', loan_number: 'QA-LOAN', case_number: 'LN-000001', responsible_user_id: 'seller', dealer_account_id: 'partner',
@@ -91,6 +100,36 @@ describe('Loan form interactions', () => {
     expect(screen.getByText('QA machine')).toBeInTheDocument();
     expect(screen.getByText('QA machine 2')).toBeInTheDocument();
     expect(screen.getByText('QA attachment')).toBeInTheDocument();
+  });
+
+  it('keeps selected assets visible before the stock picker and hides the long picker by default', async () => {
+    mount();
+    await screen.findByText('QA-LOAN');
+    expect(screen.getByText('QA machine')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Salgslager' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tilføj maskine eller redskab' }));
+    const selected = screen.getByTestId('selected-loan-assets');
+    const picker = await screen.findByRole('region', { name: 'Salgslager' });
+    expect(selected.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Luk Salgslager' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('adds another physical asset to the same case, shows both selections, and closes the picker', async () => {
+    const secondItem = { ...item, id: 'item-2', product_sku: 'QA-SKU-2', product_name_snapshot: 'QA machine 2', serial_snapshot: 'QA-SERIAL-2' };
+    mocks.getLoanCase
+      .mockResolvedValueOnce({ loanCase: loan, items: [item], photos: [photo] })
+      .mockResolvedValue({ loanCase: loan, items: [item, secondItem], photos: [photo] });
+    mount();
+    await screen.findByText('QA-LOAN');
+    fireEvent.click(screen.getByRole('button', { name: 'Tilføj maskine eller redskab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Vælg QA-aktiv' }));
+
+    await waitFor(() => expect(mocks.addFabricLoanAsset).toHaveBeenCalledWith('case', 'asset-2'));
+    expect(await screen.findByText('QA machine 2')).toBeInTheDocument();
+    expect(screen.getByText('QA machine')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Salgslager' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tilføj maskine eller redskab' })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it.each(['READY_FOR_REVIEW', 'ACCEPTED', 'ON_LOAN', 'RETURN_INSPECTION'])('locks agreement fields for %s', async (status) => {

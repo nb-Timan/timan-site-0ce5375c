@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Camera, CheckCircle2, History, RotateCcw, Trash2, UploadCloud } from 'lucide-react';
+import { Camera, CheckCircle2, History, Plus, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
@@ -79,6 +79,7 @@ export default function LoanCasePage() {
   const [unitDrafts, setUnitDrafts] = useState<Record<string, '' | 'km' | 'hours'>>({});
   const [limitDrafts, setLimitDrafts] = useState<Record<string, string>>({});
   const [serialConfirmed, setSerialConfirmed] = useState(false);
+  const [assetPickerOpen, setAssetPickerOpen] = useState(isNew);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -196,6 +197,7 @@ export default function LoanCasePage() {
       await addFabricLoanAsset(id, asset.asset_id);
       setSerialConfirmed(false);
       await refresh(id);
+      setAssetPickerOpen(false);
     } catch (cause) { setError(errorText(cause, label)); }
     finally { setBusy(false); await queryClient.invalidateQueries({ queryKey: ['fabric-loan-stock'] }); }
   };
@@ -337,18 +339,25 @@ export default function LoanCasePage() {
       </fieldset>
 
       <section className="border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold text-slate-900">{label('loansAssets')}</h2>{caseId && <span className="text-xs text-slate-500">{items.length}</span>}</div>
-        {canManageCase && (isNew || loanCase?.status === 'DRAFT') && <div className="mt-4">
-          <LoanStockPanel busy={busy} selectionReady={dateRangeValid && (!isNew || Boolean(sellerId && partnerId && contactId))} onSelect={(asset) => void addAsset(asset)} />
-        </div>}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2"><h2 className="font-semibold text-slate-900">{label('loansAssets')}</h2>{caseId && <span className="text-xs text-slate-500">{items.length}</span>}</div>
+          {canManageCase && (isNew || loanCase?.status === 'DRAFT') && <button type="button" disabled={busy} aria-expanded={assetPickerOpen} aria-controls="loan-asset-picker" onClick={() => setAssetPickerOpen((open) => !open)} className="inline-flex h-10 items-center gap-2 rounded-md border border-emerald-700 bg-white px-3 text-sm font-medium text-emerald-800 disabled:opacity-50">
+            {assetPickerOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {assetPickerOpen ? label('loansHideAssetPicker') : label('loansAddAsset')}
+          </button>}
+        </div>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4" data-testid="selected-loan-assets">
           {items.map((item) => <LoanItemCard key={item.id} item={item} photos={photos.filter((photo) => photo.case_item_id === item.id)} editable={canManageCase && loanCase?.status === 'DRAFT'} busy={busy} validationIssues={validationIssues}
             reading={readingDrafts[item.id] ?? ''} setReading={(value) => setReadingDrafts((current) => ({ ...current, [item.id]: value }))}
             unit={unitDrafts[item.id] ?? ''} setUnit={(value) => setUnitDrafts((current) => ({ ...current, [item.id]: value }))}
             limit={limitDrafts[item.id] ?? ''} setLimit={(value) => setLimitDrafts((current) => ({ ...current, [item.id]: value }))}
             onSaveUsage={() => void saveUsage(item.id)} onUpload={(file, kind) => void upload(item.id, file, kind)} onRemovePhoto={(photo) => void removePhoto(photo)} onRemoveAsset={() => void removeAsset(item)} uploadProgress={uploadProgress} label={label} />)}
         </div>
+
+        {canManageCase && (isNew || loanCase?.status === 'DRAFT') && assetPickerOpen && <div id="loan-asset-picker" className="mt-4 border-t border-slate-200 pt-4">
+          <LoanStockPanel busy={busy} selectionReady={dateRangeValid && (!isNew || Boolean(sellerId && partnerId && contactId))} onSelect={(asset) => void addAsset(asset)} />
+        </div>}
 
         {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label className={`mt-5 flex items-start gap-3 border-t p-3 text-sm font-medium ${validationIssues.includes('serial_confirmation') && !serialConfirmed ? 'border-red-400 bg-red-50 text-red-900' : 'border-slate-200 text-slate-800'}`}><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} /><span>{label('loansSerialConfirmation')}{validationIssues.includes('serial_confirmation') && !serialConfirmed && <span className="mt-1 block text-xs text-red-700">{label('loansRequiredConfirmation')}</span>}</span></label>}
       </section>
