@@ -7,7 +7,7 @@ import { FABRIC_LOAN_FIELDS, runFabricLoanSync, validateFabricLoanSnapshot } fro
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoansPage from '@/pages/loans/LoansPage';
 
-const mocks = vi.hoisted(() => ({ state: null as unknown, refresh: vi.fn(), listCases: vi.fn() }));
+const mocks = vi.hoisted(() => ({ state: null as unknown, refresh: vi.fn(), setBrik: vi.fn(), listCases: vi.fn() }));
 vi.mock('@/hooks/useFabricLoanStock', () => ({ useFabricLoanStock: () => mocks.state }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
 vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: { id: 'qa', portal_role: 'timan_backend', approved: true, is_active: true, allowed_areas: ['loans'] } }) }));
@@ -16,16 +16,18 @@ vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: 
 
 const asset: FabricLoanAsset = {
   asset_id: 'qa-asset', company: 'QA', account_number: '1010', order_number: null, line_number: null,
-  item_number: 'QA-ITEM', item_name: 'QA machine', serial_number: 'QA-SERIAL', serial_number_normalized: 'QA-SERIAL',
+  item_number: 'QA-ITEM', item_name: 'QA machine', line_text: 'Nr.82 QA fejekost', serial_number: 'QA-SERIAL', serial_number_normalized: 'QA-SERIAL',
   warehouse_location_code: '2', warehouse_location_name: 'Lager 2', inventory_qty: 1, reserved_qty: 0,
   stock_last_changed: '2026-10-07T10:00:00', classification: 'LOAN_CANDIDATE', review_required: false,
-  review_reason: null, identity_conflict: false, source_present: true, item_type: 'machine', allocated: false,
+  review_reason: null, identity_conflict: false, source_present: true, item_type: 'machine', allocated: false, brik_number: 82,
 };
 const fresh = () => ({ configured: true, running: false, failed: false, stale: false,
   source_as_of: new Date().toISOString(), last_success_at: new Date().toISOString(), stale_after_seconds: 900 });
 const stock = (): FabricLoanStock => ({ assets: [asset, { ...asset, asset_id: 'qa-other', serial_number: 'QA-EXTERNAL', account_number: '1020', order_number: 'QA-ORDER', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' }], sync: fresh() });
 const hook = (data = stock()) => ({ query: { data, isPending: false, isError: false },
-  refresh: { mutate: mocks.refresh, isPending: false, isError: false }, enabled: true, canRefresh: true });
+  refresh: { mutate: mocks.refresh, isPending: false, isError: false },
+  setBrik: { mutate: mocks.setBrik, isPending: false, isError: false },
+  enabled: true, canRefresh: true, canEditBrik: true });
 
 beforeEach(() => { vi.clearAllMocks(); mocks.state = hook(); mocks.listCases.mockResolvedValue([]); });
 afterEach(cleanup);
@@ -48,13 +50,29 @@ describe('single Fabric stock dataset', () => {
     fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
     expect(screen.getByText('QA-SERIAL')).toBeInTheDocument();
   });
-  it('searches serial, item, name, account and order without fabricating missing orders', () => {
-    for (const term of ['qa-serial', 'QA-ITEM', 'machine', '1010']) expect(filterFabricLoanStock([asset], 'all', term, 'all')).toEqual([asset]);
+  it('searches brik, line text, serial, item, name, account and order without fabricating missing orders', () => {
+    for (const term of ['82', 'fejekost', 'qa-serial', 'QA-ITEM', 'machine', '1010']) expect(filterFabricLoanStock([asset], 'all', term, 'all')).toEqual([asset]);
     expect(filterFabricLoanStock(stock().assets, 'all', 'QA-ORDER', '1020')).toHaveLength(1);
     render(<LoanStockPanel />);
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'qa-external' } });
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
     expect(screen.getByText('Ekstern placering')).toBeInTheDocument();
+  });
+  it('uses line text as the title, keeps short row warehouse labels and retains full warehouse headings', () => {
+    mocks.state = hook({ ...stock(), assets: [{ ...asset, warehouse_location_name: 'Lager 2 - Nye ubrugte salgslagermaskiner' }] });
+    render(<LoanStockPanel />);
+    expect(screen.getByText('Nr.82 QA fejekost')).toBeInTheDocument();
+    expect(screen.getByText('Nye ubrugte salgslagermaskiner')).toBeInTheDocument();
+    expect(screen.queryByText('Lager 2 - Nye ubrugte salgslagermaskiner')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Lager 2').length).toBeGreaterThan(0);
+  });
+  it('lets Backend edit the Portal-owned brik number', () => {
+    render(<LoanStockPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Redigér Brik nr.: QA-SERIAL' }));
+    const input = screen.getByRole('spinbutton', { name: 'Brik nr.: QA-SERIAL' });
+    fireEvent.change(input, { target: { value: '83' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    expect(mocks.setBrik).toHaveBeenCalledWith({ assetId: 'qa-asset', brikNumber: 83 }, expect.any(Object));
   });
   it.each(['1010', '1020'])('allows a fresh %s candidate', (account_number) => {
     expect(canSelectFabricLoanAsset({ ...asset, account_number }, fresh())).toBe(true);
@@ -114,9 +132,10 @@ describe('single Fabric stock dataset', () => {
     expect(screen.getByRole('button', { name: 'Opdater fra Fabric' })).toBeDisabled();
   });
   it('hides refresh from non-Backend and the pool from unauthorized users', () => {
-    const state = hook(); state.canRefresh = false; mocks.state = state;
+    const state = hook(); state.canRefresh = false; state.canEditBrik = false; mocks.state = state;
     const { rerender } = render(<LoanStockPanel />);
     expect(screen.queryByRole('button', { name: 'Opdater fra Fabric' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Redigér Brik nr.: QA-SERIAL' })).not.toBeInTheDocument();
     state.enabled = false; rerender(<LoanStockPanel />);
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
   });

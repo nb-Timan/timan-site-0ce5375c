@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, hasAreaAccess, isInternalTimanPortalRole } from '@/lib/portalAccess';
-import { getFabricLoanStock, refreshFabricLoanStock, verifyFabricLoanAccess } from '@/lib/fabricLoanStockService';
+import { getFabricLoanStock, refreshFabricLoanStock, setFabricLoanAssetBrikNumber, verifyFabricLoanAccess } from '@/lib/fabricLoanStockService';
 
 export function useFabricLoanStock() {
   const { appUser } = useAppUser();
@@ -14,5 +14,11 @@ export function useFabricLoanStock() {
   const refresh = useMutation({ mutationFn: refreshFabricLoanStock,
     onSettled: () => client.invalidateQueries({ queryKey: key }) });
   const verify = useMutation({ mutationFn: verifyFabricLoanAccess });
-  return { query, refresh, verify, enabled, canRefresh: enabled && role === 'timan_backend' };
+  const setBrik = useMutation({
+    mutationFn: ({ assetId, brikNumber }: { assetId: string; brikNumber: number | null }) =>
+      setFabricLoanAssetBrikNumber(assetId, brikNumber),
+    onSuccess: () => client.invalidateQueries({ queryKey: key }),
+  });
+  return { query, refresh, verify, setBrik, enabled, canRefresh: enabled && role === 'timan_backend',
+    canEditBrik: enabled && role === 'timan_backend' };
 }

@@ -13,7 +13,7 @@ try {
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema vault; create schema cron; create schema net;
     create function auth.uid() returns uuid language sql stable as $$ select '${actor}'::uuid $$;
-    create table public.app_users(id uuid, auth_user_id uuid, portal_role text);
+    create table public.app_users(id uuid primary key, auth_user_id uuid, portal_role text);
     insert into public.app_users values('${actor}','${actor}','timan_backend');
     create function public.can_access_loans() returns boolean language sql stable as $$ select current_setting('qa.allowed',true)='true' $$;
     create function public.can_administer_loans() returns boolean language sql stable security definer as $$ select public.can_access_loans() and exists(select 1 from public.app_users where portal_role='timan_backend') $$;
@@ -45,6 +45,7 @@ try {
   `);
   await db.exec(readFileSync('supabase/migrations/20261007160113_fabric_loan_stock_projection.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261008070522_resolve_fabric_loan_item_type.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261008075941_fabric_loan_line_text_and_brik_metadata.sql', 'utf8'));
   assert.equal(await scalar("select public.loan_resolve_fabric_item_type('410040-01') as value"),'machine');
   assert.equal(await scalar("select public.loan_resolve_fabric_item_type('725142-00') as value"),'equipment');
   assert.equal(await scalar("select public.loan_resolve_fabric_item_type('UNKNOWN-00') as value"),null);
@@ -52,7 +53,7 @@ try {
   assert.equal(await scalar('select enabled as value from public.fabric_loan_sync_state'), false);
   await db.exec('update public.fabric_loan_sync_state set enabled=true');
   const row = (serial, patch = {}) => ({ company: 'QA', account_number: '1010', order_number: null, line_number: null,
-    item_number: 'QA-ITEM', item_name: 'QA machine', serial_number: serial, warehouse_location_code: '2', warehouse_location_name: 'Lager 2',
+    item_number: 'QA-ITEM', item_name: 'QA machine', line_text: 'Nr.82 QA fejekost', serial_number: serial, warehouse_location_code: '2', warehouse_location_name: 'Lager 2',
     inventory_qty: '1', reserved_qty: '0', stock_last_changed: '2026-10-07T10:00:00', source_row_number: 1,
     classification: 'LOAN_CANDIDATE', review_required: false, review_reason: null, identity_conflict: false, ...patch });
   const begin = () => scalar("select public.fabric_loan_sync_begin('MANUAL') as value");
@@ -62,6 +63,10 @@ try {
   assert.equal(await begin(), null, 'duplicate worker refused');
   assert.equal(await publish(first, [row('QA-1'),row('QA-2',{account_number:'1020',warehouse_location_code:'4'}),row('QA-REVIEW',{classification:'REVIEW_REQUIRED',review_required:true})]), 3);
   const id = await scalar("select asset_id as value from public.fabric_loan_assets_current where serial_number='QA-1'");
+  await db.exec('set role authenticated');
+  assert.equal((await scalar('select public.loan_set_asset_brik_number($1,82) as value',[id])).brik_number,82);
+  await assert.rejects(scalar('select count(*)::int as value from public.loan_asset_portal_metadata'),/permission denied/);
+  await db.exec('reset role');
   await publish(await begin(), [row('qa-1'),row('QA-2',{account_number:'1020',warehouse_location_code:'4'}),row('QA-REVIEW',{classification:'REVIEW_REQUIRED',review_required:true})]);
   assert.equal(await scalar("select asset_id as value from public.fabric_loan_assets_current where serial_number_normalized='QA-1'"), id, 'idempotent normalized identity');
   assert.equal(await scalar('select count(*)::int as value from public.fabric_loan_assets_current'),3);
@@ -110,6 +115,9 @@ try {
   await assert.rejects(begin(),/permission denied/);
   await assert.rejects(publish(replacement,[]),/permission denied/);
   assert.equal((await scalar('select public.loan_stock_snapshot() as value')).assets.length,2);
+  const qaAsset = (await scalar('select public.loan_stock_snapshot() as value')).assets.find((a)=>a.asset_id===id);
+  assert.equal(qaAsset.line_text,'Nr.82 QA fejekost');
+  assert.equal(qaAsset.brik_number,82,'Portal-owned brik metadata survives Fabric snapshot replacement');
   const item = await scalar('select public.loan_add_fabric_asset_item($1,$2) as value',[caseId,id]);
   await assert.rejects(scalar('select public.loan_add_fabric_asset_item($1,$2) as value',[caseId,id]),/already allocated/);
   assert.equal((await scalar('select public.loan_stock_snapshot() as value')).assets.find((a)=>a.asset_id===id).allocated,true);
@@ -120,6 +128,7 @@ try {
   await assert.rejects(scalar('select public.loan_add_fabric_asset_item($1,$2) as value',[caseId,id]),/FABRIC_STALE/);
   await db.exec("reset role; update public.app_users set portal_role='timan_seller'; set role authenticated");
   await assert.rejects(scalar('select public.loan_request_fabric_refresh() as value'),/access denied/);
+  await assert.rejects(scalar('select public.loan_set_asset_brik_number($1,83) as value',[id]),/access denied/);
   assert.equal((await scalar('select public.loan_stock_snapshot() as value')).assets.length,1,'seller sees no review assets');
   await db.exec("reset role; update public.app_users set portal_role='timan_dealer'; set role authenticated");
   assert.equal(await scalar('select count(*)::int as value from public.fabric_loan_assets_current'),0,'partner cannot browse stock');
@@ -127,6 +136,6 @@ try {
   await db.exec('reset role; set role anon');
   await assert.rejects(scalar('select public.loan_stock_snapshot() as value'),/permission denied/);
   await assert.rejects(scalar('select count(*) as value from public.fabric_loan_assets_current'),/permission denied/);
-  console.log('PASS: migration, Fabric push/refresh queue, lease fencing, normalized/idempotent snapshot, failure retention, source removal, allocation collision, stale block, Backend/Seller/Partner/anonymous RLS, read-only grants. Local in-memory PostgreSQL only.');
+  console.log('PASS: migration, Fabric line text, persistent Backend-only brik metadata, push/refresh queue, lease fencing, normalized/idempotent snapshot, failure retention, source removal, allocation collision, stale block, Backend/Seller/Partner/anonymous RLS, read-only grants. Local in-memory PostgreSQL only.');
 } catch (error) { console.error(error.message); process.exitCode=1; }
 finally { await db.close(); }

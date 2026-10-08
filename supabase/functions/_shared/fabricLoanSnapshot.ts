@@ -1,5 +1,5 @@
 export const FABRIC_LOAN_FIELDS = [
-  'company', 'account_number', 'order_number', 'line_number', 'item_number', 'item_name', 'serial_number',
+  'company', 'account_number', 'order_number', 'line_number', 'item_number', 'item_name', 'line_text', 'serial_number',
   'warehouse_location_code', 'warehouse_location_name', 'inventory_qty', 'reserved_qty', 'stock_last_changed',
   'source_row_number', 'classification', 'review_required', 'review_reason', 'identity_conflict',
 ] as const;

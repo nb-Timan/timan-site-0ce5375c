@@ -24,3 +24,11 @@ export async function addFabricLoanAsset(caseId: string, assetId: string): Promi
   if (error) throw error;
   return String(data);
 }
+
+export async function setFabricLoanAssetBrikNumber(assetId: string, brikNumber: number | null): Promise<void> {
+  const { error } = await supabase.rpc('loan_set_asset_brik_number', {
+    p_asset_id: assetId,
+    p_brik_number: brikNumber,
+  });
+  if (error) throw error;
+}

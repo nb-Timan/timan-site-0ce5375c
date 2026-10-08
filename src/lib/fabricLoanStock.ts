@@ -6,6 +6,7 @@ export interface FabricLoanAsset {
   line_number: number | null;
   item_number: string;
   item_name: string | null;
+  line_text: string | null;
   serial_number: string;
   serial_number_normalized: string;
   warehouse_location_code: string;
@@ -20,6 +21,7 @@ export interface FabricLoanAsset {
   source_present: boolean;
   item_type: 'machine' | 'equipment' | null;
   allocated: boolean;
+  brik_number: number | null;
 }
 
 export interface FabricLoanSyncStatus {
@@ -50,6 +52,7 @@ export function filterFabricLoanStock(assets: FabricLoanAsset[], warehouse: stri
   return assets.filter((asset) => asset.source_present
     && (warehouse === 'all' || asset.warehouse_location_code === warehouse)
     && (account === 'all' || asset.account_number === account)
-    && (!needle || [asset.item_number, asset.item_name, asset.serial_number, asset.account_number, asset.order_number]
+    && (!needle || [asset.item_number, asset.item_name, asset.line_text, asset.serial_number, asset.account_number,
+      asset.order_number, asset.brik_number?.toString()]
       .some((value) => value?.toLocaleLowerCase().includes(needle))));
 }

@@ -62,6 +62,7 @@ export const LOAN_STOCK_TRANSLATIONS = Object.fromEntries(Object.entries(values)
     loansStockVerify: verification[language as PortalUiLanguage][0],
     loansStockVerified: verification[language as PortalUiLanguage][1],
     loansStockVerifyFailed: verification[language as PortalUiLanguage][2],
+    loansStockBrikNumber: ({ da: 'Brik nr.', en: 'Tag no.', de: 'Marken-Nr.', it: 'N. targhetta', hu: 'Címkeszám', sv: 'Bricknummer', fr: 'N° étiquette', pl: 'Nr znacznika', cs: 'Číslo štítku' } as Record<PortalUiLanguage, string>)[language as PortalUiLanguage],
   };
   return [language, translations];
 })) as Record<PortalUiLanguage, Record<string, string>>;
