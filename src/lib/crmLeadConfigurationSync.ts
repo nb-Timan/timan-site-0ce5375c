@@ -52,6 +52,7 @@ const CONFIGURATOR_ITEM_NUMBER_TO_CRM_INTEREST: Record<string, string> = {
   '730114': 'Equipment: Timan 3330 - Vinter redskaber - V-plov 130-150 cm med gummiskær',
   '730105': 'Equipment: Timan 3330 - Vinter redskaber - Dozerblad 130 cm med gummiskær',
   '730106': 'Equipment: Timan 3330 - Vinter redskaber - Sneslynge, 110 cm arbejdsbredde',
+  '730016-00-SAM': 'Equipment: Timan 3330 - Vinter redskaber - Sneslynge, 110 cm arbejdsbredde',
   '725131': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn',
   '725132': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Combi, for lad, manuel reg. Husk lad og vogn',
   '725138': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Combi, for lad, el reg. Husk lad og vogn',

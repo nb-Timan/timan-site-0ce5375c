@@ -725,9 +725,10 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
     { id: '730114', varenr: '730114', name: { da: 'V-plov 130-150 cm med gummiskær', en: 'V-plow 130-150 cm with rubber blade' }, priceDKK: 30460, priceEUR: 4100, videoUrl: 'https://www.youtube.com/watch?v=tDP8eqg3kdg', imageUrl: 'https://img.youtube.com/vi/tDP8eqg3kdg/maxresdefault.jpg' },
     { id: 'LT_712901', varenr: '712901', name: { da: 'Rustbeskyttelse V-plov', en: 'Rust Protection V-plow' }, priceDKK: 750, priceEUR: 105, requires: '730114' },
     { id: 'LT_730276', varenr: '730276', name: { da: 'Stålskær til V-plov, 2 stk.', en: 'Steel scraper edge for V-plow (2 pcs.)' }, priceDKK: 1810, priceEUR: 245, requires: '730114' },
-    { id: '730105', varenr: '730105', name: { da: 'Dozerblad 130 cm med gummiskær', en: 'Dozer blade 130 cm with rubber edge' }, priceDKK: 19000, priceEUR: 2560 },
+    { id: '730105', varenr: '730105', name: { da: 'Dozerblad 130 cm med gummiskær', en: 'Dozer blade 130 cm with rubber edge' }, priceDKK: 19000, priceEUR: 2560, hidden: true },
     { id: '730036', varenr: '730036', name: { da: 'Skrabeblad 3330', en: 'Scraper blade 3330' }, priceDKK: 18500, priceEUR: 2550, isNew: true },
-    { id: '730106', varenr: '730106', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665 },
+    { id: '730016-00-SAM', varenr: '730016-00-SAM', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665 },
+    { id: '730106', varenr: '730106', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665, hidden: true },
     // Spreader
     { id: '725131', varenr: '725131', name: { da: 'CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn', en: 'CS-200 roller spreader for load bed, manual (Requires bed & trailer)' }, priceDKK: 38500, priceEUR: 5050,
       subItems: [

@@ -75,7 +75,7 @@ function machineRow(m: Machine, group: ProductGroupKey): SeedRow | null {
 }
 
 function accessoryRow(a: Accessory, group: ProductGroupKey): SeedRow | null {
-  if (!a || a.isHeader) return null;
+  if (!a || a.isHeader || a.hidden) return null;
   if (!isProductActive(a.varenr)) return null;
   const item = String(a.varenr || "").trim();
   if (!item || item.toUpperCase() === "HEADER") return null;

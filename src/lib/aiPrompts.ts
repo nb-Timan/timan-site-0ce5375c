@@ -272,7 +272,7 @@ export const TOOL_PROFILES: ToolProfile[] = [
     capabilities: ['snow_plowing'],
   },
   {
-    matchIds: ['418000', '730106'],
+    matchIds: ['418000', '730016-00-SAM', '730106'],
     matchNames: ['Sneslynge', 'Snow blower', 'Schneeschleuder', 'Turbina da neve', 'Hómaró'],
     label: {
       da: 'sneslyngen',

@@ -33,6 +33,7 @@ export const CONFIGURATOR_GERMAN_PRODUCT_TEXT: Readonly<Record<string, string>> 
   '730276': 'Stahlschürfleisten für V-Pflug, 2 Stk.',
   '730105': 'Räumschild 130 cm mit Gummischürfleiste',
   '730036': 'Räumschild Timan 3330',
+  '730016-00-SAM': 'Schneefräse, 110 cm Arbeitsbreite',
   '730106': 'Schneefräse, 110 cm Arbeitsbreite',
   '725131': 'CS-200 Walzenstreuer für Ladefläche, manuelle Regelung (Ladefläche und Transportwagen erforderlich)',
   '712902': 'Korrosionsschutz (Dinitrol 4010) für CS-200',
