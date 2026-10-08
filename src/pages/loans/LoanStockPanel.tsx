@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Pencil, Plus, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useFabricLoanStock } from '@/hooks/useFabricLoanStock';
-import { canSelectFabricLoanAsset, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset } from '@/lib/fabricLoanStock';
+import { canSelectFabricLoanAsset, fabricLoanAssetDisplayIdentity, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset } from '@/lib/fabricLoanStock';
 import { t } from '@/lib/i18n/translations';
 
 export default function LoanStockPanel({ onSelect, busy = false, selectionReady = true }: {
@@ -27,6 +27,7 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
     if (asset.review_required || asset.classification === 'REVIEW_REQUIRED') return 'loansStockReview';
     if (asset.classification !== 'LOAN_CANDIDATE') return 'loansStockExcluded';
     if (asset.allocated) return 'loansStockAllocated';
+    if (!asset.serial_number?.trim() && !asset.brik_number) return 'loansStockBrikRequired';
     return 'loansStockCandidate';
   };
   const startBrikEdit = (asset: FabricLoanAsset) => {
@@ -83,8 +84,8 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
       {visible.map((asset) => <article key={asset.asset_id} className="min-w-0 bg-white py-3" data-asset-id={asset.asset_id}>
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0"><p className="break-words text-sm font-semibold text-slate-900">{asset.line_text?.trim() || asset.item_name || asset.item_number}</p>
-            <p className="mt-1 break-all text-sm text-slate-700"><span className="text-slate-500">{label('loansSerialNumber')}:</span> <span className="font-mono">{asset.serial_number}</span></p></div>
-          {onSelect && <button type="button" title={label('loansStockChoose')} aria-label={`${label('loansStockChoose')}: ${asset.serial_number}`}
+            <p className="mt-1 break-all text-sm text-slate-700"><span className="text-slate-500">{label('loansSerialNumber')}:</span> <span className="font-mono">{asset.serial_number ?? '—'}</span></p></div>
+          {onSelect && <button type="button" title={label('loansStockChoose')} aria-label={`${label('loansStockChoose')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
             disabled={busy || !selectionReady || query.isError || !canSelectFabricLoanAsset(asset, stock!.sync)} onClick={() => onSelect(asset)}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-emerald-700 text-emerald-800 disabled:border-slate-200 disabled:text-slate-400"><Plus className="h-5 w-5" /></button>}
         </div>
@@ -98,7 +99,7 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
             <dd className="mt-0.5 min-h-6 text-slate-900">
               {editingBrikAssetId === asset.asset_id ? <div className="flex min-w-0 flex-wrap items-center gap-1">
                 <input type="number" min="1" max="999999" inputMode="numeric" value={brikDraft}
-                  aria-label={`${label('loansStockBrikNumber')}: ${asset.serial_number}`}
+                  aria-label={`${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
                   onChange={(event) => setBrikDraft(event.target.value)} className="h-8 w-24 rounded border border-slate-300 px-2 text-sm" />
                 <button type="button" disabled={setBrik.isPending || !/^[1-9]\d{0,5}$/.test(brikDraft)} onClick={() => saveBrik(asset)}
                   className="h-8 rounded border border-emerald-700 px-2 font-medium text-emerald-800 disabled:opacity-50">{label('save')}</button>
@@ -107,9 +108,10 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
               </div> : <span className="inline-flex items-center gap-1">
                 {asset.brik_number ?? '—'}
                 {canEditBrik && <button type="button" onClick={() => startBrikEdit(asset)} title={label('edit')}
-                  aria-label={`${label('edit')} ${label('loansStockBrikNumber')}: ${asset.serial_number}`}
+                  aria-label={`${label('edit')} ${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
                   className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><Pencil className="h-3.5 w-3.5" /></button>}
               </span>}
+              {editingBrikAssetId === asset.asset_id && setBrik.isError && <span role="alert" className="mt-1 block text-xs text-red-700">{label('loansStockBrikDuplicate')}</span>}
             </dd>
           </div>
         </dl>

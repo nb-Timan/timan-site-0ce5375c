@@ -25,7 +25,8 @@ vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: {
 } }) }));
 vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: ReactNode }) => <main>{children}</main> }));
 vi.mock('@/pages/loans/LoanStockPanel', () => ({ default: ({ onSelect }: { onSelect: (asset: FabricLoanAsset) => void }) => <section aria-label="Salgslager"><button type="button" onClick={() => onSelect({
-  asset_id: 'asset-2', company: 'TIMAN', account_number: '1010', order_number: null, line_number: 2,
+  asset_id: 'asset-2', asset_instance_id: 'SERIAL|TIMAN|QA-SERIAL-2', instance_ordinal: 1,
+  company: 'TIMAN', account_number: '1010', order_number: null, line_number: 2,
   item_number: 'QA-SKU-2', item_name: 'QA machine 2', line_text: null, serial_number: 'QA-SERIAL-2',
   serial_number_normalized: 'QA-SERIAL-2', warehouse_location_code: '2', warehouse_location_name: 'Lager 2',
   inventory_qty: 1, reserved_qty: 0, stock_last_changed: '2026-10-08', classification: 'LOAN_CANDIDATE',
@@ -40,7 +41,8 @@ const loan = {
 } as LoanCase;
 const item = {
   id: 'item', case_id: 'case', item_type: 'machine', product_sku: 'QA-SKU',
-  planning_supply_unit_id: 'unit', serial_snapshot: 'QA-SERIAL', product_name_snapshot: 'QA machine',
+  planning_supply_unit_id: 'unit', serial_snapshot: 'QA-SERIAL', asset_instance_id_snapshot: null,
+  brik_number_snapshot: null, product_name_snapshot: 'QA machine',
   warehouse_snapshot: 'Lager 2', warehouse_location_code_snapshot: '2', usage_reading_value: 12,
   usage_reading_unit: 'hours', driving_use_limit: 'Kun intern brug', fabric_account_number_snapshot: '1010',
   fabric_order_number_snapshot: 'SO-100',
@@ -180,9 +182,9 @@ describe('Loan form interactions', () => {
     expect(reading).toHaveClass('border-red-500');
     fireEvent.change(reading, { target: { value: '12' } });
     expect(reading).not.toHaveClass('border-red-500');
-    expect(screen.getByLabelText(/Jeg bekræfter, at serienumrene/).closest('label')).toHaveClass('border-red-400');
-    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienumrene/));
-    expect(screen.getByLabelText(/Jeg bekræfter, at serienumrene/).closest('label')).not.toHaveClass('border-red-400');
+    expect(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./).closest('label')).toHaveClass('border-red-400');
+    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./));
+    expect(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./).closest('label')).not.toHaveClass('border-red-400');
   });
 
   it('marks a missing type-plate photo on the exact photo control', async () => {
@@ -202,13 +204,13 @@ describe('Loan form interactions', () => {
     await screen.findByText('QA-LOAN');
     fireEvent.click(screen.getByRole('button', { name: 'Genåbn for redigering' }));
     await waitFor(() => expect(mocks.reopenLoanForEdit).toHaveBeenCalledWith('case'));
-    expect(await screen.findByLabelText(/Jeg bekræfter, at serienumrene/)).not.toBeChecked();
+    expect(await screen.findByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./)).not.toBeChecked();
   });
 
   it('submits complete checkout to review, not partner acceptance', async () => {
     mount();
     await screen.findByText('QA-LOAN');
-    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienumrene/));
+    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./));
     fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
     await waitFor(() => expect(mocks.submitLoanCaseForReview).toHaveBeenCalledWith('case', true));
     expect(mocks.updateLoanDraft).toHaveBeenCalledTimes(1);
@@ -232,6 +234,6 @@ describe('Loan form interactions', () => {
   it('keeps the confirmed serial summary visible in internal review', async () => {
     mocks.getLoanCase.mockResolvedValue({ loanCase: { ...loan, status: 'READY_FOR_REVIEW', serial_numbers_confirmed_at: '2026-10-07T12:00:00Z' }, items: [item], photos: [photo] });
     mount();
-    expect(await screen.findByRole('region', { name: 'Klar til intern kontrol' })).toHaveTextContent('Jeg bekræfter, at serienumrene');
+    expect(await screen.findByRole('region', { name: 'Klar til intern kontrol' })).toHaveTextContent('Jeg bekræfter, at serienummer eller Brik nr.');
   });
 });

@@ -52,8 +52,9 @@ export function validateFabricPush(input: unknown, now = Date.now()): FabricPush
     const row = value as Record<string, unknown>;
     if (Object.keys(row).length !== wireFields.length || !wireFields.every((key) => key in row)
       || Object.values(row).some((field) => typeof field === 'string' && field.length > 2000)
-      || row.source_as_of !== snapshot.source_as_of || typeof row.serial_number !== 'string'
-      || row.serial_number_normalized !== row.serial_number.trim().toUpperCase()
+      || row.source_as_of !== snapshot.source_as_of
+      || (row.serial_number !== null && typeof row.serial_number !== 'string')
+      || row.serial_number_normalized !== (typeof row.serial_number === 'string' ? row.serial_number.trim().toUpperCase() : null)
       || (row.source_row_number !== null && !/^-?\d+$/.test(String(row.source_row_number)))) return invalid();
     return Object.fromEntries(FABRIC_LOAN_FIELDS.map((key) => [key, row[key]]));
   });

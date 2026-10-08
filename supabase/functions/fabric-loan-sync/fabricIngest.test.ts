@@ -4,8 +4,9 @@ import { FABRIC_LOAN_FIELDS } from '../_shared/fabricLoanSnapshot.ts';
 
 const now = Date.parse('2026-10-08T08:00:00Z');
 const sourceAsOf = new Date(now).toISOString();
-const row = { company: 'TEST', account_number: '1010', order_number: null, line_number: null,
-  item_number: 'TEST', item_name: 'Test', serial_number: ' test-serial ', warehouse_location_code: '2',
+const row = { asset_instance_id: 'SERIAL|TEST|TEST-SERIAL', instance_ordinal: 1,
+  company: 'TEST', account_number: '1010', order_number: null, line_number: null,
+  item_number: 'TEST', item_name: 'Test', line_text: null, serial_number: ' test-serial ', warehouse_location_code: '2',
   warehouse_location_name: 'Lager 2', inventory_qty: '1.0', reserved_qty: 0, stock_last_changed: null,
   source_row_number: '123', classification: 'LOAN_CANDIDATE', review_required: false, review_reason: null,
   identity_conflict: false, serial_number_normalized: 'TEST-SERIAL', source_as_of: sourceAsOf };
@@ -20,6 +21,14 @@ Deno.test('push accepts exactly the approved operational fields, nullable order,
   assertEquals(validateFabricPush({ ...snapshot(), rows: [], expected_row_count: 0 }, now).rows, []);
 });
 
+Deno.test('push accepts a non-serialized physical instance with stable source identity', () => {
+  const nonSerialized = { ...row, asset_instance_id: 'LINE|TEST|123|1', serial_number: null,
+    serial_number_normalized: null, instance_ordinal: 1 };
+  const parsed = validateFabricPush({ ...snapshot(), rows: [nonSerialized] }, now);
+  assertEquals(parsed.rows[0].serial_number, null);
+  assertEquals(parsed.rows[0].asset_instance_id, 'LINE|TEST|123|1');
+});
+
 for (const [name, patch] of Object.entries({ unknown: { sql: 'SELECT 1' }, id: { snapshot_id: 'bad' },
   partial: { expected_row_count: 2 }, stale: { source_as_of: '2026-10-08T07:00:00Z' },
   future: { source_as_of: '2026-10-09T08:00:00Z' }, missingTimezone: { source_as_of: '2026-10-08T08:00:00' } })) {
@@ -32,7 +41,10 @@ for (const [name, patch] of Object.entries({ finance: { cost_price: 1 }, normali
   Deno.test(`push rejects row ${name}`, () => { assertThrows(() => validateFabricPush({ ...snapshot(), rows: [{ ...row, ...patch }] }, now)); });
 }
 Deno.test('push rejects duplicate normalized company + serial', () => { assertThrows(() => validateFabricPush({
-  ...snapshot(), expected_row_count: 2, rows: [row, { ...row, serial_number: 'TEST-SERIAL' }],
+  ...snapshot(), expected_row_count: 2, rows: [row, { ...row, asset_instance_id: 'SERIAL|TEST|OTHER', serial_number: 'TEST-SERIAL' }],
+}, now)); });
+Deno.test('push rejects duplicate physical instance identities', () => { assertThrows(() => validateFabricPush({
+  ...snapshot(), expected_row_count: 2, rows: [row, { ...row, serial_number: null, serial_number_normalized: null }],
 }, now)); });
 
 Deno.test('HMAC accepts only the exact signed payload and timestamp, never Portal JWTs', async () => {

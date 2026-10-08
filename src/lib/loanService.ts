@@ -80,6 +80,8 @@ export interface LoanCaseItem {
   expected_return_date: string | null;
   serial_verified: boolean;
   serial_snapshot: string | null;
+  asset_instance_id_snapshot: string | null;
+  brik_number_snapshot: number | null;
   product_name_snapshot: string | null;
   warehouse_snapshot: string | null;
   warehouse_location_code_snapshot: string | null;

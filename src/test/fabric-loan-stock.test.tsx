@@ -18,7 +18,8 @@ vi.mock('@/lib/loanService', () => ({
 vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: React.ReactNode }) => <main>{children}</main> }));
 
 const asset: FabricLoanAsset = {
-  asset_id: 'qa-asset', company: 'QA', account_number: '1010', order_number: null, line_number: null,
+  asset_id: 'qa-asset', asset_instance_id: 'SERIAL|QA|QA-SERIAL', instance_ordinal: 1,
+  company: 'QA', account_number: '1010', order_number: null, line_number: null,
   item_number: 'QA-ITEM', item_name: 'QA machine', line_text: 'Nr.82 QA fejekost', serial_number: 'QA-SERIAL', serial_number_normalized: 'QA-SERIAL',
   warehouse_location_code: '2', warehouse_location_name: 'Lager 2', inventory_qty: 1, reserved_qty: 0,
   stock_last_changed: '2026-10-07T10:00:00', classification: 'LOAN_CANDIDATE', review_required: false,
@@ -26,7 +27,7 @@ const asset: FabricLoanAsset = {
 };
 const fresh = () => ({ configured: true, running: false, failed: false, stale: false,
   source_as_of: new Date().toISOString(), last_success_at: new Date().toISOString(), stale_after_seconds: 900 });
-const stock = (): FabricLoanStock => ({ assets: [asset, { ...asset, asset_id: 'qa-other', serial_number: 'QA-EXTERNAL', account_number: '1020', order_number: 'QA-ORDER', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' }], sync: fresh() });
+const stock = (): FabricLoanStock => ({ assets: [asset, { ...asset, asset_id: 'qa-other', asset_instance_id: 'SERIAL|QA|QA-EXTERNAL', serial_number: 'QA-EXTERNAL', serial_number_normalized: 'QA-EXTERNAL', account_number: '1020', order_number: 'QA-ORDER', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' }], sync: fresh() });
 const hook = (data = stock()) => ({ query: { data, isPending: false, isError: false },
   refresh: { mutate: mocks.refresh, isPending: false, isError: false },
   setBrik: { mutate: mocks.setBrik, isPending: false, isError: false },
@@ -60,6 +61,17 @@ describe('single Fabric stock dataset', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'qa-external' } });
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
     expect(screen.getByText('Ekstern placering')).toBeInTheDocument();
+  });
+  it('returns both serialized and non-serialized physical rows for order 138063', () => {
+    const serialized = { ...asset, asset_id: 'serial', asset_instance_id: 'SERIAL|DAT|730600-00-2044',
+      order_number: '138063', item_number: '730600-00', line_text: 'Nr.194 Ukrudtsbørste med mulighed for opsamling',
+      serial_number: '730600-00-2044', serial_number_normalized: '730600-00-2044', brik_number: null };
+    const nonSerialized = { ...asset, asset_id: 'line', asset_instance_id: 'LINE|DAT|445129381|1',
+      order_number: '138063', item_number: '730601-00', line_text: 'Nr.131 Sug for ukrudtsbørste',
+      serial_number: null, serial_number_normalized: null, brik_number: null };
+    expect(filterFabricLoanStock([serialized, nonSerialized], 'all', '138063', 'all')).toEqual([serialized, nonSerialized]);
+    expect(canSelectFabricLoanAsset(nonSerialized, fresh())).toBe(false);
+    expect(canSelectFabricLoanAsset({ ...nonSerialized, brik_number: 131 }, fresh())).toBe(true);
   });
   it('edits expected return from the overview with a required note', async () => {
     mocks.listCases.mockResolvedValue([{ id: 'loan-1', loan_number: 'U-6601', case_number: 'LN-000001', responsible_user_id: 'qa', responsible_name: 'QA Seller', dealer_account_id: 'partner', partner_name: 'QA Partner', dealer_contact_id: 'contact', loan_date: '2026-10-07', expected_return_date: '2026-10-14', status: 'ON_LOAN', asset_count: 3, can_edit_expected_return: true, created_at: '2026-10-07T00:00:00Z', updated_at: '2026-10-07T00:00:00Z' }]);
@@ -100,6 +112,18 @@ describe('single Fabric stock dataset', () => {
     fireEvent.change(input, { target: { value: '83' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
     expect(mocks.setBrik).toHaveBeenCalledWith({ assetId: 'qa-asset', brikNumber: 83 }, expect.any(Object));
+  });
+  it('shows a non-serialized Backend row without fabricating a serial and blocks it until Brik is assigned', () => {
+    const nonSerialized = { ...asset, asset_id: 'line', asset_instance_id: 'LINE|DAT|445129381|1',
+      item_number: '730601-00', line_text: 'Nr.131 Sug for ukrudtsbørste', serial_number: null,
+      serial_number_normalized: null, brik_number: null, account_number: '1020', order_number: '138063',
+      warehouse_location_code: '4', warehouse_location_name: 'Lager 4', item_type: 'equipment' as const };
+    mocks.state = hook({ assets: [nonSerialized], sync: fresh() });
+    render(<LoanStockPanel onSelect={vi.fn()} />);
+    expect(screen.getByText('Nr.131 Sug for ukrudtsbørste')).toBeInTheDocument();
+    expect(screen.getByText('Mangler Brik nr.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Vælg aktiv: 730601-00 #1' })).toBeDisabled();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
   it.each(['1010', '1020'])('allows a fresh %s candidate', (account_number) => {
     expect(canSelectFabricLoanAsset({ ...asset, account_number }, fresh())).toBe(true);
@@ -177,7 +201,12 @@ describe('atomic server sync contract', () => {
     expect(() => validateFabricLoanSnapshot([{ ...row(), review_required: null }], [...FABRIC_LOAN_FIELDS])).toThrow();
   });
   it('rejects duplicate normalized serial identities instead of silently losing rows', () => {
-    expect(() => validateFabricLoanSnapshot([row(), { ...row(), serial_number: ' qa-serial ' }], [...FABRIC_LOAN_FIELDS])).toThrow();
+    expect(() => validateFabricLoanSnapshot([row(), { ...row(), asset_instance_id: 'SERIAL|QA|OTHER', serial_number: ' qa-serial ' }], [...FABRIC_LOAN_FIELDS])).toThrow();
+  });
+  it('accepts distinct non-serialized physical instances and rejects duplicate instance identities', () => {
+    const nonSerialized = { ...row(), asset_instance_id: 'LINE|QA|123|1', serial_number: null };
+    expect(validateFabricLoanSnapshot([nonSerialized], [...FABRIC_LOAN_FIELDS])).toHaveLength(1);
+    expect(() => validateFabricLoanSnapshot([nonSerialized, { ...nonSerialized }], [...FABRIC_LOAN_FIELDS])).toThrow();
   });
   it('allows a complete empty source snapshot with valid metadata', () => {
     expect(validateFabricLoanSnapshot([], [...FABRIC_LOAN_FIELDS])).toEqual([]);
@@ -200,6 +229,8 @@ describe('atomic server sync contract', () => {
   });
   it('uses Fabric-side reads, authenticated HTTPS push, private reads and guarded atomic publication', () => {
     const sql = readFileSync('supabase/migrations/20261007160113_fabric_loan_stock_projection.sql', 'utf8');
+    const nonSerialMigration = readFileSync('supabase/migrations/20261008094909_support_nonserialized_fabric_loan_assets.sql', 'utf8');
+    const fabricView = readFileSync('fabric/loans/loan_assets_current.sql', 'utf8');
     const edge = readFileSync('supabase/functions/fabric-loan-sync/index.ts', 'utf8');
     const picker = readFileSync('src/pages/loans/LoanCasePage.tsx', 'utf8');
     expect(sql).toContain('fabric_loan_ingest_snapshot');
@@ -210,6 +241,12 @@ describe('atomic server sync contract', () => {
     expect(sql).toContain('revoke all on function public.fabric_loan_sync_publish(uuid,timestamptz,jsonb) from public, anon, authenticated');
     expect(sql).toContain('STALE_SYNC_LEASE'); expect(sql).toContain('pg_advisory_xact_lock');
     expect(sql).toContain('set source_present=false'); expect(sql).not.toContain('delete from public.fabric_loan_assets_current');
+    expect(nonSerialMigration).toContain('on conflict(asset_instance_id)');
+    expect(nonSerialMigration).toContain('Brik number is already assigned');
+    expect(fabricView).toContain("NULLIF(TRIM(REPLACE(l.SERIALNUMBER, CHAR(2), '')), '') IS NULL");
+    expect(fabricView).toContain("CONCAT('LINE|', company");
+    expect(fabricView).toContain('<= CEILING(l.QTY)');
+    expect(fabricView).not.toContain('TRANSACTION_ =');
     expect(edge).toContain("caller.rpc('can_administer_loans')"); expect(edge).toContain('caller.auth.getUser()');
     expect(edge).toContain('verifyFabricSignature'); expect(edge).toContain('validateFabricPush');
     expect(edge).toContain("request.headers.has('Authorization') || request.headers.has('Origin')");

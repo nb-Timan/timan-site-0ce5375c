@@ -36,6 +36,8 @@ export function isLoanDateRangeValid(loanDate: string | null, expectedReturnDate
 export interface LoanPreparationItem {
   item_type: 'machine' | 'equipment';
   serial_snapshot: string | null;
+  asset_instance_id_snapshot?: string | null;
+  brik_number_snapshot?: number | null;
   planning_supply_unit_id: string | null;
   fabric_asset_id?: string | null;
   usage_reading_value: number | null;
@@ -55,7 +57,9 @@ export function getLoanPreparationIssues(input: {
   if (!isLoanDateRangeValid(input.loanDate, input.expectedReturnDate)) issues.push('date_range');
   if (input.items.length === 0) issues.push('asset');
   for (const item of input.items) {
-    if ((!item.planning_supply_unit_id && !item.fabric_asset_id) || !item.serial_snapshot?.trim()) issues.push('serial');
+    const hasPhysicalIdentity = Boolean(item.serial_snapshot?.trim()
+      || (item.fabric_asset_id && item.asset_instance_id_snapshot?.trim() && item.brik_number_snapshot));
+    if ((!item.planning_supply_unit_id && !item.fabric_asset_id) || !hasPhysicalIdentity) issues.push('serial');
     if (!item.photoKinds.includes('serial_plate')) issues.push('type_plate_photo');
     if (item.item_type === 'machine') {
       if (item.usage_reading_value === null) issues.push('usage_reading_value');

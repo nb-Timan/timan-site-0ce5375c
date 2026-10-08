@@ -308,7 +308,7 @@ export default function LoanCasePage() {
 
     <div className="mt-5 max-w-5xl space-y-5">
       {loanCase?.status === 'READY_FOR_REVIEW' && <section className="border-l-4 border-emerald-600 bg-emerald-50 p-4" aria-label={label('loansReviewReady')}>
-        <div className="flex items-start gap-2 text-emerald-900"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><div><h2 className="font-semibold">{label('loansReviewReady')}</h2><p className="mt-1 text-sm">{label('loansSerialConfirmation')}</p></div></div>
+        <div className="flex items-start gap-2 text-emerald-900"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><div><h2 className="font-semibold">{label('loansReviewReady')}</h2><p className="mt-1 text-sm">{label('loansPhysicalIdentityConfirmation')}</p></div></div>
       </section>}
       <fieldset disabled={busy || !canManageCase || (!isNew && loanCase?.status !== 'DRAFT')} className="min-w-0 space-y-5">
       <section className="border border-slate-200 bg-white p-4">
@@ -359,7 +359,7 @@ export default function LoanCasePage() {
           <LoanStockPanel busy={busy} selectionReady={dateRangeValid && (!isNew || Boolean(sellerId && partnerId && contactId))} onSelect={(asset) => void addAsset(asset)} />
         </div>}
 
-        {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label className={`mt-5 flex items-start gap-3 border-t p-3 text-sm font-medium ${validationIssues.includes('serial_confirmation') && !serialConfirmed ? 'border-red-400 bg-red-50 text-red-900' : 'border-slate-200 text-slate-800'}`}><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} /><span>{label('loansSerialConfirmation')}{validationIssues.includes('serial_confirmation') && !serialConfirmed && <span className="mt-1 block text-xs text-red-700">{label('loansRequiredConfirmation')}</span>}</span></label>}
+        {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label className={`mt-5 flex items-start gap-3 border-t p-3 text-sm font-medium ${validationIssues.includes('serial_confirmation') && !serialConfirmed ? 'border-red-400 bg-red-50 text-red-900' : 'border-slate-200 text-slate-800'}`}><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} /><span>{label('loansPhysicalIdentityConfirmation')}{validationIssues.includes('serial_confirmation') && !serialConfirmed && <span className="mt-1 block text-xs text-red-700">{label('loansRequiredConfirmation')}</span>}</span></label>}
       </section>
 
       {validationIssues.length > 0 && <div role="alert" className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-medium">{label('loansPreparationMissing')}</p><ul className="mt-2 list-disc pl-5">{validationIssues.map((issue) => <li key={issue}>{issueLabel(issue, label)}</li>)}</ul></div>}
@@ -398,7 +398,7 @@ function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit,
   const plateInvalid = validationIssues.includes('type_plate_photo') && !photo('serial_plate');
   return <article className="border border-slate-200 bg-slate-50 p-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><p className="font-semibold text-slate-900">{item.product_name_snapshot ?? item.product_sku}</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600"><span>{label('loansItemNumber')}: {item.product_sku}</span><span>{label('loansSerialNumber')}: {item.serial_snapshot ?? '—'}</span><span>{label('loansWarehouse')}: {item.warehouse_snapshot ?? item.warehouse_location_code_snapshot ?? '—'}</span><span>{label('loansStockAccount')}: {item.fabric_account_number_snapshot ?? '—'}</span>{item.fabric_order_number_snapshot && <span>{label('loansStockOrder')}: {item.fabric_order_number_snapshot}</span>}</div></div>
+      <div><p className="font-semibold text-slate-900">{item.product_name_snapshot ?? item.product_sku}</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600"><span>{label('loansItemNumber')}: {item.product_sku}</span><span>{label('loansSerialNumber')}: {item.serial_snapshot ?? '—'}</span>{item.brik_number_snapshot && <span>{label('loansStockBrikNumber')}: {item.brik_number_snapshot}</span>}<span>{label('loansWarehouse')}: {item.warehouse_snapshot ?? item.warehouse_location_code_snapshot ?? '—'}</span><span>{label('loansStockAccount')}: {item.fabric_account_number_snapshot ?? '—'}</span>{item.fabric_order_number_snapshot && <span>{label('loansStockOrder')}: {item.fabric_order_number_snapshot}</span>}</div></div>
       <div className="flex items-center gap-2"><span className="rounded-sm bg-white px-2 py-1 text-xs font-medium text-slate-700">{label(item.item_type === 'machine' ? 'loansMachine' : 'loansEquipment')}</span>{editable && <button type="button" onClick={onRemoveAsset} disabled={busy} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-200 text-red-700" title={label('loansRemoveAsset')}><Trash2 className="h-4 w-4" /></button>}</div>
     </div>
     {item.item_type === 'machine' && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_9rem_minmax(0,1.4fr)_auto]">
@@ -439,7 +439,7 @@ function controlClass(invalid: boolean) { return invalid ? `${fieldClass} border
 function issueLabel(issue: string, label: (key: string) => string): string {
   const keys: Record<string, string> = {
     loan_date: 'loansRequiredLoanDate', expected_return_date: 'loansRequiredReturnDate', date_range: 'loansDateRangeError',
-    asset: 'loansRequiredAsset', serial: 'loansRequiredSerial', type_plate_photo: 'loansRequiredTypePlate',
+    asset: 'loansRequiredAsset', serial: 'loansRequiredPhysicalIdentity', type_plate_photo: 'loansRequiredTypePlate',
     usage_reading_value: 'loansRequiredHourValue', usage_reading_unit: 'loansUsageUnit', serial_confirmation: 'loansRequiredConfirmation',
   };
   return label(keys[issue] ?? 'loansPreparationMissing');
