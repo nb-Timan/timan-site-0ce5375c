@@ -59,6 +59,7 @@ export function fabricLoanAssetDisplayIdentity(asset: FabricLoanAsset): string {
 export function filterFabricLoanStock(assets: FabricLoanAsset[], warehouse: string, search: string, account: string) {
   const needle = search.trim().toLocaleLowerCase();
   return assets.filter((asset) => asset.source_present
+    && ['2', '4'].includes(asset.warehouse_location_code)
     && (warehouse === 'all' || asset.warehouse_location_code === warehouse)
     && (account === 'all' || asset.account_number === account)
     && (!needle || [asset.item_number, asset.item_name, asset.line_text, asset.serial_number, asset.account_number,

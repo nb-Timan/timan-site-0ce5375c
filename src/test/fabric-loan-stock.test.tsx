@@ -46,13 +46,28 @@ describe('single Fabric stock dataset', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Udlån' }));
     expect(screen.getByText('Ingen lånesager endnu.')).toBeInTheDocument();
   });
-  it('filters Lager 2 and Lager 4 with counts', () => {
+  it('shows symmetric warehouse and account filter groups with explicit defaults and counts', () => {
+    render(<LoanStockPanel />);
+    const warehouseGroup = screen.getByRole('group', { name: 'Lager' });
+    const accountGroup = screen.getByRole('group', { name: 'Konto' });
+    expect(warehouseGroup).toContainElement(screen.getByRole('button', { name: 'Alle lagre' }));
+    expect(accountGroup).toContainElement(screen.getByRole('button', { name: 'Alle konti' }));
+    expect(screen.getByRole('button', { name: 'Alle lagre' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Alle konti' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('combobox', { name: 'Konto' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Alle lagre' })).toHaveTextContent('2');
+  });
+  it('filters Lager 2 and Lager 4 without resetting the account selection', () => {
     render(<LoanStockPanel />);
     fireEvent.click(screen.getByRole('button', { name: /Lager 4/ }));
     expect(screen.getByText('QA-EXTERNAL')).toBeInTheDocument();
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Alle lagre' }));
+    fireEvent.click(screen.getByRole('button', { name: '1010' }));
     expect(screen.getByText('QA-SERIAL')).toBeInTheDocument();
+    expect(screen.queryByText('QA-EXTERNAL')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
+    expect(screen.getByRole('button', { name: '1010' })).toHaveAttribute('aria-pressed', 'true');
   });
   it('searches brik, line text, serial, item, name, account and order without fabricating missing orders', () => {
     for (const term of ['82', 'fejekost', 'qa-serial', 'QA-ITEM', 'machine', '1010']) expect(filterFabricLoanStock([asset], 'all', term, 'all')).toEqual([asset]);
@@ -89,13 +104,22 @@ describe('single Fabric stock dataset', () => {
   it('combines search, account and warehouse as AND filters without resetting either control', () => {
     render(<LoanStockPanel />);
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'QA-ORDER' } });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Konto' }), { target: { value: '1020' } });
+    fireEvent.click(screen.getByRole('button', { name: '1020' }));
     expect(screen.getByRole('textbox', { name: 'Søg i salgslager' })).toHaveValue('QA-ORDER');
-    expect(screen.getByRole('combobox', { name: 'Konto' })).toHaveValue('1020');
+    expect(screen.getByRole('button', { name: '1020' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('QA-EXTERNAL')).toBeInTheDocument();
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
     expect(screen.queryByText('QA-EXTERNAL')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1020' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('textbox', { name: 'Søg i salgslager' })).toHaveValue('QA-ORDER');
+  });
+  it('limits All warehouses to Lager 2 and Lager 4 and keeps search below both filter groups', () => {
+    expect(filterFabricLoanStock([asset, { ...asset, asset_id: 'other-warehouse', warehouse_location_code: '7' }], 'all', '', 'all')).toEqual([asset]);
+    render(<LoanStockPanel />);
+    const accountGroup = screen.getByRole('group', { name: 'Konto' });
+    const searchInput = screen.getByRole('textbox', { name: 'Søg i salgslager' });
+    expect(accountGroup.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
   it('uses line text as the title, keeps short row warehouse labels and retains full warehouse headings', () => {
     mocks.state = hook({ ...stock(), assets: [{ ...asset, warehouse_location_name: 'Lager 2 - Nye ubrugte salgslagermaskiner' }] });

@@ -21,6 +21,9 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
   const running = refresh.isPending || stock?.sync.running;
   const failed = query.isError || refresh.isError || stock?.sync.failed;
   const visible = filterFabricLoanStock(stock?.assets ?? [], warehouse, search, account);
+  const warehouseCount = (value: 'all' | '2' | '4') => stock?.sync.last_success_at
+    ? filterFabricLoanStock(stock.assets, value, '', 'all').length
+    : '—';
   const date = (value: string | null) => value ? new Date(value).toLocaleString(uiLanguage) : '—';
   const status = (asset: FabricLoanAsset) => {
     if (asset.identity_conflict || asset.classification === 'IDENTITY_CONFLICT') return 'loansStockConflict';
@@ -60,22 +63,37 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
     </div>}
     {failed && <p role="alert" className="flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4 shrink-0" />{label(stock?.sync.last_success_at ? 'loansStockFailed' : 'loansStockNotReady')}</p>}
     {stock && (!stock.sync.configured || !isFabricStockFresh(stock.sync)) && <p role="status" className="text-sm text-amber-900">{label(!stock.sync.configured ? 'loansStockNotReady' : 'loansStockStale')}</p>}
-    <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label={label('loansWarehouse')}>
-      {(['2', '4'] as const).map((code) => <button type="button" key={code} aria-pressed={warehouse === code}
-        onClick={() => setWarehouse(warehouse === code ? 'all' : code)}
-        className={`min-w-0 border-b-2 p-3 text-left ${warehouse === code ? 'border-emerald-700 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-        <span className="flex items-center justify-between gap-2 font-semibold">{label(`loansWarehouse${code}`)}<span>{stock?.sync.last_success_at ? stock.assets.filter((asset) => asset.source_present && asset.warehouse_location_code === code).length : '—'}</span></span>
-        <span className="mt-1 block text-sm text-slate-600">{label(code === '2' ? 'loansStockNew' : 'loansStockUsed')}</span>
-      </button>)}
+    <div className="grid min-w-0 gap-4 md:grid-cols-2">
+      <fieldset className="min-w-0">
+        <legend className="mb-1.5 text-xs font-semibold text-slate-700">{label('loansWarehouse')}</legend>
+        <div className="grid min-w-0 grid-cols-3 gap-1.5">
+          {(['all', '2', '4'] as const).map((code) => {
+            const optionLabel = code === 'all' ? label('loansAllWarehouses') : label(`loansWarehouse${code}`);
+            return <button type="button" key={code} aria-pressed={warehouse === code} onClick={() => setWarehouse(code)}
+              className={`flex min-h-10 min-w-0 items-center justify-between gap-1 rounded-md border px-2 py-1.5 text-left text-sm font-medium ${warehouse === code ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+              <span className="min-w-0 break-words">{optionLabel}</span>
+              {code !== 'all' && <span className="sr-only">{label(code === '2' ? 'loansStockNew' : 'loansStockUsed')}</span>}
+              <span className="shrink-0 text-xs tabular-nums text-slate-500" aria-hidden="true">{warehouseCount(code)}</span>
+            </button>;
+          })}
+        </div>
+      </fieldset>
+      <fieldset className="min-w-0">
+        <legend className="mb-1.5 text-xs font-semibold text-slate-700">{label('loansStockAccount')}</legend>
+        <div className="grid min-w-0 grid-cols-3 gap-1.5">
+          {(['all', '1010', '1020'] as const).map((value) => <button type="button" key={value} aria-pressed={account === value}
+            onClick={() => setAccount(value)}
+            className={`min-h-10 min-w-0 rounded-md border px-2 py-1.5 text-sm font-medium ${account === value ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <span className="break-words">{value === 'all' ? label('loansAllAccounts') : value}</span>
+          </button>)}
+        </div>
+      </fieldset>
     </div>
-    <div className="flex flex-col gap-2 sm:flex-row">
-      <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-300 bg-white px-3">
+    <div className="min-w-0">
+      <label className="flex min-w-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3">
         <Search className="h-4 w-4 shrink-0 text-slate-500" /><span className="sr-only">{label('loansStockSearch')}</span>
         <input className="h-10 min-w-0 w-full bg-transparent text-sm outline-none" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={label('loansStockSearch')} />
       </label>
-      <select aria-label={label('loansStockAccount')} value={account} onChange={(event) => setAccount(event.target.value)} className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm">
-        <option value="all">{label('loansStockAccount')}: {label('loansAll')}</option><option value="1010">1010</option><option value="1020">1020</option>
-      </select>
     </div>
     {onSelect && !selectionReady && <p className="text-sm text-slate-600">{label('loansStockHeaderRequired')}</p>}
     {query.isPending && <p role="status" className="text-sm text-slate-600">{label('loansLoading')}</p>}
