@@ -121,6 +121,11 @@ describe('canonical T2/T3 product hierarchy', () => {
     expect(sharedOptionsIndex).toBeGreaterThan(variantsIndex);
     expect(productGroupRenderer).toContain('activeVariant.subItems.map((option) => renderSubItem(option as SubItem, selectedIds, machineType, 2))');
     expect(productGroupRenderer).not.toContain('a.subItems?.filter');
+    expect(productGroupRenderer).toContain('product-group-hierarchy-indicator-${a.varenr}');
+    expect(productGroupRenderer).toContain('text-[10px] leading-none text-gray-400">↳</span>');
+    expect(productGroupRenderer).not.toContain('ChevronDown');
+    expect(productGroupRenderer).not.toContain('ChevronRight');
+    expect(productGroupRenderer).toContain('aria-expanded={isOpen}');
   });
 
   it.each([

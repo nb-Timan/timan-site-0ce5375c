@@ -2,7 +2,7 @@ import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
-import { CalendarIcon, ChevronDown, ChevronRight, Pencil, Sparkles } from 'lucide-react';
+import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPriceForCurrency, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { formatMoney, resolveDisplayCurrency } from '@/lib/currency';
@@ -4151,8 +4151,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           <span className="min-w-0">
                             <span className="block text-sm font-semibold text-gray-900">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
                             <span className="block text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
+                            <span data-testid={`product-group-hierarchy-indicator-${a.varenr}`} aria-hidden="true" className="mt-1 block text-[10px] leading-none text-gray-400">↳</span>
                           </span>
-                          {isOpen ? <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" /> : <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" />}
                         </button>
                         <div className="flex items-start justify-between gap-3 border-t border-gray-100 px-3 py-2">
                           <div className="min-w-0">
