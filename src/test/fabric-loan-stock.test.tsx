@@ -1,17 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { canSelectFabricLoanAsset, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset, type FabricLoanStock } from '@/lib/fabricLoanStock';
 import { FABRIC_LOAN_FIELDS, runFabricLoanSync, validateFabricLoanSnapshot } from '../../supabase/functions/_shared/fabricLoanSnapshot';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoansPage from '@/pages/loans/LoansPage';
 
-const mocks = vi.hoisted(() => ({ state: null as unknown, refresh: vi.fn(), setBrik: vi.fn(), listCases: vi.fn() }));
+const mocks = vi.hoisted(() => ({ state: null as unknown, refresh: vi.fn(), setBrik: vi.fn(), listCases: vi.fn(), updateReturn: vi.fn() }));
 vi.mock('@/hooks/useFabricLoanStock', () => ({ useFabricLoanStock: () => mocks.state }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
 vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: { id: 'qa', portal_role: 'timan_backend', approved: true, is_active: true, allowed_areas: ['loans'] } }) }));
-vi.mock('@/lib/loanService', () => ({ listLoanCases: (...args: unknown[]) => mocks.listCases(...args) }));
+vi.mock('@/lib/loanService', () => ({
+  listLoanCases: (...args: unknown[]) => mocks.listCases(...args),
+  updateLoanExpectedReturn: (...args: unknown[]) => mocks.updateReturn(...args),
+}));
 vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: React.ReactNode }) => <main>{children}</main> }));
 
 const asset: FabricLoanAsset = {
@@ -57,6 +60,30 @@ describe('single Fabric stock dataset', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'qa-external' } });
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
     expect(screen.getByText('Ekstern placering')).toBeInTheDocument();
+  });
+  it('edits expected return from the overview with a required note', async () => {
+    mocks.listCases.mockResolvedValue([{ id: 'loan-1', loan_number: 'U-6601', case_number: 'LN-000001', responsible_user_id: 'qa', responsible_name: 'QA Seller', dealer_account_id: 'partner', partner_name: 'QA Partner', dealer_contact_id: 'contact', loan_date: '2026-10-07', expected_return_date: '2026-10-14', status: 'ON_LOAN', asset_count: 3, can_edit_expected_return: true, created_at: '2026-10-07T00:00:00Z', updated_at: '2026-10-07T00:00:00Z' }]);
+    render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    expect(await screen.findAllByText('U-6601')).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Rediger retur' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Vælg en ny dato og skriv en kort årsag.');
+    fireEvent.change(screen.getByLabelText('Ny forventet retur'), { target: { value: '2026-10-21' } });
+    fireEvent.change(screen.getByLabelText('Note / årsag'), { target: { value: 'Ny aftale' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mocks.updateReturn).toHaveBeenCalledWith('loan-1', '2026-10-21', 'Ny aftale'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+  it('combines search, account and warehouse as AND filters without resetting either control', () => {
+    render(<LoanStockPanel />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'QA-ORDER' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Konto' }), { target: { value: '1020' } });
+    expect(screen.getByRole('textbox', { name: 'Søg i salgslager' })).toHaveValue('QA-ORDER');
+    expect(screen.getByRole('combobox', { name: 'Konto' })).toHaveValue('1020');
+    expect(screen.getByText('QA-EXTERNAL')).toBeInTheDocument();
+    expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
+    expect(screen.queryByText('QA-EXTERNAL')).not.toBeInTheDocument();
   });
   it('uses line text as the title, keeps short row warehouse labels and retains full warehouse headings', () => {
     mocks.state = hook({ ...stock(), assets: [{ ...asset, warehouse_location_name: 'Lager 2 - Nye ubrugte salgslagermaskiner' }] });

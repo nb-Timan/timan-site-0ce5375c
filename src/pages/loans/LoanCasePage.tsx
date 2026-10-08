@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Camera, CheckCircle2, Trash2, UploadCloud } from 'lucide-react';
+import { Camera, CheckCircle2, History, RotateCcw, Trash2, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
@@ -15,17 +15,21 @@ import {
   createLoanCase,
   confirmLoanDraftSerials,
   getLoanCase,
+  listLoanCaseHistory,
   listLoanContacts,
   listLoanPartners,
   listLoanSellers,
   removeLoanItem,
   removeLoanItemPhoto,
+  reopenLoanForEdit,
   submitLoanCaseForReview,
   updateLoanDraft,
+  updateLoanCaseRelationships,
   updateLoanItemUsage,
   uploadLoanItemPhoto,
   validateLoanImage,
   type LoanCase,
+  type LoanCaseEvent,
   type LoanCaseItem,
   type LoanContact,
   type LoanItemPhoto,
@@ -41,7 +45,9 @@ export default function LoanCasePage() {
   const { appUser } = useAppUser();
   const { caseId } = useParams();
   const isNew = !caseId;
-  const canManageCase = isInternalTimanPortalRole(derivePortalRole(appUser));
+  const role = derivePortalRole(appUser);
+  const canManageCase = isInternalTimanPortalRole(role);
+  const canAdministerCase = role === 'timan_backend';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { uiLanguage } = useLanguage();
@@ -55,6 +61,7 @@ export default function LoanCasePage() {
   const [loanCase, setLoanCase] = useState<LoanCase | null>(null);
   const [items, setItems] = useState<LoanCaseItem[]>([]);
   const [photos, setPhotos] = useState<LoanItemPhoto[]>([]);
+  const [history, setHistory] = useState<LoanCaseEvent[]>([]);
   const [sellerId, setSellerId] = useState('');
   const [partnerId, setPartnerId] = useState('');
   const [contactId, setContactId] = useState('');
@@ -81,11 +88,12 @@ export default function LoanCasePage() {
   const refresh = useCallback(async (targetId = caseId) => {
     if (!targetId) return;
     const generation = ++refreshGeneration.current;
-    const detail = await getLoanCase(targetId);
+    const [detail, events] = await Promise.all([getLoanCase(targetId), listLoanCaseHistory(targetId)]);
     if (generation !== refreshGeneration.current) return;
     setLoanCase(detail.loanCase);
     setItems(detail.items);
     setPhotos(detail.photos);
+    setHistory(events);
     setReadingDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.usage_reading_value?.toString() ?? ''])));
     setUnitDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.usage_reading_unit ?? ''])));
     setLimitDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.driving_use_limit ?? ''])));
@@ -147,10 +155,12 @@ export default function LoanCasePage() {
   }), [address, addressContact, addressNote, alternative, city, country, expectedReturn, loanDate, notes, postal]);
 
   const saveDraft = async () => {
-    if (!dateRangeValid || (isNew && (!sellerId || !partnerId || !contactId))) return;
+    const headerIssues = [!sellerId && 'seller', !partnerId && 'partner', !contactId && 'contact', !dateRangeValid && 'date_range'].filter(Boolean) as string[];
+    if (headerIssues.length > 0) { setValidationIssues(headerIssues); return; }
     setBusy(true); setError(''); setNotice('');
     try {
       if (caseId) {
+        if (canAdministerCase) await updateLoanCaseRelationships(caseId, { sellerId, partnerId, contactId });
         await updateLoanDraft(caseId, draftInput);
         await persistUsageDrafts(caseId);
         await confirmLoanDraftSerials(caseId, serialConfirmed);
@@ -270,11 +280,21 @@ export default function LoanCasePage() {
     finally { setBusy(false); }
   };
 
+  const reopen = async () => {
+    if (!caseId) return;
+    setBusy(true); setError(''); setNotice('');
+    try { await reopenLoanForEdit(caseId); await refresh(); setNotice(label('loansReopened')); }
+    catch (cause) { setError(errorText(cause, label)); }
+    finally { setBusy(false); }
+  };
+
   if (isNew && !canManageCase) return <Navigate to="/portal/loans" replace />;
 
   return <LoanShell>
     <div className="mb-4"><Link to="/portal/loans" className="text-sm font-medium text-emerald-800 underline">{label('loansCases')}</Link></div>
-    <h1 className="text-2xl font-semibold text-slate-900">{isNew ? label('loansNewCase') : loanCase?.case_number ?? label('loansLoading')}</h1>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-semibold text-slate-900">{isNew ? label('loansNewCase') : loanCase?.loan_number ?? label('loansLoading')}</h1>
+      {canAdministerCase && loanCase && ['READY_FOR_REVIEW','AWAITING_ACCEPTANCE','ACCEPTED'].includes(loanCase.status) && <button type="button" disabled={busy} onClick={() => void reopen()} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800"><RotateCcw className="h-4 w-4" />{label('loansReopen')}</button>}
+    </div>
     {error && <p role="alert" className="mt-4 border-l-4 border-red-500 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {notice && <p role="status" className="mt-4 border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
 
@@ -286,17 +306,19 @@ export default function LoanCasePage() {
       <section className="border border-slate-200 bg-white p-4">
         <h2 className="mb-4 text-sm font-semibold uppercase text-slate-700">{label('loansAgreement')}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          {isNew ? <>
-            <Field label={label('loansSeller')}><select className={fieldClass} value={sellerId} onChange={(event) => { setSellerId(event.target.value); setPartnerId(''); setContactId(''); }}><option value="">{label('loansSelectSeller')}</option>{sellers.map((seller) => <option key={seller.id} value={seller.id}>{seller.initials} · {seller.display_name}</option>)}</select></Field>
-            <Field label={label('loansPartner')}><select className={fieldClass} value={partnerId} onChange={(event) => { setPartnerId(event.target.value); setContactId(''); }} disabled={!sellerId}><option value="">{label('loansSelectPartner')}</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.account_number} · {partner.company_name}</option>)}</select></Field>
-            <Field label={label('loansContact')}><select className={fieldClass} value={contactId} onChange={(event) => setContactId(event.target.value)} disabled={!partnerId || contacts.length === 0}><option value="">{label('loansSelectContact')}</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}{contact.role_title ? ` · ${contact.role_title}` : ''}</option>)}</select>{partnerId && contacts.length === 0 && <p className="mt-1 text-xs text-amber-800">{label('loansNoContacts')}</p>}</Field>
+          {isNew || (canAdministerCase && loanCase?.status === 'DRAFT') ? <>
+            <Field label={label('loansSeller')} invalid={validationIssues.includes('seller') && !sellerId} error={label('loansRequiredSeller')}><select className={controlClass(validationIssues.includes('seller') && !sellerId)} value={sellerId} onChange={(event) => { setSellerId(event.target.value); setPartnerId(''); setContactId(''); }}><option value="">{label('loansSelectSeller')}</option>{sellers.map((seller) => <option key={seller.id} value={seller.id}>{seller.initials} · {seller.display_name}</option>)}</select></Field>
+            <Field label={label('loansPartner')} invalid={validationIssues.includes('partner') && !partnerId} error={label('loansRequiredPartner')}><select className={controlClass(validationIssues.includes('partner') && !partnerId)} value={partnerId} onChange={(event) => { setPartnerId(event.target.value); setContactId(''); }} disabled={!sellerId}><option value="">{label('loansSelectPartner')}</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.account_number} · {partner.company_name}</option>)}</select></Field>
+            <Field label={label('loansContact')} invalid={validationIssues.includes('contact') && !contactId} error={label('loansRequiredContact')}><select className={controlClass(validationIssues.includes('contact') && !contactId)} value={contactId} onChange={(event) => setContactId(event.target.value)} disabled={!partnerId || contacts.length === 0}><option value="">{label('loansSelectContact')}</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}{contact.role_title ? ` · ${contact.role_title}` : ''}</option>)}</select>{partnerId && contacts.length === 0 && <p className="mt-1 text-xs text-amber-800">{label('loansNoContacts')}</p>}</Field>
           </> : <>
             <Info label={label('loansSeller')} value={sellers.find((seller) => seller.id === sellerId)?.display_name ?? sellerId} />
             <Info label={label('loansPartner')} value={partners.find((partner) => partner.id === partnerId)?.company_name ?? partnerId} />
             <Info label={label('loansContact')} value={contacts.find((contact) => contact.id === contactId)?.name ?? contactId} />
           </>}
-          <Input label={label('loansLoanDate')} value={loanDate} setValue={setLoanDate} type="date" />
-          <Input label={label('loansExpectedReturn')} value={expectedReturn} setValue={setExpectedReturn} type="date" />
+          <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2" data-testid="loan-date-row">
+            <Input label={label('loansLoanDate')} value={loanDate} setValue={setLoanDate} type="date" invalid={validationIssues.includes('loan_date') && !loanDate} error={label('loansRequiredLoanDate')} />
+            <Input label={label('loansExpectedReturn')} value={expectedReturn} setValue={setExpectedReturn} type="date" invalid={validationIssues.includes('expected_return_date') && !expectedReturn} error={label('loansRequiredReturnDate')} />
+          </div>
           {!dateRangeValid && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{label('loansDateRangeError')}</p>}
           <Field label={label('loansNotes')} wide><textarea className={textareaClass} value={notes} onChange={(event) => setNotes(event.target.value)} /></Field>
         </div>
@@ -315,27 +337,28 @@ export default function LoanCasePage() {
         </div>}
 
         <div className="mt-4 space-y-4">
-          {items.map((item) => <LoanItemCard key={item.id} item={item} photos={photos.filter((photo) => photo.case_item_id === item.id)} editable={canManageCase && loanCase?.status === 'DRAFT'} busy={busy}
+          {items.map((item) => <LoanItemCard key={item.id} item={item} photos={photos.filter((photo) => photo.case_item_id === item.id)} editable={canManageCase && loanCase?.status === 'DRAFT'} busy={busy} validationIssues={validationIssues}
             reading={readingDrafts[item.id] ?? ''} setReading={(value) => setReadingDrafts((current) => ({ ...current, [item.id]: value }))}
             unit={unitDrafts[item.id] ?? ''} setUnit={(value) => setUnitDrafts((current) => ({ ...current, [item.id]: value }))}
             limit={limitDrafts[item.id] ?? ''} setLimit={(value) => setLimitDrafts((current) => ({ ...current, [item.id]: value }))}
             onSaveUsage={() => void saveUsage(item.id)} onUpload={(file, kind) => void upload(item.id, file, kind)} onRemovePhoto={(photo) => void removePhoto(photo)} onRemoveAsset={() => void removeAsset(item)} uploadProgress={uploadProgress} label={label} />)}
         </div>
 
-        {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label className="mt-5 flex items-start gap-3 border-t border-slate-200 pt-4 text-sm font-medium text-slate-800"><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} />{label('loansSerialConfirmation')}</label>}
+        {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label className={`mt-5 flex items-start gap-3 border-t p-3 text-sm font-medium ${validationIssues.includes('serial_confirmation') && !serialConfirmed ? 'border-red-400 bg-red-50 text-red-900' : 'border-slate-200 text-slate-800'}`}><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} /><span>{label('loansSerialConfirmation')}{validationIssues.includes('serial_confirmation') && !serialConfirmed && <span className="mt-1 block text-xs text-red-700">{label('loansRequiredConfirmation')}</span>}</span></label>}
       </section>
 
       {validationIssues.length > 0 && <div role="alert" className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-medium">{label('loansPreparationMissing')}</p><ul className="mt-2 list-disc pl-5">{validationIssues.map((issue) => <li key={issue}>{issueLabel(issue, label)}</li>)}</ul></div>}
 
       {canManageCase && (!loanCase || loanCase.status === 'DRAFT') && <div className="flex flex-wrap gap-3">
-        <button type="button" disabled={busy || !dateRangeValid || (isNew && (!sellerId || !partnerId || !contactId))} onClick={() => void saveDraft()} className="h-10 rounded-md border border-emerald-700 bg-white px-4 text-sm font-medium text-emerald-800 disabled:opacity-50">{label('loansSaveDraft')}</button>
+        <button type="button" disabled={busy} onClick={() => void saveDraft()} className="h-10 rounded-md border border-emerald-700 bg-white px-4 text-sm font-medium text-emerald-800 disabled:opacity-50">{label('loansSaveDraft')}</button>
         {caseId && <button type="button" disabled={busy} onClick={() => void continueToReview()} className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white disabled:opacity-50">{label('loansContinueReview')}</button>}
       </div>}
+      {caseId && history.length > 0 && <section className="border border-slate-200 bg-white p-4" aria-label={label('loansHistory')}><h2 className="flex items-center gap-2 font-semibold text-slate-900"><History className="h-4 w-4" />{label('loansHistory')}</h2><ol className="mt-3 divide-y divide-slate-200">{history.slice(0, 20).map((event) => <li key={event.id} className="py-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium text-slate-800">{historyLabel(event, label)}</span><time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString(uiLanguage)}</time></div><p className="mt-1 text-xs text-slate-600">{event.actor_name}</p></li>)}</ol></section>}
     </div>
   </LoanShell>;
 }
 
-function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit, setUnit, limit, setLimit, onSaveUsage, onUpload, onRemovePhoto, onRemoveAsset, uploadProgress, label }: {
+function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit, setUnit, limit, setLimit, onSaveUsage, onUpload, onRemovePhoto, onRemoveAsset, uploadProgress, validationIssues, label }: {
   item: LoanCaseItem;
   photos: LoanItemPhoto[];
   editable: boolean;
@@ -351,33 +374,38 @@ function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit,
   onRemovePhoto: (photo: LoanItemPhoto) => void;
   onRemoveAsset: () => void;
   uploadProgress: Record<string, number>;
+  validationIssues: string[];
   label: (key: string) => string;
 }) {
   const photo = (kind: LoanPhotoKind) => photos.find((entry) => entry.photo_kind === kind);
+  const readingInvalid = validationIssues.includes('usage_reading_value') && !reading.trim();
+  const unitInvalid = validationIssues.includes('usage_reading_unit') && !unit;
+  const plateInvalid = validationIssues.includes('type_plate_photo') && !photo('serial_plate');
   return <article className="border border-slate-200 bg-slate-50 p-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="font-semibold text-slate-900">{item.product_name_snapshot ?? item.product_sku}</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600"><span>{label('loansItemNumber')}: {item.product_sku}</span><span>{label('loansSerialNumber')}: {item.serial_snapshot ?? '—'}</span><span>{label('loansWarehouse')}: {item.warehouse_snapshot ?? item.warehouse_location_code_snapshot ?? '—'}</span><span>{label('loansStockAccount')}: {item.fabric_account_number_snapshot ?? '—'}</span>{item.fabric_order_number_snapshot && <span>{label('loansStockOrder')}: {item.fabric_order_number_snapshot}</span>}</div></div>
       <div className="flex items-center gap-2"><span className="rounded-sm bg-white px-2 py-1 text-xs font-medium text-slate-700">{label(item.item_type === 'machine' ? 'loansMachine' : 'loansEquipment')}</span>{editable && <button type="button" onClick={onRemoveAsset} disabled={busy} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-200 text-red-700" title={label('loansRemoveAsset')}><Trash2 className="h-4 w-4" /></button>}</div>
     </div>
     {item.item_type === 'machine' && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_9rem_minmax(0,1.4fr)_auto]">
-      <Field label={`${label('loansHourMeterCheckout')} *`}><input type="number" inputMode="decimal" min="0" step="any" className={fieldClass} value={reading} onChange={(event) => setReading(event.target.value)} disabled={!editable} /></Field>
-      <Field label={`${label('loansUsageUnit')} *`}><select className={fieldClass} value={unit} onChange={(event) => setUnit(event.target.value as '' | 'km' | 'hours')} disabled={!editable}><option value="">—</option><option value="hours">h</option><option value="km">km</option></select></Field>
+      <Field label={`${label('loansHourMeterCheckout')} *`} invalid={readingInvalid} error={label('loansRequiredHourValue')}><input type="number" inputMode="decimal" min="0" step="any" className={controlClass(readingInvalid)} value={reading} onChange={(event) => setReading(event.target.value)} disabled={!editable} /></Field>
+      <Field label={`${label('loansUsageUnit')} *`} invalid={unitInvalid} error={label('loansRequiredUsageUnit')}><select className={controlClass(unitInvalid)} value={unit} onChange={(event) => setUnit(event.target.value as '' | 'km' | 'hours')} disabled={!editable}><option value="">—</option><option value="hours">h</option><option value="km">km</option></select></Field>
       <Field label={label('loansUseLimit')}><input className={fieldClass} value={limit} onChange={(event) => setLimit(event.target.value)} disabled={!editable} /></Field>
       <button type="button" onClick={onSaveUsage} disabled={!editable || busy} className="h-10 self-end rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 disabled:opacity-50">{label('loansSaveReading')}</button>
     </div>}
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-      <PhotoField label={`${label('loansTypePlatePhoto')} *`} photo={photo('serial_plate')} progress={uploadProgress[`${item.id}:serial_plate`]} editable={editable} onFile={(file) => onUpload(file, 'serial_plate')} onRemove={onRemovePhoto} copy={label} />
+      <PhotoField label={`${label('loansTypePlatePhoto')} *`} photo={photo('serial_plate')} progress={uploadProgress[`${item.id}:serial_plate`]} editable={editable} onFile={(file) => onUpload(file, 'serial_plate')} onRemove={onRemovePhoto} copy={label} invalid={plateInvalid} />
       <PhotoField label={`${label(item.item_type === 'machine' ? 'loansMachineConditionPhoto' : 'loansEquipmentConditionPhoto')} · ${label('loansOptional')}`} photo={photo('overview')} progress={uploadProgress[`${item.id}:overview`]} editable={editable} onFile={(file) => onUpload(file, 'overview')} onRemove={onRemovePhoto} copy={label} />
     </div>
   </article>;
 }
 
-function PhotoField({ label, photo, progress, editable, onFile, onRemove, copy }: { label: string; photo?: LoanItemPhoto; progress?: number; editable: boolean; onFile: (file: File | undefined) => void; onRemove: (photo: LoanItemPhoto) => void; copy: (key: string) => string }) {
+function PhotoField({ label, photo, progress, editable, onFile, onRemove, copy, invalid = false }: { label: string; photo?: LoanItemPhoto; progress?: number; editable: boolean; onFile: (file: File | undefined) => void; onRemove: (photo: LoanItemPhoto) => void; copy: (key: string) => string; invalid?: boolean }) {
   const uploading = progress !== undefined;
-  return <div className="rounded-md border border-slate-200 bg-white p-3">
+  return <div className={`rounded-md border p-3 ${invalid ? 'border-red-400 bg-red-50' : 'border-slate-200 bg-white'}`}>
     <p className="text-sm font-medium text-slate-700">{label}</p>
     {photo?.preview_url ? <img src={photo.preview_url} alt={label} className="mt-2 aspect-video w-full rounded-sm object-cover" /> : <div className="mt-2 flex aspect-video items-center justify-center rounded-sm bg-slate-100 text-slate-400"><Camera className="h-7 w-7" /></div>}
     {photo && <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" />{copy('loansPhotoUploaded')}</p>}
+    {invalid && <p className="mt-2 text-xs text-red-700">{copy('loansRequiredTypePlate')}</p>}
     {uploading && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-emerald-600 transition-all" style={{ width: `${Math.max(progress, 8)}%` }} /></div>}
     {editable && <div className="mt-2 flex flex-wrap gap-2">
       <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800"><Camera className="h-4 w-4" />{copy('loansTakePhoto')}<input className="sr-only" type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(event) => onFile(event.target.files?.[0])} /></label>
@@ -387,9 +415,11 @@ function PhotoField({ label, photo, progress, editable, onFile, onRemove, copy }
   </div>;
 }
 
-function Field({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) { return <label className={`block text-sm font-medium text-slate-700 ${wide ? 'sm:col-span-2' : ''}`}><span className="mb-1 block">{label}</span>{children}</label>; }
-function Input({ label, value, setValue, type = 'text' }: { label: string; value: string; setValue: (value: string) => void; type?: string }) { return <Field label={label}><input type={type} className={fieldClass} value={value} onChange={(event) => setValue(event.target.value)} /></Field>; }
+function Field({ label, children, wide = false, invalid = false, error }: { label: string; children: ReactNode; wide?: boolean; invalid?: boolean; error?: string }) { return <label className={`block text-sm font-medium ${invalid ? 'text-red-800' : 'text-slate-700'} ${wide ? 'sm:col-span-2' : ''}`}><span className="mb-1 block">{label}</span>{children}{invalid && error && <span className="mt-1 block text-xs text-red-700">{error}</span>}</label>; }
+function Input({ label, value, setValue, type = 'text', invalid = false, error }: { label: string; value: string; setValue: (value: string) => void; type?: string; invalid?: boolean; error?: string }) { return <Field label={label} invalid={invalid} error={error}><input type={type} className={controlClass(invalid)} value={value} onChange={(event) => setValue(event.target.value)} /></Field>; }
 function Info({ label, value }: { label: string; value: string }) { return <div><p className="text-xs font-medium uppercase text-slate-500">{label}</p><p className="mt-1 break-words text-sm text-slate-900">{value}</p></div>; }
+
+function controlClass(invalid: boolean) { return invalid ? `${fieldClass} border-red-500 bg-red-50 focus:border-red-600` : fieldClass; }
 
 function issueLabel(issue: string, label: (key: string) => string): string {
   const keys: Record<string, string> = {
@@ -398,6 +428,18 @@ function issueLabel(issue: string, label: (key: string) => string): string {
     usage_reading_value: 'loansRequiredHourValue', usage_reading_unit: 'loansUsageUnit', serial_confirmation: 'loansRequiredConfirmation',
   };
   return label(keys[issue] ?? 'loansPreparationMissing');
+}
+
+function historyLabel(event: LoanCaseEvent, label: (key: string) => string): string {
+  const field = typeof event.metadata.field === 'string' ? event.metadata.field : '';
+  const oldValue = event.metadata.old_value == null ? '—' : String(event.metadata.old_value);
+  const newValue = event.metadata.new_value == null ? '—' : String(event.metadata.new_value);
+  if (event.event_type === 'EXPECTED_RETURN_CHANGED') return `${label('loansExpectedReturn')}: ${oldValue} → ${newValue}`;
+  if (event.event_type === 'CASE_REOPENED_FOR_EDIT') return label('loansReopened');
+  if (event.event_type === 'ASSET_ADDED') return label('loansHistoryAssetAdded');
+  if (event.event_type === 'ASSET_REMOVED') return label('loansHistoryAssetRemoved');
+  if (field) return `${field}: ${oldValue} → ${newValue}`;
+  return event.event_type.replaceAll('_', ' ');
 }
 
 function errorText(cause: unknown, label: (key: string) => string): string {

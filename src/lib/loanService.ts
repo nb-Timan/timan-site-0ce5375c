@@ -16,6 +16,7 @@ export interface LoanAsset {
 }
 export interface LoanCase {
   id: string;
+  loan_number: string;
   case_number: string;
   responsible_user_id: string;
   dealer_account_id: string;
@@ -37,6 +38,33 @@ export interface LoanCase {
   serial_numbers_confirmed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+export interface LoanCaseSummary {
+  id: string;
+  loan_number: string;
+  case_number: string;
+  responsible_user_id: string;
+  responsible_name: string;
+  dealer_account_id: string;
+  partner_name: string;
+  dealer_contact_id: string;
+  loan_date: string | null;
+  expected_return_date: string | null;
+  status: LoanStatus;
+  asset_count: number;
+  can_edit_expected_return: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface LoanCaseEvent {
+  id: string;
+  event_type: string;
+  actor_user_id: string;
+  actor_name: string;
+  from_status: string | null;
+  to_status: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
 }
 export interface LoanCaseItem {
   id: string;
@@ -76,12 +104,10 @@ const LOAN_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
 function rows<T>(data: unknown): T[] { return Array.isArray(data) ? data as T[] : []; }
 
-export async function listLoanCases(partnerId?: string | null): Promise<LoanCase[]> {
-  let query = supabase.from('loan_cases').select('*').order('created_at', { ascending: false });
-  if (partnerId) query = query.eq('dealer_account_id', partnerId);
-  const { data, error } = await query;
+export async function listLoanCases(partnerId?: string | null): Promise<LoanCaseSummary[]> {
+  const { data, error } = await supabase.rpc('loan_list_case_overview', { p_partner_id: partnerId || null });
   if (error) throw error;
-  return rows<LoanCase>(data);
+  return rows<LoanCaseSummary>(data);
 }
 
 export async function getLoanCase(caseId: string): Promise<{
@@ -228,6 +254,40 @@ export async function submitLoanCaseForReview(caseId: string, serialNumbersConfi
     p_serial_numbers_confirmed: serialNumbersConfirmed,
   });
   if (error) throw error;
+}
+
+export async function updateLoanCaseRelationships(caseId: string, input: {
+  sellerId: string;
+  partnerId: string;
+  contactId: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc('loan_update_case_relationships', {
+    p_case_id: caseId,
+    p_responsible_user_id: input.sellerId,
+    p_dealer_account_id: input.partnerId,
+    p_dealer_contact_id: input.contactId,
+  });
+  if (error) throw error;
+}
+
+export async function reopenLoanForEdit(caseId: string, note?: string | null): Promise<void> {
+  const { error } = await supabase.rpc('loan_reopen_for_edit', { p_case_id: caseId, p_note: note || null });
+  if (error) throw error;
+}
+
+export async function updateLoanExpectedReturn(caseId: string, expectedReturnDate: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc('loan_update_expected_return', {
+    p_case_id: caseId,
+    p_expected_return_date: expectedReturnDate,
+    p_note: note,
+  });
+  if (error) throw error;
+}
+
+export async function listLoanCaseHistory(caseId: string): Promise<LoanCaseEvent[]> {
+  const { data, error } = await supabase.rpc('loan_list_case_history', { p_case_id: caseId });
+  if (error) throw error;
+  return rows<LoanCaseEvent>(data);
 }
 
 export async function confirmLoanDraftSerials(caseId: string, confirmed: boolean): Promise<void> {

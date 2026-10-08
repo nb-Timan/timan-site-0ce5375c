@@ -7,12 +7,13 @@ import LoanCasePage from '@/pages/loans/LoanCasePage';
 import type { LoanCase, LoanCaseItem, LoanItemPhoto } from '@/lib/loanService';
 
 const mocks = vi.hoisted(() => ({
-  getLoanCase: vi.fn(), listLoanSellers: vi.fn(), listLoanPartners: vi.fn(), listLoanContacts: vi.fn(),
-  listEligibleLoanAssets: vi.fn(), createLoanCase: vi.fn(), updateLoanDraft: vi.fn(),
+  getLoanCase: vi.fn(), listLoanCaseHistory: vi.fn(), listLoanSellers: vi.fn(), listLoanPartners: vi.fn(), listLoanContacts: vi.fn(),
+  listEligibleLoanAssets: vi.fn(), createLoanCase: vi.fn(), updateLoanDraft: vi.fn(), updateLoanCaseRelationships: vi.fn(),
   addLoanAsset: vi.fn(), removeLoanItem: vi.fn(), removeLoanItemPhoto: vi.fn(),
   updateLoanItemUsage: vi.fn(), uploadLoanItemPhoto: vi.fn(), validateLoanImage: vi.fn(),
   submitLoanCaseForReview: vi.fn(),
   confirmLoanDraftSerials: vi.fn(),
+  reopenLoanForEdit: vi.fn(),
 }));
 const identity = vi.hoisted(() => ({ role: 'timan_backend' }));
 vi.mock('@/lib/loanService', () => mocks);
@@ -24,7 +25,7 @@ vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: 
 vi.mock('@/pages/loans/LoanStockPanel', () => ({ default: () => <section aria-label="Salgslager" /> }));
 
 const loan = {
-  id: 'case', case_number: 'QA-LOAN', responsible_user_id: 'seller', dealer_account_id: 'partner',
+  id: 'case', loan_number: 'QA-LOAN', case_number: 'LN-000001', responsible_user_id: 'seller', dealer_account_id: 'partner',
   dealer_contact_id: 'contact', status: 'DRAFT', loan_date: '2026-10-07', expected_return_date: '2026-10-14',
   alternative_delivery_address: false, notes: 'QA only', serial_numbers_confirmed_at: null,
 } as LoanCase;
@@ -51,6 +52,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   identity.role = 'timan_backend';
   mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item], photos: [photo] });
+  mocks.listLoanCaseHistory.mockResolvedValue([]);
   mocks.listLoanSellers.mockResolvedValue([{ id: 'seller', display_name: 'QA Seller', initials: 'QA' }]);
   mocks.listLoanPartners.mockResolvedValue([{ id: 'partner', company_name: 'QA Partner', account_number: 'QA' }]);
   mocks.listLoanContacts.mockResolvedValue([{ id: 'contact', name: 'QA Contact' }]);
@@ -70,6 +72,25 @@ describe('Loan form interactions', () => {
       notes: 'Updated QA note', loanDate: '2026-10-07', expectedReturnDate: '2026-10-14',
     })));
     await screen.findByText('Kladden er gemt.');
+  });
+
+  it('keeps loan and expected-return dates in one responsive two-column row', async () => {
+    mount();
+    await screen.findByText('QA-LOAN');
+    expect(screen.getByTestId('loan-date-row')).toHaveClass('sm:grid-cols-2');
+    expect(screen.getByTestId('loan-date-row')).not.toHaveClass('grid-cols-2');
+  });
+
+  it('renders multiple machines and attachments under the same loan number', async () => {
+    mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item,
+      { ...item, id: 'machine-2', product_name_snapshot: 'QA machine 2', serial_snapshot: 'QA-SERIAL-2' },
+      { ...item, id: 'equipment-1', item_type: 'equipment', product_name_snapshot: 'QA attachment', serial_snapshot: 'QA-EQUIPMENT-1', usage_reading_value: null, usage_reading_unit: null },
+    ], photos: [photo] });
+    mount();
+    await screen.findByText('QA-LOAN');
+    expect(screen.getByText('QA machine')).toBeInTheDocument();
+    expect(screen.getByText('QA machine 2')).toBeInTheDocument();
+    expect(screen.getByText('QA attachment')).toBeInTheDocument();
   });
 
   it.each(['READY_FOR_REVIEW', 'ACCEPTED', 'ON_LOAN', 'RETURN_INSPECTION'])('locks agreement fields for %s', async (status) => {
@@ -111,11 +132,35 @@ describe('Loan form interactions', () => {
     mount();
     await screen.findByText('QA-LOAN');
     fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
-    expect(await screen.findByText('Tællerstand ved udlån mangler.')).toBeInTheDocument();
+    expect((await screen.findAllByText('Tællerstand ved udlån mangler.')).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Enhed')).toBeInTheDocument();
-    expect(screen.getByText('Bekræft serienumrene.')).toBeInTheDocument();
+    expect(screen.getAllByText('Bekræft serienumrene.').length).toBeGreaterThanOrEqual(1);
     expect(mocks.submitLoanCaseForReview).not.toHaveBeenCalled();
     expect(mocks.updateLoanDraft).not.toHaveBeenCalled();
+    const reading = screen.getByLabelText(/^Tællerstand ved udlån \*/);
+    expect(reading).toHaveClass('border-red-500');
+    fireEvent.change(reading, { target: { value: '12' } });
+    expect(reading).not.toHaveClass('border-red-500');
+    expect(screen.getByLabelText(/Jeg bekræfter, at serienumrene/).closest('label')).toHaveClass('border-red-400');
+    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienumrene/));
+    expect(screen.getByLabelText(/Jeg bekræfter, at serienumrene/).closest('label')).not.toHaveClass('border-red-400');
+  });
+
+  it('marks a missing type-plate photo on the exact photo control', async () => {
+    mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item], photos: [] });
+    mount();
+    await screen.findByText('QA-LOAN');
+    fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
+    expect((await screen.findAllByText('Foto af typeskilt mangler.')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Foto af typeskilt *').parentElement).toHaveClass('border-red-400');
+  });
+
+  it('lets Backend reopen a review-ready loan for audited editing', async () => {
+    mocks.getLoanCase.mockResolvedValue({ loanCase: { ...loan, status: 'READY_FOR_REVIEW' }, items: [item], photos: [photo] });
+    mount();
+    await screen.findByText('QA-LOAN');
+    fireEvent.click(screen.getByRole('button', { name: 'Genåbn for redigering' }));
+    await waitFor(() => expect(mocks.reopenLoanForEdit).toHaveBeenCalledWith('case'));
   });
 
   it('submits complete checkout to review, not partner acceptance', async () => {
@@ -133,8 +178,8 @@ describe('Loan form interactions', () => {
     await screen.findByText('QA-LOAN');
     expect(screen.getByText(/Konto: 1010/)).toBeInTheDocument();
     expect(screen.getByText(/Ordrenr\.: SO-100/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Tællerstand ved udlån *'), { target: { value: '42' } });
-    fireEvent.change(screen.getByLabelText('Enhed *'), { target: { value: 'km' } });
+    fireEvent.change(screen.getByLabelText(/^Tællerstand ved udlån \*/), { target: { value: '42' } });
+    fireEvent.change(screen.getByLabelText(/^Enhed \*/), { target: { value: 'km' } });
     fireEvent.change(screen.getByLabelText('Kørsels-/brugsbegrænsning'), { target: { value: '500 km' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem tællerdata' }));
     await waitFor(() => expect(mocks.updateLoanItemUsage).toHaveBeenCalledWith('case', 'item', {
