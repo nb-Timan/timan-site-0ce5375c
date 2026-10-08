@@ -2043,13 +2043,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       <div key={sub.id}>
         <div onClick={e => { e.stopPropagation(); handleToggleAcc(sub.id); }}
           className={`p-2 border rounded-lg cursor-pointer transition flex items-start gap-3 ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-          <div className={`selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 border-2 ${isVariant ? 'rounded-full' : 'rounded'}`}
+          <div className="selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 rounded border-2"
             style={{ backgroundColor: isSelected ? '#059669' : 'white', borderColor: isSelected ? '#059669' : '#9ca3af' }}>
-            {isVariant
-              ? <span className={`h-2 w-2 rounded-full ${isSelected ? 'bg-white' : 'bg-transparent'}`} />
-              : <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>}
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
             {hasNestedSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>}
           </div>
           <div className="flex justify-between items-start gap-3 w-full min-w-0">

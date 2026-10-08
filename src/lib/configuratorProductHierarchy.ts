@@ -52,7 +52,16 @@ export function buildConfiguratorProductHierarchy(
   if (firstVariantIndex < 0) return items;
 
   const byItemNumber = new Map(items.map((item) => [String(item.varenr), item]));
-  const parentNumbers = [...new Set(variantRelations.map((row) => row.parent_item_number))];
+  const sourceOrder = new Map(items.map((item, index) => [String(item.varenr), index]));
+  const parentNumbers = [...new Set(variantRelations.map((row) => row.parent_item_number))]
+    .sort((left, right) => {
+      const firstChildIndex = (parentItemNumber: string) => Math.min(
+        ...variantRelations
+          .filter((row) => row.parent_item_number === parentItemNumber)
+          .map((row) => sourceOrder.get(row.child_item_number) ?? Number.MAX_SAFE_INTEGER),
+      );
+      return firstChildIndex(left) - firstChildIndex(right);
+    });
   const groups = parentNumbers.map((parentItemNumber) => {
     const parent = parentProducts[parentItemNumber];
     if (!parent) return null;

@@ -4,7 +4,12 @@ import { ACCESSORIES, getAccessoriesFlat, getLocalizedName, PRODUCTS } from '@/d
 import { t } from '@/data/translations';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
 import { toggleConfiguratorAccessory } from '@/lib/configuratorDomain';
-import { selectedVariantParent } from '@/lib/configuratorProductHierarchy';
+import {
+  DEFAULT_CONFIGURATOR_PRODUCT_RELATIONS,
+  buildConfiguratorProductHierarchy,
+  replaceConfiguratorProductRelations,
+  selectedVariantParent,
+} from '@/lib/configuratorProductHierarchy';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory, ConfiguratorState } from '@/types/configurator';
@@ -27,11 +32,31 @@ describe('canonical T2/T3 product hierarchy', () => {
   it('exposes two top-level family products and exactly two variants under each', () => {
     const t2 = group('720131');
     const t3 = group('331122');
+    const rootOrder = ACCESSORIES['Timan 3330']
+      .filter((item) => item.isProductGroup)
+      .map((item) => item.varenr);
+    expect(rootOrder).toEqual(['720131', '331122']);
     expect(t2.isProductGroup).toBe(true);
     expect(t3.isProductGroup).toBe(true);
     expect(t2.subItems?.map((item) => item.varenr)).toEqual(['720125', '720130']);
     expect(t3.subItems?.map((item) => item.varenr)).toEqual(['720132', '720133']);
     expect(ACCESSORIES['Timan 3330'].filter((item) => ['720125', '720130', '720132', '720133'].includes(item.varenr))).toHaveLength(0);
+  });
+
+  it('keeps T2 before T3 when canonical relation rows arrive in another order', () => {
+    const reversedRelations = [...DEFAULT_CONFIGURATOR_PRODUCT_RELATIONS].reverse();
+    const variants = ['720125', '720130', '720132', '720133']
+      .map((itemNumber) => getAccessoriesFlat('Timan 3330').find((item) => item.varenr === itemNumber)!)
+      .filter(Boolean);
+    const parents = Object.fromEntries(['720131', '331122'].map((itemNumber) => [itemNumber, group(itemNumber)]));
+
+    replaceConfiguratorProductRelations(reversedRelations);
+    try {
+      const hierarchy = buildConfiguratorProductHierarchy('Timan 3330', variants, parents);
+      expect(hierarchy.filter((item) => item.isProductGroup).map((item) => item.varenr)).toEqual(['720131', '331122']);
+    } finally {
+      replaceConfiguratorProductRelations(DEFAULT_CONFIGURATOR_PRODUCT_RELATIONS);
+    }
   });
 
   it.each(['720125', '720130', '720132', '720133'])('%s exposes the two canonical optional children', (itemNumber) => {
@@ -52,11 +77,46 @@ describe('canonical T2/T3 product hierarchy', () => {
     ]));
   });
 
+  it.each(['720125', '720130'])('keeps both T2 alternatives visible after selecting %s', (selectedVariant) => {
+    const current = toggleConfiguratorAccessory(state(), selectedVariant, 0).state;
+    expect(current.machineConfigs[0].acc.filter((id) => ['720125', '720130'].includes(id))).toEqual([selectedVariant]);
+    expect(group('720131').subItems?.map((item) => item.varenr)).toEqual(['720125', '720130']);
+  });
+
   it('keeps T3 variants mutually exclusive', () => {
     let current = toggleConfiguratorAccessory(state(), '720132', 0).state;
+    current = toggleConfiguratorAccessory(current, '721122_720132', 0).state;
     current = toggleConfiguratorAccessory(current, '720133', 0).state;
     expect(current.machineConfigs[0].acc).toContain('720133');
     expect(current.machineConfigs[0].acc).not.toContain('720132');
+    expect(current.machineConfigs[0].acc).not.toContain('721122_720132');
+    expect(current.machineConfigs[0].acc).toContain('721122_720133');
+  });
+
+  it.each(['720132', '720133'])('keeps both T3 alternatives visible after selecting %s', (selectedVariant) => {
+    const current = toggleConfiguratorAccessory(state(), selectedVariant, 0).state;
+    expect(current.machineConfigs[0].acc.filter((id) => ['720132', '720133'].includes(id))).toEqual([selectedVariant]);
+    expect(group('331122').subItems?.map((item) => item.varenr)).toEqual(['720132', '720133']);
+  });
+
+  it('uses checkbox styling while keeping canonical single-select behaviour', () => {
+    const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const variantRenderer = configurator.slice(
+      configurator.indexOf('const renderSubItem'),
+      configurator.indexOf('// ======== Confirmation modal builder'),
+    );
+    expect(variantRenderer).toContain('rounded border-2');
+    expect(variantRenderer).toContain('d="M5 13l4 4L19 7"');
+    expect(variantRenderer).not.toContain("isVariant ? 'rounded-full'");
+    expect(variantRenderer).not.toContain('h-2 w-2 rounded-full');
+    expect(variantRenderer).toContain('(isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs');
+
+    const productGroupRenderer = configurator.slice(
+      configurator.indexOf('if (a.isProductGroup)'),
+      configurator.indexOf('// Qty input items'),
+    );
+    expect(productGroupRenderer).toContain('a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType))');
+    expect(productGroupRenderer).not.toContain('a.subItems?.filter');
   });
 
   it('prices only the selected commercial child and each optional line once', () => {
