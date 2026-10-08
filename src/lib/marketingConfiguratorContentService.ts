@@ -53,6 +53,13 @@ export interface MarketingConfiguratorCatalogItem {
   defaults: MarketingConfiguratorContentFields;
 }
 
+export const CONFIGURATOR_ALWAYS_VISIBLE_CONTENT_ACTION_SKUS = new Set([
+  '331122',
+  '720131',
+  '720132',
+  '720133',
+]);
+
 const EMPTY_CONTENT: MarketingConfiguratorContentFields = {
   title: '',
   description: '',
@@ -233,11 +240,15 @@ export function resolveMarketingConfiguratorEditorItem(
   return catalog.find((item) => item.itemNumber === contextualItem.itemNumber) || contextualItem;
 }
 
-export function marketingPresentationActions(content: MarketingConfiguratorContentFields | null | undefined) {
+export function marketingPresentationActions(
+  content: MarketingConfiguratorContentFields | null | undefined,
+  itemNumber?: string,
+) {
+  const keepActionsVisible = CONFIGURATOR_ALWAYS_VISIBLE_CONTENT_ACTION_SKUS.has(String(itemNumber || '').trim());
   return {
-    video: Boolean(content?.video_url?.trim()),
-    image: Boolean(content?.image_url?.trim()),
-    information: Boolean(
+    video: keepActionsVisible || Boolean(content?.video_url?.trim()),
+    image: keepActionsVisible || Boolean(content?.image_url?.trim()),
+    information: keepActionsVisible || Boolean(
       content?.description?.trim()
       || content?.key_features?.some((feature) => feature.trim())
       || content?.specs?.some((spec) => spec.label?.trim() && String(spec.value || '').trim()),

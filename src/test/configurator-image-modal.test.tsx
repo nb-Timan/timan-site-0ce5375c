@@ -7,13 +7,13 @@ const configuratorSource = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8'
 const modalSource = readFileSync('src/components/configurator/ConfiguratorImageModal.tsx', 'utf8');
 
 describe('Configurator product image modal', () => {
-  it('opens product images internally while keeping video links unchanged', () => {
+  it('opens product images and videos through their internal Portal modals', () => {
     expect(configuratorSource).toContain('setProductImagePreview({ src: imageUrl');
     expect(configuratorSource).toContain('setProductImagePreview({ src: cardImageUrl');
     expect(configuratorSource).not.toContain('<a href={imageUrl} target="_blank"');
     expect(configuratorSource).not.toContain('<a href={cardImageUrl} target="_blank"');
-    expect(configuratorSource).toContain('<a href={videoUrl} target="_blank"');
-    expect(configuratorSource).toContain('<a href={cardVideoUrl} target="_blank"');
+    expect(configuratorSource).not.toContain('<a href={videoUrl} target="_blank"');
+    expect(configuratorSource).not.toContain('<a href={cardVideoUrl} target="_blank"');
   });
 
   it('shows the product identity and preserves responsive contain sizing', () => {

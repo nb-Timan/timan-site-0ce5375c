@@ -2007,24 +2007,29 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
     const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, uiLanguage) : machineType);
-    const presentationActions = marketingPresentationActions(marketingContent);
-    const hasSpecs = presentationActions.information || Boolean(item.specs?.length);
-    const showVideoIcon = Boolean(videoUrl);
-    const showImageIcon = Boolean(imageUrl);
-    if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
+    const presentationActions = marketingPresentationActions(marketingContent, item.varenr || item.id);
+    const hasResolvedSpecs = marketingPresentationActions(marketingContent).information || Boolean(item.specs?.length);
+    const showVideoAction = Boolean(videoUrl) || presentationActions.video;
+    const showImageAction = Boolean(imageUrl) || presentationActions.image;
+    const showSpecificationsAction = hasResolvedSpecs || presentationActions.information;
+    if (!showVideoAction && !showImageAction && !showSpecificationsAction) return null;
     return (
       <div className="mt-1 flex gap-2 whitespace-nowrap">
-        {showVideoIcon && (videoUrl ? (
+        {showVideoAction && (videoUrl ? (
           <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductVideoPreview({ url: videoUrl, title: productTitle }); }}>🎥 {T('videoLink')}</button>
         ) : (
-          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>🎥 {T('videoLink')}</button>
         ))}
-        {showImageIcon && (imageUrl ? (
+        {showImageAction && (imageUrl ? (
           <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: imageUrl, title: productTitle, itemNumber: item.varenr || item.id || null }); }}>📸 {T('imageLink')}</button>
         ) : (
-          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>📸 {T('imageLink')}</button>
         ))}
-        {hasSpecs && <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>}
+        {showSpecificationsAction && (hasResolvedSpecs ? (
+          <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>
+        ) : (
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs font-medium text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>📄 {T('specsLink')}</button>
+        ))}
       </div>
     );
   };
@@ -4146,11 +4151,21 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           onClick={() => setOpenProductGroups((current) => ({ ...current, [groupKey]: !isOpen }))}
                           className="flex w-full items-start justify-between gap-3 p-3 text-left transition hover:bg-gray-50">
                           <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-gray-900">{getLocalizedName(a.name, uiLanguage)}</span>
+                            <span className="block text-sm font-semibold text-gray-900">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
                             <span className="block text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
                           </span>
                           {isOpen ? <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" /> : <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" />}
                         </button>
+                        <div className="flex items-start justify-between gap-3 border-t border-gray-100 px-3 py-2">
+                          <div className="min-w-0">
+                            {marketingContent?.description && <p className="line-clamp-2 text-xs text-gray-600">{marketingContent.description}</p>}
+                            {renderActionLinks(a, machineType)}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {renderMarketingContentState(machineType, a.id)}
+                            {marketingEditButton(machineType, a.id)}
+                          </div>
+                        </div>
                         {isOpen && (
                           <div className="space-y-2 border-t border-gray-200 bg-gray-50 p-3">
                             <div className="text-xs font-semibold text-gray-700">{T('chooseVariant')}</div>
