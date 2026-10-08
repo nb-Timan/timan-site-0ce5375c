@@ -1,0 +1,174 @@
+import { readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { canSelectFabricLoanAsset, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset, type FabricLoanStock } from '@/lib/fabricLoanStock';
+import { FABRIC_LOAN_FIELDS, runFabricLoanSync, validateFabricLoanSnapshot } from '../../supabase/functions/_shared/fabricLoanSnapshot';
+import LoanStockPanel from '@/pages/loans/LoanStockPanel';
+import LoansPage from '@/pages/loans/LoansPage';
+
+const mocks = vi.hoisted(() => ({ state: null as unknown, refresh: vi.fn(), listCases: vi.fn() }));
+vi.mock('@/hooks/useFabricLoanStock', () => ({ useFabricLoanStock: () => mocks.state }));
+vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
+vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: { id: 'qa', portal_role: 'timan_backend', approved: true, is_active: true, allowed_areas: ['loans'] } }) }));
+vi.mock('@/lib/loanService', () => ({ listLoanCases: (...args: unknown[]) => mocks.listCases(...args) }));
+vi.mock('@/pages/loans/LoanShell', () => ({ default: ({ children }: { children: React.ReactNode }) => <main>{children}</main> }));
+
+const asset: FabricLoanAsset = {
+  asset_id: 'qa-asset', company: 'QA', account_number: '1010', order_number: null, line_number: null,
+  item_number: 'QA-ITEM', item_name: 'QA machine', serial_number: 'QA-SERIAL', serial_number_normalized: 'QA-SERIAL',
+  warehouse_location_code: '2', warehouse_location_name: 'Lager 2', inventory_qty: 1, reserved_qty: 0,
+  stock_last_changed: '2026-10-07T10:00:00', classification: 'LOAN_CANDIDATE', review_required: false,
+  review_reason: null, identity_conflict: false, source_present: true, item_type: 'machine', allocated: false,
+};
+const fresh = () => ({ configured: true, running: false, failed: false, stale: false,
+  source_as_of: new Date().toISOString(), last_success_at: new Date().toISOString(), stale_after_seconds: 900 });
+const stock = (): FabricLoanStock => ({ assets: [asset, { ...asset, asset_id: 'qa-other', serial_number: 'QA-EXTERNAL', account_number: '1020', order_number: 'QA-ORDER', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' }], sync: fresh() });
+const hook = (data = stock()) => ({ query: { data, isPending: false, isError: false },
+  refresh: { mutate: mocks.refresh, isPending: false, isError: false }, enabled: true, canRefresh: true });
+
+beforeEach(() => { vi.clearAllMocks(); mocks.state = hook(); mocks.listCases.mockResolvedValue([]); });
+afterEach(cleanup);
+
+describe('single Fabric stock dataset', () => {
+  it('renders separate Loans and Sales stock views', async () => {
+    render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    expect(await screen.findByText('Ingen lånesager endnu.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Salgslager' }));
+    expect(screen.getByText('QA-SERIAL')).toBeInTheDocument();
+    expect(screen.queryByText('Ingen lånesager endnu.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Udlån' }));
+    expect(screen.getByText('Ingen lånesager endnu.')).toBeInTheDocument();
+  });
+  it('filters Lager 2 and Lager 4 with counts', () => {
+    render(<LoanStockPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Lager 4/ }));
+    expect(screen.getByText('QA-EXTERNAL')).toBeInTheDocument();
+    expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
+    expect(screen.getByText('QA-SERIAL')).toBeInTheDocument();
+  });
+  it('searches serial, item, name, account and order without fabricating missing orders', () => {
+    for (const term of ['qa-serial', 'QA-ITEM', 'machine', '1010']) expect(filterFabricLoanStock([asset], 'all', term, 'all')).toEqual([asset]);
+    expect(filterFabricLoanStock(stock().assets, 'all', 'QA-ORDER', '1020')).toHaveLength(1);
+    render(<LoanStockPanel />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'qa-external' } });
+    expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
+    expect(screen.getByText('Ekstern placering')).toBeInTheDocument();
+  });
+  it.each(['1010', '1020'])('allows a fresh %s candidate', (account_number) => {
+    expect(canSelectFabricLoanAsset({ ...asset, account_number }, fresh())).toBe(true);
+  });
+  it.each([
+    { classification: 'REVIEW_REQUIRED' }, { classification: 'IDENTITY_CONFLICT' }, { classification: 'SOLD' },
+    { classification: 'EXCLUDED' }, { review_required: true }, { identity_conflict: true },
+    { allocated: true }, { source_present: false }, { item_type: null }, { warehouse_location_code: '7' },
+  ])('blocks unsafe candidate %j', (patch) => {
+    expect(canSelectFabricLoanAsset({ ...asset, ...patch }, fresh())).toBe(false);
+  });
+  it('enforces the four verified Fabric acceptance cases', () => {
+    expect(canSelectFabricLoanAsset({ ...asset, serial_number: '725142-00-1002' }, fresh())).toBe(true);
+    expect(canSelectFabricLoanAsset({ ...asset, serial_number: '730017-00-1063', classification: 'REVIEW_REQUIRED', review_required: true }, fresh())).toBe(false);
+    expect(canSelectFabricLoanAsset({ ...asset, serial_number: 'V34-000-04-1255', classification: 'IDENTITY_CONFLICT', identity_conflict: true }, fresh())).toBe(false);
+    expect(canSelectFabricLoanAsset({ ...asset, serial_number: '410040-01-0349', classification: 'SOLD' }, fresh())).toBe(false);
+  });
+  it('ages out cached data even before the next poll', () => {
+    const sync = { ...fresh(), source_as_of: '2026-10-07T10:00:00Z' };
+    expect(isFabricStockFresh(sync, Date.parse('2026-10-07T10:16:00Z'))).toBe(false);
+    expect(canSelectFabricLoanAsset(asset, { ...fresh(), stale: true })).toBe(false);
+  });
+  it('selects from the same rendered stock and disables review/conflict rows', () => {
+    const data = stock();
+    data.assets.push({ ...asset, asset_id: 'review', serial_number: 'QA-REVIEW', classification: 'REVIEW_REQUIRED' },
+      { ...asset, asset_id: 'conflict', serial_number: 'QA-CONFLICT', identity_conflict: true });
+    mocks.state = hook(data);
+    const onSelect = vi.fn();
+    render(<LoanStockPanel onSelect={onSelect} />);
+    expect(screen.getByRole('button', { name: 'Vælg aktiv: QA-REVIEW' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Vælg aktiv: QA-CONFLICT' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Vælg aktiv: QA-SERIAL' }));
+    expect(onSelect).toHaveBeenCalledWith(asset);
+  });
+  it('refreshes through the backend, shows freshness and prevents repeated clicks while running', () => {
+    const state = hook(); mocks.state = state;
+    const { rerender } = render(<LoanStockPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Opdater fra Fabric' }));
+    expect(mocks.refresh).toHaveBeenCalledOnce();
+    expect(screen.getByText(/Sidst opdateret fra Fabric/)).toBeInTheDocument();
+    state.query.data.sync.running = true; rerender(<LoanStockPanel />);
+    expect(screen.getByRole('button', { name: 'Opdaterer...' })).toBeDisabled();
+  });
+  it('keeps last stock visible on failure and blocks selection on a failed read', () => {
+    const state = hook(); state.query.isError = true; state.refresh.isError = true; mocks.state = state;
+    render(<LoanStockPanel onSelect={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Seneste lagerdata er bevaret');
+    expect(screen.getByText('QA-SERIAL')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Vælg aktiv: QA-SERIAL' })).toBeDisabled();
+  });
+  it('does not claim zero inventory or a preserved snapshot before the first successful sync', () => {
+    mocks.state = { ...hook(), query: { data: undefined, isPending: false, isError: true } };
+    render(<LoanStockPanel />);
+    expect(screen.getByRole('button', { name: /Lager 2/ })).toHaveTextContent('—');
+    expect(screen.getByRole('button', { name: /Lager 4/ })).toHaveTextContent('—');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Seneste lagerdata er bevaret');
+    expect(screen.getByRole('button', { name: 'Opdater fra Fabric' })).toBeDisabled();
+  });
+  it('hides refresh from non-Backend and the pool from unauthorized users', () => {
+    const state = hook(); state.canRefresh = false; mocks.state = state;
+    const { rerender } = render(<LoanStockPanel />);
+    expect(screen.queryByRole('button', { name: 'Opdater fra Fabric' })).not.toBeInTheDocument();
+    state.enabled = false; rerender(<LoanStockPanel />);
+    expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
+  });
+});
+
+describe('atomic server sync contract', () => {
+  const row = () => Object.fromEntries(FABRIC_LOAN_FIELDS.map((key) => [key, key === 'source_row_number' ? 1 : asset[key as keyof FabricLoanAsset] ?? null]));
+  it('accepts only the approved schema and no finance fields', () => {
+    expect(validateFabricLoanSnapshot([row()], [...FABRIC_LOAN_FIELDS])).toHaveLength(1);
+    expect(() => validateFabricLoanSnapshot([{ ...row(), cost_price: 1 }], [...FABRIC_LOAN_FIELDS])).toThrow();
+    expect(() => validateFabricLoanSnapshot([row()], ['company'])).toThrow();
+    expect(() => validateFabricLoanSnapshot([{ ...row(), review_required: null }], [...FABRIC_LOAN_FIELDS])).toThrow();
+  });
+  it('rejects duplicate normalized serial identities instead of silently losing rows', () => {
+    expect(() => validateFabricLoanSnapshot([row(), { ...row(), serial_number: ' qa-serial ' }], [...FABRIC_LOAN_FIELDS])).toThrow();
+  });
+  it('allows a complete empty source snapshot with valid metadata', () => {
+    expect(validateFabricLoanSnapshot([], [...FABRIC_LOAN_FIELDS])).toEqual([]);
+  });
+  it('never starts a second source read when an existing sync owns the lease', async () => {
+    const deps = { begin: vi.fn().mockResolvedValue(null), read: vi.fn(), publish: vi.fn(), fail: vi.fn() };
+    expect(await runFabricLoanSync(deps)).toEqual({ status: 'RUNNING' });
+    expect(deps.read).not.toHaveBeenCalled();
+  });
+  it('does not publish any rows after a partial or failed source read', async () => {
+    const deps = { begin: vi.fn().mockResolvedValue('run'), read: vi.fn().mockRejectedValue(new Error('private connection details')),
+      publish: vi.fn(), fail: vi.fn() };
+    await expect(runFabricLoanSync(deps)).rejects.toThrow('SOURCE_UNAVAILABLE');
+    expect(deps.publish).not.toHaveBeenCalled(); expect(deps.fail).toHaveBeenCalledWith('run', 'SOURCE_UNAVAILABLE');
+  });
+  it('publishes only after successful complete schema validation', async () => {
+    const deps = { begin: vi.fn().mockResolvedValue('run'), read: vi.fn().mockResolvedValue({ rows: [row()], columns: FABRIC_LOAN_FIELDS, sourceAsOf: new Date().toISOString() }), publish: vi.fn(), fail: vi.fn() };
+    expect(await runFabricLoanSync(deps)).toEqual({ status: 'SUCCEEDED', rowCount: 1 });
+    expect(deps.publish).toHaveBeenCalledOnce(); expect(deps.fail).not.toHaveBeenCalled();
+  });
+  it('uses Fabric-side reads, authenticated HTTPS push, private reads and guarded atomic publication', () => {
+    const sql = readFileSync('supabase/migrations/20261007160113_fabric_loan_stock_projection.sql', 'utf8');
+    const edge = readFileSync('supabase/functions/fabric-loan-sync/index.ts', 'utf8');
+    const picker = readFileSync('src/pages/loans/LoanCasePage.tsx', 'utf8');
+    expect(sql).toContain('fabric_loan_ingest_snapshot');
+    expect(sql).toContain('loan_request_fabric_refresh');
+    expect(sql).toContain('external_snapshot_id uuid unique');
+    expect(sql).not.toContain('net.http_post');
+    expect(sql).toContain('enable row level security');
+    expect(sql).toContain('revoke all on function public.fabric_loan_sync_publish(uuid,timestamptz,jsonb) from public, anon, authenticated');
+    expect(sql).toContain('STALE_SYNC_LEASE'); expect(sql).toContain('pg_advisory_xact_lock');
+    expect(sql).toContain('set source_present=false'); expect(sql).not.toContain('delete from public.fabric_loan_assets_current');
+    expect(edge).toContain("caller.rpc('can_administer_loans')"); expect(edge).toContain('caller.auth.getUser()');
+    expect(edge).toContain('verifyFabricSignature'); expect(edge).toContain('validateFabricPush');
+    expect(edge).toContain("request.headers.has('Authorization') || request.headers.has('Origin')");
+    expect(edge).not.toContain('fabricReader'); expect(edge).not.toContain('readFabricLoanSnapshot');
+    expect(picker).toContain('<LoanStockPanel'); expect(picker).not.toContain('listEligibleLoanAssets');
+    expect(picker).not.toContain("label('loansSaveDraftFirst')");
+  });
+});

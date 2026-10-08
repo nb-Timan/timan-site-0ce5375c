@@ -1,5 +1,5 @@
 export const LOAN_STATUSES = [
-  'DRAFT', 'AWAITING_ACCEPTANCE', 'ACCEPTED', 'ON_LOAN',
+  'DRAFT', 'READY_FOR_REVIEW', 'AWAITING_ACCEPTANCE', 'ACCEPTED', 'ON_LOAN',
   'RETURN_INSPECTION', 'CLOSED_OK', 'CLOSED_WITH_DEVIATION', 'CANCELLED',
 ] as const;
 
@@ -26,4 +26,42 @@ export function canAddLoanPhoto(currentCount: number): boolean {
 
 export function loanChangeRequiresNewAcceptance(status: LoanStatus): boolean {
   return !['DRAFT', 'CANCELLED'].includes(status);
+}
+
+export function isLoanDateRangeValid(loanDate: string | null, expectedReturnDate: string | null): boolean {
+  if (!loanDate || !expectedReturnDate) return true;
+  return expectedReturnDate >= loanDate;
+}
+
+export interface LoanPreparationItem {
+  item_type: 'machine' | 'equipment';
+  serial_snapshot: string | null;
+  planning_supply_unit_id: string | null;
+  fabric_asset_id?: string | null;
+  usage_reading_value: number | null;
+  usage_reading_unit: 'km' | 'hours' | null;
+  photoKinds: string[];
+}
+
+export function getLoanPreparationIssues(input: {
+  loanDate: string | null;
+  expectedReturnDate: string | null;
+  items: LoanPreparationItem[];
+  serialNumbersConfirmed: boolean;
+}): string[] {
+  const issues: string[] = [];
+  if (!input.loanDate) issues.push('loan_date');
+  if (!input.expectedReturnDate) issues.push('expected_return_date');
+  if (!isLoanDateRangeValid(input.loanDate, input.expectedReturnDate)) issues.push('date_range');
+  if (input.items.length === 0) issues.push('asset');
+  for (const item of input.items) {
+    if ((!item.planning_supply_unit_id && !item.fabric_asset_id) || !item.serial_snapshot?.trim()) issues.push('serial');
+    if (!item.photoKinds.includes('serial_plate')) issues.push('type_plate_photo');
+    if (item.item_type === 'machine') {
+      if (item.usage_reading_value === null) issues.push('usage_reading_value');
+      if (!item.usage_reading_unit) issues.push('usage_reading_unit');
+    }
+  }
+  if (!input.serialNumbersConfirmed) issues.push('serial_confirmation');
+  return [...new Set(issues)];
 }

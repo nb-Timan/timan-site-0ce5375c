@@ -169,17 +169,20 @@ export default function PortalAreaPage({ areaId }: Props) {
       findPortalCapabilityContractByRoute(module.href)?.academyGate,
       academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds(),
     ));
-  const areaCards = areaId === 'salg_marketing'
-    ? SALES_CARD_ORDER.flatMap((cardId) => {
+  type AreaCard =
+    | { kind: 'loans' }
+    | { kind: 'module'; module: (typeof areaModules)[number] };
+  const areaCards: AreaCard[] = areaId === 'salg_marketing'
+    ? SALES_CARD_ORDER.flatMap<AreaCard>((cardId) => {
         if (cardId === 'loans') {
           return hasAreaAccess(effectiveUser, 'loans')
-            ? [{ kind: 'loans' as const }]
+            ? [{ kind: 'loans' }]
             : [];
         }
         const module = areaModules.find((candidate) => candidate.id === cardId);
-        return module ? [{ kind: 'module' as const, module }] : [];
+        return module ? [{ kind: 'module', module }] : [];
       })
-    : areaModules.map((module) => ({ kind: 'module' as const, module }));
+    : areaModules.map((module) => ({ kind: 'module', module }));
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
   const showNewsOverviewCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
 

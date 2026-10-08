@@ -17,6 +17,7 @@ import { t } from '@/lib/i18n/translations';
 
 const AREA_ROUTE: Record<PortalAreaId, string> = {
   planning: '/portal/planning',
+  loans: '/portal/loans',
   teknik_service: '/portal/teknik-service',
   salg_marketing: '/portal/salg-marketing',
   marketing: '/portal/salg-marketing',

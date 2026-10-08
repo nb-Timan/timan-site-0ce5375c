@@ -58,6 +58,10 @@ verify_jwt = false
 [functions.support-knowledge-sync]
 verify_jwt = false
 
+# Manual calls verify JWT + can_administer_loans; scheduled calls verify a Vault secret.
+[functions.fabric-loan-sync]
+verify_jwt = false
+
 [functions.support-chat]
 verify_jwt = false
 

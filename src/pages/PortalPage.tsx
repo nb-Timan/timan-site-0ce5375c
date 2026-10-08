@@ -277,7 +277,7 @@ export default function PortalPage() {
   const academyAllowedHomeCards = academySandbox.getAllowedPortalHomeCardIds();
   const visibleHomeCards = sortPortalHomeCards([
     ...PORTAL_AREAS
-      .filter((area) => area.id !== 'loans')
+      .filter((area): area is typeof area & { id: Exclude<typeof area.id, 'loans'> } => area.id !== 'loans')
       .filter((area) => hasEffectiveAcademyCapabilityAccess(
         effectiveUser,
         isAreaVisible(area, effectiveUser),
