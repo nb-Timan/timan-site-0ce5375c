@@ -285,9 +285,9 @@ export default function LoanCasePage() {
     setBusy(true); setError(''); setNotice('');
     try {
       await reopenLoanForEdit(caseId);
+      await refresh();
       setSerialConfirmed(false);
       setValidationIssues([]);
-      await refresh();
       setNotice(label('loansReopened'));
     }
     catch (cause) { setError(errorText(cause, label)); }
