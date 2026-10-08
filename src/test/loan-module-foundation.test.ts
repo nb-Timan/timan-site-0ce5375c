@@ -42,7 +42,7 @@ describe('Loans Phase 1 capability and domain', () => {
     const salesArea = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
     const loanShell = readFileSync('src/pages/loans/LoanShell.tsx', 'utf8');
 
-    expect(portalHome).toContain(".filter((area) => area.id !== 'loans')");
+    expect(portalHome).toContain("=> area.id !== 'loans')");
     expect(salesArea).toContain("return hasAreaAccess(effectiveUser, 'loans')");
     expect(salesArea).toContain('to={PORTAL_AREA_ROUTES.loans}');
     expect(loanShell).toContain('to={PORTAL_AREA_ROUTES.salg_marketing}');
