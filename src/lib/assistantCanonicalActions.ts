@@ -2,6 +2,7 @@ import type { SessionUser } from '@/context/AppUserContext';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
 import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
+import { materializeCanonicalPdfDocument } from '@/lib/canonicalPdfDocument';
 import {
   ensureReferenceNumbers,
   markPdfDownloaded,
@@ -219,10 +220,7 @@ async function renderAssistantPdf(
     TC: T,
   });
   const filename = buildConfiguratorPdfFilename({ flowType: 'quote', refNumber: quoteNumber, T });
-  const dataUri = String(pdf.output('datauristring'));
-  const base64 = dataUri.includes(',') ? dataUri.split(',')[1] : '';
-  const blob = pdf.output('blob') as Blob;
-  if (!base64 || !blob) throw new Error('PDF_GENERATION_FAILED');
+  const { base64, blob } = materializeCanonicalPdfDocument(pdf, filename);
   const upload = await uploadSentPdf(configurationId, blob, filename, { persistOnConfiguration });
   if (upload.error) throw new Error(upload.error);
   return { filename, blob, base64, path: upload.path };

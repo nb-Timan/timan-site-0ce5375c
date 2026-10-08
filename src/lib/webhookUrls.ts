@@ -6,7 +6,8 @@
 // If you ever need test webhooks again, flip FORCE_ENV back to 'test' or
 // restore the host-based detection from git history.
 
-const N8N_BASE = 'https://n8n.srv1509152.hstgr.cloud';
+const TIMAN_N8N_BASE = 'https://timan.app.n8n.cloud';
+const LEGACY_N8N_BASE = 'https://n8n.srv1509152.hstgr.cloud';
 
 export type WebhookEnv = 'production' | 'test';
 
@@ -17,13 +18,17 @@ export function getWebhookEnv(): WebhookEnv {
 }
 
 export function getOrderWebhookUrl(): string {
-  return `${N8N_BASE}/webhook/timan-afsend-ordre`;
+  return `${TIMAN_N8N_BASE}/webhook/timan-portal-order-email`;
 }
 
 export function getQuoteWebhookUrl(): string {
-  return `${N8N_BASE}/webhook/timan-afsend-tilbud`;
+  return `${TIMAN_N8N_BASE}/webhook/timan-portal-quote-email`;
+}
+
+export function getC5NavOrderWebhookUrl(): string {
+  return `${TIMAN_N8N_BASE}/webhook/timan-c5-nav-order-export`;
 }
 
 export function getMesseLeadWebhookUrl(): string {
-  return `${N8N_BASE}/webhook/timan-messe-lead`;
+  return `${LEGACY_N8N_BASE}/webhook/timan-messe-lead`;
 }

@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { getOrderWebhookUrl, getQuoteWebhookUrl } from '@/lib/webhookUrls';
+import { getC5NavOrderWebhookUrl, getOrderWebhookUrl, getQuoteWebhookUrl } from '@/lib/webhookUrls';
 
 describe('configurator quote/order mail flow', () => {
-  it('uses the published n8n quote and order webhooks', () => {
-    expect(getQuoteWebhookUrl()).toBe('https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-tilbud');
-    expect(getOrderWebhookUrl()).toBe('https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-ordre');
+  it('uses the published Timan n8n quote, order, and C5 webhooks', () => {
+    expect(getQuoteWebhookUrl()).toBe('https://timan.app.n8n.cloud/webhook/timan-portal-quote-email');
+    expect(getOrderWebhookUrl()).toBe('https://timan.app.n8n.cloud/webhook/timan-portal-order-email');
+    expect(getC5NavOrderWebhookUrl()).toBe('https://timan.app.n8n.cloud/webhook/timan-c5-nav-order-export');
   });
 
   it('keeps quote BCC compatibility while splitting the order attachment sets', () => {
@@ -18,8 +19,19 @@ describe('configurator quote/order mail flow', () => {
     expect(source).toContain('bcc_recipients: bccRecipients');
     expect(source).toContain('to_addresses: recipients');
     expect(source).toContain("source_action: 'send_order_internal_csv'");
+    expect(source).toContain('const c5NavWebhookUrl = getC5NavOrderWebhookUrl()');
+    expect(source).toContain('fetch(c5NavWebhookUrl, {');
     expect(source).not.toContain('NB@Timan.dk');
     expect(source).not.toContain('nb@timan.dk');
+  });
+
+  it('keeps the Configurator-selected recipient separate from the filler email', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+
+    expect(source.match(/const recipients = Array\.from\(new Set\(modtagerList\)\);/g)).toHaveLength(2);
+    expect(source).not.toContain('[emailUdfylder, ...modtagerList]');
+    expect(source).toContain('email_udfylder: emailUdfylder');
+    expect(source).toContain('email_modtager: emailModtager');
   });
 
   it('records each verified Configurator outcome in the canonical mail audit', () => {

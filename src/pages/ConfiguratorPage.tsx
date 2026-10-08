@@ -73,7 +73,7 @@ import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { getActiveSellerView } from '@/lib/activeMode';
-import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
+import { getC5NavOrderWebhookUrl, getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { buildMainCategories } from '@/lib/mainCategories';
 import { logMailAuditEvent } from '@/lib/mailAuditService';
@@ -129,6 +129,12 @@ import {
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
+import {
+  downloadCanonicalPdfDocument,
+  materializeCanonicalPdfDocument,
+  resolveCanonicalPdfDocument,
+  type CanonicalPdfDocument,
+} from '@/lib/canonicalPdfDocument';
 import { configuratorCurrency, createConfiguratorPricingSnapshot, currentDemoFee, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive, shouldShowCampaignDisableControl } from '@/lib/calcConfiguration';
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
@@ -961,6 +967,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const submitInFlightRef = useRef(false);
+  const canonicalPdfCacheRef = useRef<{ cacheKey: string; documentFile: CanonicalPdfDocument } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
@@ -2000,24 +2007,29 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
     const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, uiLanguage) : machineType);
-    const presentationActions = marketingPresentationActions(marketingContent);
-    const hasSpecs = presentationActions.information || Boolean(item.specs?.length);
-    const showVideoIcon = Boolean(videoUrl);
-    const showImageIcon = Boolean(imageUrl);
-    if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
+    const presentationActions = marketingPresentationActions(marketingContent, item.varenr || item.id);
+    const hasResolvedSpecs = marketingPresentationActions(marketingContent).information || Boolean(item.specs?.length);
+    const showVideoAction = Boolean(videoUrl) || presentationActions.video;
+    const showImageAction = Boolean(imageUrl) || presentationActions.image;
+    const showSpecificationsAction = hasResolvedSpecs || presentationActions.information;
+    if (!showVideoAction && !showImageAction && !showSpecificationsAction) return null;
     return (
       <div className="mt-1 flex gap-2 whitespace-nowrap">
-        {showVideoIcon && (videoUrl ? (
+        {showVideoAction && (videoUrl ? (
           <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductVideoPreview({ url: videoUrl, title: productTitle }); }}>🎥 {T('videoLink')}</button>
         ) : (
-          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>🎥 {T('videoLink')}</button>
         ))}
-        {showImageIcon && (imageUrl ? (
+        {showImageAction && (imageUrl ? (
           <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: imageUrl, title: productTitle, itemNumber: item.varenr || item.id || null }); }}>📸 {T('imageLink')}</button>
         ) : (
-          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>📸 {T('imageLink')}</button>
         ))}
-        {hasSpecs && <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>}
+        {showSpecificationsAction && (hasResolvedSpecs ? (
+          <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>
+        ) : (
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs font-medium text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>📄 {T('specsLink')}</button>
+        ))}
       </div>
     );
   };
@@ -2423,6 +2435,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       }
     }
 
+    // A newly-created quote can be returned without a T-number. Reserve it
+    // before PDF generation so the document body, filename and n8n payload
+    // all identify the same canonical quote.
+    if (activeCaseId && effectiveFlowType === 'quote' && !activeQuoteNumber) {
+      try {
+        const refs = await ensureReferenceNumbers(activeCaseId, false, { pricingMode: isExhibition ? 'messe' : undefined });
+        if (!refs.quote_number) throw new Error('Tilbuddet mangler et canonical tilbudsnummer.');
+        activeQuoteNumber = refs.quote_number;
+        setSavedQuoteNumber(refs.quote_number);
+      } catch (err) {
+        console.error('Failed to ensure quote number before PDF:', err);
+        toast.error(T('saveFailed'), { description: err instanceof Error ? err.message : String(err) });
+        return false;
+      }
+    }
+
     if (activeCaseId && effectiveFlowType === 'order') {
       try {
         const flowRes = await updateConfigurationFlowType(activeCaseId, 'order', ownershipPayload, { pricingMode: isExhibition ? 'messe' : undefined });
@@ -2484,31 +2512,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       const selectedRecArr = recommendationData
         ? recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b))
         : [];
-      const pdf = buildConfiguratorPdf({
-        jsPDF,
-        state: documentState,
-        calcResult: documentCalc,
-        revisionNumber: confirmationRevisionNumber,
-        flowType: effectiveFlowType,
-        quoteNumber: activeQuoteNumber,
-        orderNumber: activeOrderNumber,
-        sourceQuoteNumber: activeSourceQuoteNumber,
-        showPrices: permissions.canSeePrices,
-        uiLanguage,
-        contentLanguage: contentUiLang as Language,
-        T,
-        TC,
-        includeSalesArgs,
-        salesArguments: salesArgsData ? {
+      const salesArguments = salesArgsData ? {
           title: { da: 'Fordele ved den valgte løsning', en: 'Benefits of the chosen solution', de: 'Vorteile der gewählten Lösung', it: 'Vantaggi della soluzione scelta', hu: 'A választott megoldás előnyei' }[lang] || 'Benefits of the chosen solution',
           body: `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`,
-        } : null,
-        includeRecommendation,
-        recommendation: recommendationData ? {
+        } : null;
+      const recommendation = recommendationData ? {
           title: { da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang] || 'Timan Recommends',
           body: `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`,
-        } : null,
-      });
+        } : null;
 
       const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
       const pdfFilename = buildConfiguratorPdfFilename({
@@ -2517,18 +2528,49 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         revisionNumber: confirmationRevisionNumber,
         T,
       });
-      pdf.save(pdfFilename);
-
-      // Capture PDF as base64 for webhook payload (strip data URI prefix)
-      let pdfBase64 = '';
-      let pdfBlob: Blob | null = null;
-      try {
-        const dataUri = pdf.output('datauristring');
-        pdfBase64 = dataUri.includes(',') ? dataUri.split(',')[1] : '';
-        pdfBlob = pdf.output('blob');
-      } catch (b64Err) {
-        console.error('Failed to encode PDF as base64:', b64Err);
-      }
+      const pdfCacheKey = JSON.stringify({
+        flowType: effectiveFlowType,
+        quoteNumber: activeQuoteNumber,
+        orderNumber: activeOrderNumber,
+        sourceQuoteNumber: activeSourceQuoteNumber,
+        revisionNumber: confirmationRevisionNumber,
+        state: documentState,
+        calcResult: documentCalc,
+        showPrices: permissions.canSeePrices,
+        uiLanguage,
+        contentLanguage: contentUiLang,
+        includeSalesArgs,
+        salesArguments,
+        includeRecommendation,
+        recommendation,
+      });
+      const cachedPdf = resolveCanonicalPdfDocument(canonicalPdfCacheRef.current, pdfCacheKey, () => {
+        const pdf = buildConfiguratorPdf({
+          jsPDF,
+          state: documentState,
+          calcResult: documentCalc,
+          revisionNumber: confirmationRevisionNumber,
+          flowType: effectiveFlowType,
+          quoteNumber: activeQuoteNumber,
+          orderNumber: activeOrderNumber,
+          sourceQuoteNumber: activeSourceQuoteNumber,
+          showPrices: permissions.canSeePrices,
+          uiLanguage,
+          contentLanguage: contentUiLang as Language,
+          T,
+          TC,
+          includeSalesArgs,
+          salesArguments,
+          includeRecommendation,
+          recommendation,
+        });
+        return materializeCanonicalPdfDocument(pdf, pdfFilename);
+      });
+      canonicalPdfCacheRef.current = cachedPdf;
+      const canonicalPdf = cachedPdf.documentFile;
+      downloadCanonicalPdfDocument(canonicalPdf);
+      const pdfBase64 = canonicalPdf.base64;
+      const pdfBlob = canonicalPdf.blob;
 
       let revisionPdfPath: string | null = null;
       if (completedRevisionId && activeCaseId) {
@@ -2581,26 +2623,30 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             : buildQuoteContentSummary(documentState);
 
           // Order recipients:
-          //  - Always include "E-mail på udfylder".
-          //  - Also include "E-mail modtager" if filled (may contain multiple
-          //    addresses separated by , or ;).
+          //  - Use only the address(es) selected in "E-mail modtager".
+          //  - Keep "E-mail på udfylder" as separate payload metadata.
+          //  - The recipient field may contain multiple addresses separated by
+          //    , or ;.
           //  - Customer/dealer mail is PDF-only. The internal sales copy is
           //    sent separately after the order has been frozen successfully.
-          //  - Deduplicate if both fields contain the same address.
+          //  - Deduplicate repeated selected addresses.
           const emailUdfylder = (documentState.email || '').trim().toLowerCase();
           const emailModtagerRaw = (documentState.emailRecipient || '').trim().toLowerCase();
           const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
           const modtagerList = splitAddrs(emailModtagerRaw);
-          const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
-          const invalid = allEmails.filter(e => !emailRe.test(e));
+          const recipients = Array.from(new Set(modtagerList));
+          const invalid = recipients.filter(e => !emailRe.test(e));
           if (invalid.length > 0) {
             toast.error(T('invalidEmailRecipient'), {
               description: invalid.join(', '),
             });
             return false;
           }
-          const recipients = Array.from(new Set(allEmails));
+          if (recipients.length === 0) {
+            toast.error(T('invalidEmailRecipient'));
+            return false;
+          }
           const emailModtager = modtagerList.join(', ');
 
           // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -2774,7 +2820,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 sellerInitials: submitted.seller_initials,
               });
               const internalPayload = buildInternalOrderMailPayload(baseOrderWebhookPayload, csv);
-              const internalRes = await fetch(orderWebhookUrl, {
+              const c5NavWebhookUrl = getC5NavOrderWebhookUrl();
+              const internalRes = await fetch(c5NavWebhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(internalPayload),
@@ -2885,29 +2932,29 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         }
 
         // Quote recipients:
-        //  - Always include "E-mail på udfylder".
-        //  - Also include "E-mail modtager" if filled (may contain multiple
-        //    addresses separated by , or ;).
+        //  - Use only the address(es) selected in "E-mail modtager".
+        //  - Keep "E-mail på udfylder" as separate payload metadata.
+        //  - The recipient field may contain multiple addresses separated by
+        //    , or ;.
         //  - Send Timan's internal copy as BCC.
-        //  - Deduplicate if both fields contain the same address.
+        //  - Deduplicate repeated selected addresses.
         const emailUdfylder = (state.email || '').trim().toLowerCase();
         const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
         const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
         const modtagerList = splitAddrs(emailModtagerRaw);
-        const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
-        const invalid = allEmails.filter(e => !emailRe.test(e));
+        const recipients = Array.from(new Set(modtagerList));
+        const invalid = recipients.filter(e => !emailRe.test(e));
         if (invalid.length > 0) {
           toast.error(T('invalidEmailRecipient'), {
             description: invalid.join(', '),
           });
           return false;
         }
-        if (allEmails.length === 0) {
+        if (recipients.length === 0) {
           toast.error(T('invalidEmailRecipient'));
           return false;
         }
-        const recipients = Array.from(new Set(allEmails));
         const bccRecipients = [INTERNAL_TIMAN_ORDER_EMAIL];
         const emailModtager = modtagerList.join(', ');
 
@@ -4104,11 +4151,21 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           onClick={() => setOpenProductGroups((current) => ({ ...current, [groupKey]: !isOpen }))}
                           className="flex w-full items-start justify-between gap-3 p-3 text-left transition hover:bg-gray-50">
                           <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-gray-900">{getLocalizedName(a.name, uiLanguage)}</span>
+                            <span className="block text-sm font-semibold text-gray-900">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
                             <span className="block text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
                           </span>
                           {isOpen ? <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" /> : <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" />}
                         </button>
+                        <div className="flex items-start justify-between gap-3 border-t border-gray-100 px-3 py-2">
+                          <div className="min-w-0">
+                            {marketingContent?.description && <p className="line-clamp-2 text-xs text-gray-600">{marketingContent.description}</p>}
+                            {renderActionLinks(a, machineType)}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {renderMarketingContentState(machineType, a.id)}
+                            {marketingEditButton(machineType, a.id)}
+                          </div>
+                        </div>
                         {isOpen && (
                           <div className="space-y-2 border-t border-gray-200 bg-gray-50 p-3">
                             <div className="text-xs font-semibold text-gray-700">{T('chooseVariant')}</div>

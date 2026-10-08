@@ -76,6 +76,7 @@ import {
   filterPriceListItems,
   parsePriceListSkuTokens,
 } from "@/lib/priceListSearch";
+import { resolveUnpublishedPriceListItems } from '@/lib/priceListUnpublished';
 import {
   PRODUCT_LANGUAGE_FIELDS,
   PRODUCT_LANGUAGES,
@@ -253,10 +254,17 @@ export default function BackendPriceListsPage() {
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
 
-  const dirtyItems = useMemo(() => items.filter((i) => i.is_dirty), [items]);
+  const unpublishedItems = useMemo(
+    () => resolveUnpublishedPriceListItems(items, activeItems, configuratorSeedItems),
+    [activeItems, configuratorSeedItems, items],
+  );
+  const unpublishedItemNumbers = useMemo(
+    () => new Set(unpublishedItems.map((item) => item.item_number)),
+    [unpublishedItems],
+  );
   const publishPreview: PublishPreviewRow[] = useMemo(
-    () => buildPublishPreview(dirtyItems),
-    [dirtyItems],
+    () => buildPublishPreview(unpublishedItems),
+    [unpublishedItems],
   );
 
   // Early returns now happen AFTER all hooks have been called.
@@ -569,12 +577,12 @@ export default function BackendPriceListsPage() {
                 <button
                   type="button"
                   onClick={() => { setPublishSummary(null); setPublishOpen(true); }}
-                  disabled={dirtyItems.length === 0}
+                  disabled={unpublishedItems.length === 0}
                   className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Frigiv de klargjorte priser som Configuratorens aktive prisliste."
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
-                  Frigiv prisliste{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
+                  Frigiv prisliste{unpublishedItems.length > 0 ? ` (${unpublishedItems.length})` : ""}
                 </button>
                 <span className="text-xs text-slate-500">
                   {loadingItems ? "Indlæser…" : `${filteredItems.length} af ${exportItems.length} varer`}
@@ -612,10 +620,11 @@ export default function BackendPriceListsPage() {
                     const activeDkk = activeItem?.price_dkk ?? seedItem?.price_dkk ?? null;
                     const activeSek = activeItem?.price_sek ?? seedItem?.price_sek ?? null;
                     const activeEur = activeItem?.price_eur ?? seedItem?.price_eur ?? null;
+                    const isUnpublished = unpublishedItemNumbers.has(i.item_number);
                     const marginDb = calcMarginDb(activeDkk, i.cost_price_dkk);
                     const marginPct = calcMarginPct(activeDkk, marginDb);
                     const draftMarginDb = calcMarginDb(i.price_dkk, i.cost_price_dkk);
-                    const marginDelta = i.is_dirty && marginDb != null && draftMarginDb != null
+                    const marginDelta = isUnpublished && marginDb != null && draftMarginDb != null
                       ? Math.round((draftMarginDb - marginDb) * 100) / 100
                       : null;
                     return (
@@ -627,7 +636,7 @@ export default function BackendPriceListsPage() {
                         </td>
                         <td className="px-3 py-2 font-mono text-xs">
                           {i.item_number}
-                          {i.is_dirty && (
+                          {isUnpublished && (
                             <span className="ml-2 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
                               Kladde – ikke frigivet
                             </span>
@@ -635,7 +644,7 @@ export default function BackendPriceListsPage() {
                         </td>
                         <td className="px-3 py-2">{storedProductText(activeItem || i, uiLanguage) || storedProductText(seedItem || i, uiLanguage) || activeItem?.item_text_da || seedItem?.item_text_da || i.item_text_da || <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPrice(i.cost_price_dkk)}</td>
-                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeDkk} draft={i.is_dirty ? i.price_dkk : null} /></td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeDkk} draft={isUnpublished ? i.price_dkk : null} /></td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">
                           <div className="flex items-center justify-end gap-2">
                             <span>{fmtPrice(marginDb)}</span>
@@ -643,8 +652,8 @@ export default function BackendPriceListsPage() {
                           </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPercent(marginPct)}</td>
-                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeSek} draft={i.is_dirty ? i.price_sek : null} /></td>
-                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeEur} draft={i.is_dirty ? i.price_eur : null} /></td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeSek} draft={isUnpublished ? i.price_sek : null} /></td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeEur} draft={isUnpublished ? i.price_eur : null} /></td>
                         <td className="px-3 py-2 text-xs text-slate-500">
                           {activeItem?.published_at
                             ? new Date(activeItem.published_at).toLocaleDateString('da-DK')

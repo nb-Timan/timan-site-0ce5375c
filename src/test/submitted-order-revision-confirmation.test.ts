@@ -6,9 +6,9 @@ const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
 describe('Backend submitted-order revision confirmations', () => {
   it('offers the three explicit Backend-only completion actions', () => {
     expect(source).toContain("state.flowType === 'order' && backendCorrectionSessionId ? (");
-    expect(source).toContain('Gem ændring');
-    expect(source).toContain('Gem og opret ny ordrebekræftelse');
-    expect(source).toContain('Gem og send ny ordrebekræftelse');
+    expect(source).toContain("T('saveCorrection')");
+    expect(source).toContain("T('saveAndCreateOrderConfirmation')");
+    expect(source).toContain("T('saveAndSendOrderConfirmation')");
   });
 
   it('saves a revision without a PDF or mail through the existing save path', () => {
@@ -21,7 +21,8 @@ describe('Backend submitted-order revision confirmations', () => {
     const end = source.indexOf('// Track PDF generation in Supabase', start);
     const confirmationOnly = source.slice(start, end);
 
-    expect(source).toContain('pdf.save(pdfFilename);');
+    expect(source).toContain('downloadCanonicalPdfDocument(canonicalPdf);');
+    expect(source).toContain('materializeCanonicalPdfDocument(pdf, pdfFilename)');
     expect(source.indexOf('const completed = await loadSubmittedOrderConfirmation')).toBeLessThan(source.indexOf('const pdf = buildConfiguratorPdf'));
     expect(confirmationOnly).toContain('if (!completedRevisionId)');
     expect(confirmationOnly).not.toContain('fetch(orderWebhookUrl');
