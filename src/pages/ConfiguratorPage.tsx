@@ -2034,7 +2034,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     );
   };
 
-  const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1) => {
+  const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1, renderNestedOptions = true) => {
     const isSelected = selectedIds.includes(sub.id);
     const hasNestedSubs = sub.subItems && sub.subItems.length > 0;
     const isVariant = sub.relationType === 'variant';
@@ -2060,7 +2060,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(sub, displayCurrency)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
           </div>
         </div>
-        {(isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs && (
+        {renderNestedOptions && (isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs && (
           <div className="ml-8 mt-2 space-y-2">
             {isVariant && <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>}
             {sub.subItems!.map(sub2 => renderSubItem(sub2 as SubItem, selectedIds, machineType, level + 1))}
@@ -4141,8 +4141,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
                   if (a.isProductGroup) {
                     const groupKey = `${currentUnit.configKey}:${a.id}`;
-                    const selectedVariant = a.subItems?.some((variant) => selectedIds.includes(variant.id)) ?? false;
-                    const isOpen = openProductGroups[groupKey] ?? selectedVariant;
+                    const activeVariant = a.subItems?.find((variant) => selectedIds.includes(variant.id));
+                    const isOpen = openProductGroups[groupKey] ?? Boolean(activeVariant);
                     elements.push(
                       <div key={a.id} data-testid={`product-group-${a.varenr}`} className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                         <button type="button" aria-expanded={isOpen}
@@ -4167,7 +4167,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         {isOpen && (
                           <div className="space-y-2 border-t border-gray-200 bg-gray-50 p-3">
                             <div className="text-xs font-semibold text-gray-700">{T('chooseVariant')}</div>
-                            {a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType))}
+                            {a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType, 1, false))}
+                            {activeVariant?.subItems && activeVariant.subItems.length > 0 && (
+                              <div data-testid={`product-group-shared-options-${a.varenr}`} className="mt-3 space-y-2 border-t border-emerald-200 pt-3">
+                                <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>
+                                {activeVariant.subItems.map((option) => renderSubItem(option as SubItem, selectedIds, machineType, 2))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>,

@@ -109,14 +109,35 @@ describe('canonical T2/T3 product hierarchy', () => {
     expect(variantRenderer).toContain('d="M5 13l4 4L19 7"');
     expect(variantRenderer).not.toContain("isVariant ? 'rounded-full'");
     expect(variantRenderer).not.toContain('h-2 w-2 rounded-full');
-    expect(variantRenderer).toContain('(isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs');
+    expect(variantRenderer).toContain('renderNestedOptions && (isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs');
 
     const productGroupRenderer = configurator.slice(
       configurator.indexOf('if (a.isProductGroup)'),
       configurator.indexOf('// Qty input items'),
     );
-    expect(productGroupRenderer).toContain('a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType))');
+    const variantsIndex = productGroupRenderer.indexOf('a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType, 1, false))');
+    const sharedOptionsIndex = productGroupRenderer.indexOf('data-testid={`product-group-shared-options-${a.varenr}`}');
+    expect(variantsIndex).toBeGreaterThan(-1);
+    expect(sharedOptionsIndex).toBeGreaterThan(variantsIndex);
+    expect(productGroupRenderer).toContain('activeVariant.subItems.map((option) => renderSubItem(option as SubItem, selectedIds, machineType, 2))');
     expect(productGroupRenderer).not.toContain('a.subItems?.filter');
+  });
+
+  it.each([
+    ['720131', '720125', '720130'],
+    ['331122', '720132', '720133'],
+  ])('renders one shared options section after both %s variants', (rootItemNumber, firstVariant, secondVariant) => {
+    const productGroup = group(rootItemNumber);
+    expect(productGroup.subItems?.map((item) => item.varenr)).toEqual([firstVariant, secondVariant]);
+    expect(productGroup.subItems?.[0].subItems?.map((item) => item.varenr)).toEqual(['721122', 'V34-029']);
+    expect(productGroup.subItems?.[1].subItems?.map((item) => item.varenr)).toEqual(['721122', 'V34-029']);
+
+    const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const productGroupRenderer = configurator.slice(
+      configurator.indexOf('if (a.isProductGroup)'),
+      configurator.indexOf('// Qty input items'),
+    );
+    expect(productGroupRenderer.match(/product-group-shared-options/g)).toHaveLength(1);
   });
 
   it('prices only the selected commercial child and each optional line once', () => {
