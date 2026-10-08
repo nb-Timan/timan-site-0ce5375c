@@ -23,6 +23,7 @@ export interface FabricLoanAsset {
   source_present: boolean;
   item_type: 'machine' | 'equipment' | null;
   allocated: boolean;
+  sales_committed?: boolean;
   brik_number: number | null;
 }
 

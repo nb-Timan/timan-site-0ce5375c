@@ -43,6 +43,7 @@ import { ConfiguratorDeliveryAddress } from '@/components/configurator/Configura
 import { ConfiguratorNettoLines } from '@/components/configurator/ConfiguratorNettoLines';
 import { ConfiguratorStartupOptions } from '@/components/configurator/ConfiguratorStartupOptions';
 import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
+import { SalesStockPricingPanel } from '@/components/configurator/SalesStockPricingPanel';
 import {
   ConfiguratorDemoMachineControl,
   ConfiguratorMachineReferenceField,
@@ -142,6 +143,7 @@ import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorCont
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
+import { buildSalesStockConfiguratorState, configuratorSalesSourceType, consumeSalesStockHandoff, isSalesStockConfiguration, salesStockAssetContextLines } from '@/lib/salesStockConfigurator';
 import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 import {
   reconcileConfiguratorStartupOption,
@@ -441,6 +443,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // Dealer User + Messe pricing rule: see gross list price. Messe may add
   // one manual discount in step 4, but no base/quantity/delivery/demo discounts.
   const isDealerUserPricing = isDealerUser;
+  const isSalesStockMode = isSalesStockConfiguration(state);
+  const canEditSalesStockPricing = activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
   const isGrossPriceMode = isDealerUserPricing || isExhibition;
   const displayCalc = calcResult && isGrossPriceMode
     ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
@@ -1130,6 +1134,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         notes = lines.join('\n');
       } catch { /* */ }
       if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+      const salesStockContext = salesStockAssetContextLines(state);
+      if (salesStockContext.length) notes = [notes, salesStockContext.join('\n')].filter(Boolean).join('\n\n');
       const quoteRef = savedQuoteNumber || savedOrderNumber;
       if (quoteRef) notes = (notes ? notes + '\n\n' : '') + `Tilbud: ${quoteRef}`;
 
@@ -1155,6 +1161,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       const created = await createLead({
         title,
+        sales_source_type: configuratorSalesSourceType(state),
         owner_user_id: sellerId,
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
@@ -1416,6 +1423,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         notes = lines.join('\n');
       } catch { /* */ }
       if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+      const salesStockContext = salesStockAssetContextLines(state);
+      if (salesStockContext.length) notes = [notes, salesStockContext.join('\n')].filter(Boolean).join('\n\n');
 
       const sellerId = ownership.sellerEmail
         ? await resolveSid(ownership.sellerEmail)
@@ -1439,6 +1448,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       const created = await createLead({
         title,
+        sales_source_type: configuratorSalesSourceType(state),
         owner_user_id: sellerId,
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
@@ -1547,6 +1557,38 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [resumeBusy, setResumeBusy] = useState(false);
   const resumeAttemptedRef = useRef<string | null>(null);
   const leadQuoteAttemptedRef = useRef<string | null>(null);
+  const salesStockHandoffAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (searchParams.get('salesStock') !== '1' || searchParams.get('configId')) return;
+    if (!appUser?.email || salesStockHandoffAttemptedRef.current) return;
+    salesStockHandoffAttemptedRef.current = true;
+    const assets = consumeSalesStockHandoff();
+    if (!assets.length) {
+      toast.error('De valgte salgslageraktiver kunne ikke indlæses.');
+    } else if (!canEditSalesStockPricing) {
+      toast.error('Du har ikke adgang til salgslager-prissætning.');
+    } else {
+      try {
+        setState(buildSalesStockConfiguratorState(assets, state.language, configuratorCurrency(state)));
+        setSavedConfigurationId(null);
+        setSavedQuoteNumber(null);
+        setSavedOrderNumber(null);
+        setSavedSourceQuoteNumber(null);
+        setLinkedLeadId(null);
+        setPendingNewLead(false);
+        setOrderLocked(false);
+        setIsSavedCurrent(false);
+        toast.success('Salgslageraktiver indlæst i Configurator.');
+      } catch (error) {
+        toast.error('Et valgt aktiv findes ikke i den canonical produktkatalog.', {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('salesStock');
+    setSearchParams(next, { replace: true });
+  }, [appUser?.email, canEditSalesStockPricing, searchParams, setSearchParams, setState, state]);
   useEffect(() => {
     const configId = searchParams.get('configId');
     if (!configId) return;
@@ -4433,6 +4475,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <div className="bg-white rounded-2xl shadow p-6" data-testid="configurator-step4">
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
+                <div className="mx-auto max-w-3xl">
+                  <SalesStockPricingPanel state={state} setState={setState} canEdit={canEditSalesStockPricing && !submittedOrderEditorLocked} />
+                </div>
                 <div className="max-w-lg mx-auto mb-5">
                   <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" hideDealer={isExhibition} />
                 </div>
@@ -4852,7 +4897,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 </div>
               )}
               <CampaignDisableControl
-                visible={campaignPricingRelevant}
+                visible={campaignPricingRelevant && !isSalesStockMode}
                 checked={state.campaignDisabled === true}
                 onCheckedChange={setCampaignDisabled}
                 disabled={submittedOrderEditorLocked}
@@ -4894,6 +4939,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const machineDeliveryDiscount = item.isMachine && item.index
                       ? machineDeliveryDiscountByUnit.get(item.index)
                       : undefined;
+                    const salesStockAsset = isSalesStockMode && item.index
+                      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === item.index && asset.catalogItemNumber === item.varenr)
+                      : undefined;
                     return (
                       <div key={idx}>
                         {item.isMachine && item.index && (
@@ -4916,6 +4964,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             {item.campaign?.applied && <div className="mt-1 flex flex-wrap items-center gap-2">
                               <MarketingConfiguratorBadge badge="Kampagne" language={uiLanguage} variant="compact" campaignLabel={item.campaign.campaignCode} />
                               <span className="text-[11px] font-semibold text-emerald-800">{tPortal('campaignAppliedPrice', uiLanguage)}: {formatDisplayMoney(item.campaign.finalLineValue)}</span>
+                            </div>}
+                            {salesStockAsset && <div className="mt-2 border-l-2 border-amber-500 pl-2 text-[11px] leading-5 text-slate-600" data-testid={`sales-stock-asset-${salesStockAsset.sourceAssetId}`}>
+                              <span className="font-semibold text-amber-900">Salgslager / {salesStockAsset.warehouseLocationCode === '4' ? 'brugt' : 'demo'}</span>
+                              <span className="block">Serienr.: {salesStockAsset.serialNumber || '—'} · Brik nr.: {salesStockAsset.brikNumber ?? '—'}</span>
+                              <span className="block">Konto {salesStockAsset.accountNumber ?? '—'} · Lager {salesStockAsset.warehouseLocationCode} · Ordre {salesStockAsset.sourceOrderNumber ?? '—'}</span>
+                              <span className="block">Canonical list price: {formatDisplayMoney(salesStockAsset.originalListPrice)}</span>
+                              {salesStockAsset.pricingMethod === 'adjusted_base'
+                                ? <span className="block">Nedskrevet grundpris: {formatDisplayMoney(salesStockAsset.adjustedBasePrice ?? salesStockAsset.originalListPrice)}</span>
+                                : <span className="block">Salgslager-/demo-rabat: {(salesStockAsset.salesStockDiscountPct ?? state.baseDiscountPct! * 100).toLocaleString(uiLanguage)}%</span>}
                             </div>}
                           </div>
                           {permissions.canSeePrices && <span className="price-col ml-3 whitespace-nowrap text-right font-medium">{formatDisplayMoney(item.price)}</span>}
@@ -4948,7 +5005,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             </div>
                           </div>
                         )}
-                        {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && canSelectDemo && (
+                        {!isSalesStockMode && !isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && canSelectDemo && (
                           <ConfiguratorDemoMachineControl
                             machineNumber={item.index}
                             checked={isDemoSelected(item.varenr, item.index)}

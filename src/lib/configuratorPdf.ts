@@ -500,6 +500,32 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     input.state.comment ? [input.TC("confirmComment").replace(":", ""), input.state.comment] : ["", ""],
   ], y);
 
+  if (input.state.salesChannel === 'sales_stock_demo' && input.state.salesStockAssets?.length) {
+    const sourceLabels: Record<Language, string> = {
+      da: 'Salgslager / Demo',
+      en: 'Sales stock / Demo',
+      de: 'Verkaufslager / Demo',
+      it: 'Stock vendita / Demo',
+      hu: 'Értékesítési készlet / Demo',
+    };
+    for (const [index, asset] of input.state.salesStockAssets.entries()) {
+      const pricingValue = asset.pricingMethod === 'adjusted_base'
+        ? `Nedskrevet grundpris: ${formatMoney(asset.adjustedBasePrice ?? asset.originalListPrice, asset.pricingCurrency)}`
+        : `Salgslager-/demo-rabat: ${asset.salesStockDiscountPct ?? 0}%`;
+      y = drawLabelValueGrid(pdf, `${sourceLabels[input.contentLanguage]} ${index + 1}`, [
+        ['Varenr.', asset.itemNumber],
+        ['Beskrivelse', asset.itemText],
+        ['Serienr.', asset.serialNumber || '-'],
+        ['Brik nr.', asset.brikNumber == null ? '-' : String(asset.brikNumber)],
+        ['Lager / konto', `${asset.warehouseLocationCode} / ${asset.accountNumber || '-'}`],
+        ['Kildeordre', asset.sourceOrderNumber || '-'],
+        ['Canonical list price', formatMoney(asset.originalListPrice, asset.pricingCurrency)],
+        ['Prisgrundlag', pricingValue],
+        ['Årsag / note', asset.pricingReason || '-'],
+      ], y, index > 0);
+    }
+  }
+
   for (const { unit, destination: deliveryDestination } of deliveryDestinationSections(input.state)) {
     const deliveryAddressText = [deliveryDestination.address, [deliveryDestination.postalCode, deliveryDestination.city].filter(Boolean).join(" "), deliveryDestination.country].filter(Boolean).join(", ");
     if (deliveryAddressText || (deliveryDestination.source === "alternative" && (deliveryDestination.contactPerson || deliveryDestination.phone || deliveryDestination.note))) {

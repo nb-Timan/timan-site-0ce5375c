@@ -1,4 +1,4 @@
-import type { CalcResult, ConfiguratorLineDiscountApplication, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
+import type { CalcResult, ConfiguratorLineDiscountApplication, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount, SalesStockAssetSnapshot } from '@/types/configurator';
 import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, getPriceForCurrency } from '@/data/machines';
 import { t } from '@/data/translations';
 import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNettoSku, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
@@ -18,7 +18,15 @@ export const shouldShowCampaignDisableControl = (
   grossPriceMode = false,
 ): boolean => state.pricingMode !== 'direct' && !grossPriceMode && Boolean(campaignLines?.length);
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
-type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number; discountApplications: ConfiguratorLineDiscountApplication[] };
+type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number; discountApplications: ConfiguratorLineDiscountApplication[]; salesStockAsset?: SalesStockAssetSnapshot };
+
+const salesStockLabel = (language: ConfiguratorState['language'], kind: 'base' | 'discount') => ({
+  da: kind === 'base' ? 'Nedskrevet grundpris' : 'Salgslager-/demo-rabat',
+  en: kind === 'base' ? 'Adjusted sales-stock base price' : 'Sales-stock/demo discount',
+  de: kind === 'base' ? 'Angepasster Lager-Grundpreis' : 'Lager-/Demo-Rabatt',
+  it: kind === 'base' ? 'Prezzo base stock rettificato' : 'Sconto stock/demo',
+  hu: kind === 'base' ? 'Módosított készlet-alapár' : 'Készlet/demo kedvezmény',
+}[language] ?? (kind === 'base' ? 'Adjusted sales-stock base price' : 'Sales-stock/demo discount'));
 
 /** Keeps campaign SKU provenance in the detail while omitting it from summaries. */
 export function formatDiscountDetailLabel(detail: DiscountDetail, includeItemNumber = false, locale?: PortalUiLanguage): string {
@@ -74,6 +82,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler. Brug det afsendte dokument; priser genberegnes ikke automatisk.');
   const now = options.now ?? Date.now();
   const directPricing = state.pricingMode === 'direct';
+  const salesStockMode = state.salesChannel === 'sales_stock_demo' && Boolean(state.salesStockAssets?.length);
   const campaignDisabled = state.campaignDisabled === true;
   const partnerAccountType = resolveConfiguratorPartnerAccountType({ persisted: state.partnerAccountType });
   const currency = configuratorCurrency(state);
@@ -92,7 +101,10 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     item.unitPrice = roundPricingMoney(item.price / Math.max(1, quantity));
     if (nettoPricing && isConfiguratorNettoSku(item.varenr)) item.isNetto = true;
     lineItems.push(item);
-    lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder, discountApplications: [] });
+    const salesStockAsset = salesStockMode
+      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === lineUnit && asset.catalogItemNumber === item.varenr)
+      : undefined;
+    lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder, discountApplications: [], salesStockAsset });
   };
 
   for (const machine of state.machineConfigs ?? []) {
@@ -112,7 +124,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
         if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
         const description = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language));
-        add({ txt: `- ${description}`, description, price: snapshotAccessoryPrice(state, machine.type, accessory, getPriceForCurrency(accessory, currency)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
+        add({ txt: `- ${description}`, description, price: snapshotAccessoryPrice(state, machine.type, accessory, getPriceForCurrency(accessory, currency)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden, index: unit }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
       }
       if (demo) {
         const description = snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, T('demoMachineLabel'));
@@ -160,14 +172,46 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const quantityPct = importerPricing ? 0 : eligibleUnits >= 4 ? 4 : eligibleUnits >= 2 ? 2 : 0;
   if (!directPricing && !options.grossManualDiscountOnly) {
     apply('demo', IMPORTER_DEMO_DISCOUNT_PCT, line => line.demo, T('demoDiscount'));
-    apply('base', canonicalBaseDiscountPct(partnerAccountType, state.baseDiscountPct) * 100, line => !line.demo, T('baseDiscountLabel'));
+    const canonicalBasePct = canonicalBaseDiscountPct(partnerAccountType, state.baseDiscountPct) * 100;
+    if (salesStockMode) {
+      for (const asset of state.salesStockAssets ?? []) {
+        const affected = lines.filter((line) => line.salesStockAsset?.sourceAssetId === asset.sourceAssetId && !line.item.isNetto);
+        if (affected.length === 0) continue;
+        if (asset.pricingMethod === 'adjusted_base' && asset.adjustedBasePrice !== null) {
+          const basis = roundPricingMoney(affected.reduce((sum, line) => sum + line.net, 0));
+          const target = roundPricingMoney(Math.min(basis, Math.max(0, asset.adjustedBasePrice)));
+          const amount = roundPricingMoney(basis - target);
+          if (amount > 0) {
+            let allocated = 0;
+            let cumulative = 0;
+            for (const line of affected) {
+              cumulative += line.net;
+              const next = roundPricingMoney(amount * cumulative / basis);
+              const lineAmount = roundPricingMoney(next - allocated);
+              line.discountApplications.push({ kind: 'sales_stock_base', percent: basis ? amount / basis * 100 : 0, basis: line.net, amount: lineAmount });
+              line.net = roundPricingMoney(line.net - lineAmount);
+              allocated = next;
+            }
+            details.push({ kind: 'sales_stock_base', basis, amount, varenr: asset.itemNumber,
+              percent: basis ? amount / basis * 100 : 0, txt: salesStockLabel(state.language, 'base') });
+          }
+        } else {
+          apply('sales_stock', asset.salesStockDiscountPct ?? canonicalBasePct,
+            line => line.salesStockAsset?.sourceAssetId === asset.sourceAssetId,
+            salesStockLabel(state.language, 'discount'), asset.itemNumber);
+        }
+      }
+      apply('base', canonicalBasePct, line => !line.demo && !line.salesStockAsset, T('baseDiscountLabel'));
+    } else {
+      apply('base', canonicalBasePct, line => !line.demo, T('baseDiscountLabel'));
+    }
   }
 
   const campaignLines: CampaignLineSnapshot[] = [];
   // Campaigns are resolved after the standard partner discount but before all
   // optional normal-pricing layers. Demo quantities are excluded canonically
   // by campaignTriggerSetCount/campaignBenefitEntitlement.
-  if (!directPricing && !options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
+  if (!salesStockMode && !directPricing && !options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
     for (const campaign of publishedCampaignDefinitions()) {
       if (!isCampaignActive(campaign, now)
           || !isCampaignEligibleForPartnerType(campaign, partnerAccountType)

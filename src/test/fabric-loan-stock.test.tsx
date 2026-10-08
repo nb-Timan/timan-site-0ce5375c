@@ -57,6 +57,22 @@ describe('single Fabric stock dataset', () => {
     expect(screen.queryByRole('combobox', { name: 'Konto' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Alle lagre' })).toHaveTextContent('2');
   });
+  it('selects multiple physical assets in the third sale tab and hands off to the existing Configurator', async () => {
+    const rc751 = { ...asset, asset_id: 'rc751-a', asset_instance_id: 'SERIAL|DAT|410040-A',
+      item_number: '410040-01', item_name: 'RC-751', line_text: 'RC-751 salgslager', serial_number: '410040-A',
+      serial_number_normalized: '410040-A' };
+    const rc1000 = { ...asset, asset_id: 'rc1000-a', asset_instance_id: 'SERIAL|DAT|411000-A',
+      item_number: '411000-04', item_name: 'RC-1000s', line_text: 'RC-1000s salgslager', serial_number: '411000-A',
+      serial_number_normalized: '411000-A', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' };
+    mocks.state = hook({ assets: [rc751, rc1000], sync: fresh() });
+    render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Sælg salgslagermaskine' }));
+    fireEvent.click(screen.getByRole('button', { name: /RC-751 salgslager/ }));
+    fireEvent.click(screen.getByRole('button', { name: /RC-1000s salgslager/ }));
+    expect(screen.getByText('2 valgt')).toBeInTheDocument();
+    expect(screen.getAllByText(/Serienr\./).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('button', { name: /Åbn i konfigurator/ })).toBeEnabled();
+  });
   it('filters Lager 2 and Lager 4 without resetting the account selection', () => {
     render(<LoanStockPanel />);
     fireEvent.click(screen.getByRole('button', { name: /Lager 4/ }));

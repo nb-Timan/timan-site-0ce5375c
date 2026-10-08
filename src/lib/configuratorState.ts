@@ -1,4 +1,4 @@
-import { ConfiguratorState, FlowType, Language } from '@/types/configurator';
+import { ConfiguratorState, FlowType, Language, type SalesStockAssetSnapshot } from '@/types/configurator';
 import { DEFAULT_PAYMENT_TERMS, resolvePaymentTerms } from '@/lib/paymentTerms';
 import {
   EMPTY_CONFIGURATOR_CUSTOMER_SNAPSHOT,
@@ -10,12 +10,37 @@ import { currencyFromLanguage, isCurrency } from '@/lib/currency';
 
 const CONFIGURATOR_LOCALES = new Set(['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs']);
 
+function normalizeSalesStockAssets(value: unknown): SalesStockAssetSnapshot[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((asset): asset is SalesStockAssetSnapshot => Boolean(asset)
+    && typeof asset === 'object'
+    && typeof asset.sourceAssetId === 'string'
+    && typeof asset.assetInstanceId === 'string'
+    && typeof asset.itemNumber === 'string'
+    && typeof asset.catalogItemNumber === 'string'
+    && (asset.itemType === 'machine' || asset.itemType === 'equipment'))
+    .map((asset) => ({
+      ...asset,
+      serialNumber: typeof asset.serialNumber === 'string' && asset.serialNumber.trim() ? asset.serialNumber.trim() : null,
+      brikNumber: Number.isInteger(asset.brikNumber) && Number(asset.brikNumber) > 0 ? Number(asset.brikNumber) : null,
+      adjustedBasePrice: typeof asset.adjustedBasePrice === 'number' && Number.isFinite(asset.adjustedBasePrice)
+        ? Math.max(0, asset.adjustedBasePrice)
+        : null,
+      salesStockDiscountPct: typeof asset.salesStockDiscountPct === 'number' && Number.isFinite(asset.salesStockDiscountPct)
+        ? Math.min(100, Math.max(0, asset.salesStockDiscountPct))
+        : null,
+      pricingReason: typeof asset.pricingReason === 'string' ? asset.pricingReason : '',
+    }));
+}
+
 export const createEmptyConfiguratorState = (
   language: Language = 'da',
   flowType: FlowType = 'quote',
 ): ConfiguratorState => ({
   step: 1,
   flowType,
+  salesChannel: 'standard',
+  salesStockAssets: [],
   pricingMode: 'partner',
   campaignDisabled: false,
   locale: language,
@@ -70,6 +95,10 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
   const pricingMode = flowType === 'quote' && requestedDirect ? 'direct' : 'partner';
   const invalidOrderDirect = flowType === 'order' && requestedDirect;
   const customerDraft = normalizeConfiguratorCustomerDraftState(value ?? base);
+  const salesChannel = value?.salesChannel === 'sales_stock_demo' ? 'sales_stock_demo' : 'standard';
+  const salesStockAssets = salesChannel === 'sales_stock_demo'
+    ? normalizeSalesStockAssets(value?.salesStockAssets)
+    : [];
   const activeCustomer = customerDraft.customerMode === 'dealer'
     ? customerDraft.dealerCustomerData
     : customerDraft.manualCustomerDraft;
@@ -78,6 +107,8 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     ...base,
     ...value,
     flowType,
+    salesChannel,
+    salesStockAssets,
     pricingMode,
     locale: typeof value?.locale === 'string' && CONFIGURATOR_LOCALES.has(value.locale)
       ? value.locale
@@ -88,7 +119,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
         ? value.pricingSnapshot.currency
         : currencyFromLanguage(value?.language),
     pricingSnapshot: invalidOrderDirect ? undefined : value?.pricingSnapshot,
-    campaignDisabled: value?.campaignDisabled === true,
+    campaignDisabled: salesChannel === 'sales_stock_demo' ? true : value?.campaignDisabled === true,
     partnerAccountType: isConfiguratorPartnerAccountType(value?.partnerAccountType)
       ? value.partnerAccountType
       : undefined,
@@ -108,7 +139,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     baseDiscountPct: typeof value?.baseDiscountPct === 'number' && value.baseDiscountPct >= 0 && value.baseDiscountPct <= 1
       ? value.baseDiscountPct
       : 0.25,
-    demoMachines: pricingMode === 'direct' ? {} : value?.demoMachines ?? {},
+    demoMachines: pricingMode === 'direct' || salesChannel === 'sales_stock_demo' ? {} : value?.demoMachines ?? {},
     reqNumbers: value?.reqNumbers ?? {},
     currentMachineIndex: typeof value?.currentMachineIndex === 'number' ? value.currentMachineIndex : 0,
     firmanavn: activeCustomer.firmanavn,
@@ -154,5 +185,33 @@ export function transitionConfiguratorFlowType(state: ConfiguratorState, flowTyp
 export function assertValidConfiguratorCommercialState(state: Pick<ConfiguratorState, 'flowType' | 'pricingMode'>): void {
   if (state.flowType === 'order' && state.pricingMode === 'direct') {
     throw new Error('ORDER_DIRECT_NOT_ALLOWED');
+  }
+}
+
+export function assertValidSalesStockState(state: Pick<ConfiguratorState, 'salesChannel' | 'salesStockAssets'>): void {
+  if (state.salesChannel !== 'sales_stock_demo') return;
+  if (!state.salesStockAssets?.length) throw new Error('SALES_STOCK_ASSETS_REQUIRED');
+  const ids = new Set<string>();
+  for (const asset of state.salesStockAssets) {
+    if (!asset.sourceAssetId || !asset.assetInstanceId || !asset.itemNumber || !asset.catalogItemNumber || ids.has(asset.sourceAssetId)) {
+      throw new Error('SALES_STOCK_ASSET_IDENTITY_INVALID');
+    }
+    ids.add(asset.sourceAssetId);
+    if (asset.pricingMethod !== 'adjusted_base' && asset.pricingMethod !== 'sales_stock_discount') {
+      throw new Error('SALES_STOCK_PRICING_METHOD_INVALID');
+    }
+    if (asset.pricingMethod === 'adjusted_base') {
+      if (asset.adjustedBasePrice === null || asset.adjustedBasePrice < 0 || asset.adjustedBasePrice > asset.originalListPrice) {
+        throw new Error('SALES_STOCK_ADJUSTED_BASE_INVALID');
+      }
+      if (asset.salesStockDiscountPct !== null) throw new Error('SALES_STOCK_PRICING_METHOD_CONFLICT');
+      if (!asset.pricingReason.trim()) throw new Error('SALES_STOCK_PRICING_REASON_REQUIRED');
+    } else {
+      if (asset.adjustedBasePrice !== null) throw new Error('SALES_STOCK_PRICING_METHOD_CONFLICT');
+      if (asset.salesStockDiscountPct !== null
+        && (asset.salesStockDiscountPct < 0 || asset.salesStockDiscountPct > 100 || !asset.pricingReason.trim())) {
+        throw new Error('SALES_STOCK_PRICING_REASON_REQUIRED');
+      }
+    }
   }
 }

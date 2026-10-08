@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Pencil, Plus } from 'lucide-react';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
+import SalesStockSalePanel from '@/pages/loans/SalesStockSalePanel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { listLoanCases, updateLoanExpectedReturn, type LoanCaseSummary } from '@/lib/loanService';
 import { loanDerivedTimingStatus } from '@/lib/loanDomain';
@@ -16,8 +17,15 @@ export default function LoansPage() {
   const { uiLanguage } = useLanguage();
   const label = useCallback((key: string) => t(key, uiLanguage), [uiLanguage]);
   const canManageCases = isInternalTimanPortalRole(derivePortalRole(appUser));
+  const activeRole = derivePortalRole(appUser);
+  const canSellStock = activeRole === 'timan_backend' || activeRole === 'timan_seller';
   const [searchParams, setSearchParams] = useSearchParams();
-  const view = canManageCases && searchParams.get('view') === 'stock' ? 'stock' : 'loans';
+  const requestedView = searchParams.get('view');
+  const view = canManageCases && requestedView === 'stock'
+    ? 'stock'
+    : canSellStock && requestedView === 'sale'
+      ? 'sale'
+      : 'loans';
   const partnerId = searchParams.get('partner');
   const [cases, setCases] = useState<LoanCaseSummary[] | null>(null);
   const [error, setError] = useState(false);
@@ -61,12 +69,12 @@ export default function LoansPage() {
       {canManageCases && <Link to="/portal/loans/new" className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" />{label('loansNewCase')}</Link>}
     </header>
     {canManageCases && <div className="mb-5 flex gap-5 border-b border-slate-200" role="tablist" aria-label={label('area_loans_title')}>
-      {(['loans', 'stock'] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={view === value}
+      {(['loans', 'stock', ...(canSellStock ? ['sale' as const] : [])] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={view === value}
         onClick={() => setSearchParams((current) => { const next = new URLSearchParams(current); next.set('view', value); return next; })}
         className={`min-h-11 border-b-2 px-1 text-sm font-semibold ${view === value ? 'border-emerald-700 text-emerald-900' : 'border-transparent text-slate-600'}`}>
-        {label(value === 'loans' ? 'loansView' : 'loansStockView')}</button>)}
+        {value === 'loans' ? label('loansView') : value === 'stock' ? label('loansStockView') : 'Sælg salgslagermaskine'}</button>)}
     </div>}
-    {view === 'stock' ? <LoanStockPanel /> : <>
+    {view === 'stock' ? <LoanStockPanel /> : view === 'sale' ? <SalesStockSalePanel /> : <>
       {error ? <p role="alert" className="border-l-4 border-red-500 bg-red-50 p-3 text-sm text-red-800">{label('loansLoadError')}</p>
         : cases === null ? <p className="text-sm text-slate-600">{label('loansLoading')}</p>
           : cases.length === 0 ? <div className="border border-slate-200 bg-white p-5 text-sm text-slate-600">{label('loansNoCases')}</div>

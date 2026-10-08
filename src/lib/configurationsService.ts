@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { getAccessoriesFlat } from '@/data/machines';
 import { isProductActive } from '@/lib/publishedProductMaster';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
-import { assertValidConfiguratorCommercialState, createEmptyConfiguratorState, normalizeConfiguratorState, transitionConfiguratorFlowType } from '@/lib/configuratorState';
+import { assertValidConfiguratorCommercialState, assertValidSalesStockState, createEmptyConfiguratorState, normalizeConfiguratorState, transitionConfiguratorFlowType } from '@/lib/configuratorState';
 import { configuratorCurrency, configuratorPricingSignature, configuratorSnapshotCurrency, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
@@ -1008,6 +1008,7 @@ export async function saveConfiguration(
   });
   try {
     assertValidConfiguratorCommercialState(state);
+    assertValidSalesStockState(state);
   } catch (error) {
     return {
       data: null, id: null, error: error instanceof Error ? error.message : 'INVALID_CONFIGURATOR_STATE', itemsError: null,
@@ -1179,6 +1180,7 @@ export async function updateConfiguration(
 ): Promise<{ error: string | null; itemsError: string | null }> {
   try {
     assertValidConfiguratorCommercialState(state);
+    assertValidSalesStockState(state);
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'INVALID_CONFIGURATOR_STATE', itemsError: null };
   }
@@ -1483,6 +1485,7 @@ export async function finalizeConfiguratorPricingSnapshot(
   pricingMode?: ConfigurationPricingMode,
 ): Promise<ConfiguratorState> {
   assertValidConfiguratorCommercialState(state);
+  assertValidSalesStockState(state);
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler; ingen automatisk genberegning.');
   if (hasFrozenConfiguratorPricing(state)) return state;
 

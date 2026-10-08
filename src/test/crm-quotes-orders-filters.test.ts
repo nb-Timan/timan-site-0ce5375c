@@ -14,6 +14,7 @@ import {
 function row(overrides: Partial<CrmConfigurationRow> = {}): CrmConfigurationRow {
   return {
     id: overrides.id ?? crypto.randomUUID(),
+    sales_source_type: 'STANDARD',
     document_type: overrides.document_type ?? 'quote',
     case_type: null,
     case_status: 'aktiv',
@@ -117,6 +118,12 @@ describe('CRM quote/order shared filters', () => {
     expect(buildCrmDocumentStatuses([alpha, beta, gamma], 'quote')).toEqual(['aktiv', 'pause', 'sent']);
   });
 
+  it('filters sales-stock documents without removing them from normal totals', () => {
+    const salesStock = row({ id: 'sales-stock', sales_source_type: 'SALES_STOCK_DEMO' });
+    expect(ids(filterAndSortCrmDocuments([alpha, salesStock], filters({ sourceType: 'SALES_STOCK_DEMO' }), 'quote'))).toEqual(['sales-stock']);
+    expect(filterAndSortCrmDocuments([alpha, salesStock], DEFAULT_CRM_DOCUMENT_FILTERS, 'quote')).toHaveLength(2);
+  });
+
   it('combines dealer, country, status and search with AND semantics', () => {
     const result = filterAndSortCrmDocuments(
       [alpha, beta, gamma],
@@ -154,7 +161,7 @@ describe('CRM quote/order shared filters', () => {
 
   it('keeps service order for Standardvisning and reset', () => {
     expect(ids(filterAndSortCrmDocuments([gamma, alpha, beta], DEFAULT_CRM_DOCUMENT_FILTERS, 'quote'))).toEqual(['gamma', 'alpha', 'beta']);
-    expect(DEFAULT_CRM_DOCUMENT_FILTERS).toEqual({ search: '', dealerKey: 'all', country: 'all', status: 'all', sort: 'standard' });
+    expect(DEFAULT_CRM_DOCUMENT_FILTERS).toEqual({ search: '', dealerKey: 'all', country: 'all', status: 'all', sourceType: 'all', sort: 'standard' });
   });
 
   it('uses submitted as the canonical order status', () => {

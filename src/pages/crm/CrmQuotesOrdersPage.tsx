@@ -90,6 +90,9 @@ const T: Record<string, Record<Language, string>> = {
   no_dealers: { da: 'Ingen forhandlere fundet.', en: 'No dealers found.', de: 'Keine Händler gefunden.', it: 'Nessun rivenditore trovato.', hu: 'Nem található kereskedő.' },
   all_countries: { da: 'Alle lande', en: 'All countries', de: 'Alle Länder', it: 'Tutti i paesi', hu: 'Minden ország' },
   all_statuses: { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Minden állapot' },
+  all_sources: { da: 'Alle kilder', en: 'All sources', de: 'Alle Quellen', it: 'Tutte le origini', hu: 'Minden forrás' },
+  source_standard: { da: 'Normal', en: 'Standard', de: 'Standard', it: 'Standard', hu: 'Normál' },
+  source_sales_stock: { da: 'Salgslager / Demo', en: 'Sales stock / Demo', de: 'Verkaufslager / Demo', it: 'Stock vendita / Demo', hu: 'Értékesítési készlet / Demo' },
   sorting: { da: 'Sortering', en: 'Sorting', de: 'Sortierung', it: 'Ordinamento', hu: 'Rendezés' },
   sort_standard: { da: 'Standardvisning', en: 'Default view', de: 'Standardansicht', it: 'Vista standard', hu: 'Alapértelmezett nézet' },
   sort_newest: { da: 'Nyeste først', en: 'Newest first', de: 'Neueste zuerst', it: 'Più recenti', hu: 'Legújabb elöl' },
@@ -279,6 +282,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [dealerFilter, setDealerFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.dealerKey);
   const [countryFilter, setCountryFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.country);
   const [statusFilter, setStatusFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.status);
+  const [sourceFilter, setSourceFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.sourceType);
   const [sort, setSort] = useState<CrmDocumentSort>(DEFAULT_CRM_DOCUMENT_FILTERS.sort);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
@@ -438,13 +442,15 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     dealerKey: dealerFilter,
     country: countryFilter,
     status: statusFilter,
+    sourceType: sourceFilter,
     sort,
-  }, mode), [countryFilter, dealerFilter, mode, rows, search, sort, statusFilter]);
+  }, mode), [countryFilter, dealerFilter, mode, rows, search, sort, sourceFilter, statusFilter]);
   const filtersActive = Boolean(
     search.trim()
     || dealerFilter !== 'all'
     || countryFilter !== 'all'
     || statusFilter !== 'all'
+    || sourceFilter !== 'all'
     || sort !== 'standard',
   );
 
@@ -453,6 +459,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     setDealerFilter(DEFAULT_CRM_DOCUMENT_FILTERS.dealerKey);
     setCountryFilter(DEFAULT_CRM_DOCUMENT_FILTERS.country);
     setStatusFilter(DEFAULT_CRM_DOCUMENT_FILTERS.status);
+    setSourceFilter(DEFAULT_CRM_DOCUMENT_FILTERS.sourceType);
     setSort(DEFAULT_CRM_DOCUMENT_FILTERS.sort);
   }, []);
 
@@ -531,6 +538,17 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           >
             <option value="all">{T.all_statuses[lang]}</option>
             {statusOptions.map((status) => <option key={status} value={status}>{statusFilterLabel(status, lang)}</option>)}
+          </select>
+
+          <select
+            value={sourceFilter}
+            onChange={(event) => setSourceFilter(event.target.value as typeof sourceFilter)}
+            aria-label={T.all_sources[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[170px]"
+          >
+            <option value="all">{T.all_sources[lang]}</option>
+            <option value="STANDARD">{T.source_standard[lang]}</option>
+            <option value="SALES_STOCK_DEMO">{T.source_sales_stock[lang]}</option>
           </select>
 
           <select
@@ -669,6 +687,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       )}
                       <td className="px-3 py-2.5 text-slate-800 max-w-[280px]">
                         <span className="block truncate" title={r.title || undefined}>{r.title || '—'}</span>
+                        {r.sales_source_type === 'SALES_STOCK_DEMO' && <span className="mt-1 inline-flex border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">{T.source_sales_stock[lang]}</span>}
                       </td>
                       <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
                         {r.seller_initials || r.seller_name || r.seller_email || '—'}

@@ -33,6 +33,7 @@ export type CrmDocumentType = 'quote' | 'order';
 
 export interface CrmConfigurationRow {
   id: string;
+  sales_source_type: 'STANDARD' | 'SALES_STOCK_DEMO';
   document_type: CrmDocumentType;
   /** Raw case_type from configurations when exposed by the source. */
   case_type: string | null;
@@ -131,11 +132,15 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   const submittedAt = (row.submitted_at as string | null) ?? null;
   let purchaseOrderNumber: string | null = null;
   let purchaseOrderNumbers: string[] = [];
+  let snapshotSalesSourceType: 'STANDARD' | 'SALES_STOCK_DEMO' = 'STANDARD';
   try {
     const rawState = typeof row.state_json === 'string'
       ? JSON.parse(row.state_json)
       : row.state_json;
     if (rawState && typeof rawState === 'object') {
+      snapshotSalesSourceType = (rawState as { salesChannel?: unknown }).salesChannel === 'sales_stock_demo'
+        ? 'SALES_STOCK_DEMO'
+        : 'STANDARD';
       const summary = orderPurchaseReferenceSummary(rawState as Pick<ConfiguratorState, 'reqNumbers' | 'purchaseOrderNumber'>);
       purchaseOrderNumber = summary.headerValue;
       purchaseOrderNumbers = summary.values;
@@ -145,6 +150,7 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   }
   return {
     id: String(row.id),
+    sales_source_type: row.sales_source_type === 'SALES_STOCK_DEMO' ? 'SALES_STOCK_DEMO' : snapshotSalesSourceType,
     // Legacy flow-switches could leave document_type/case_type='order' on a
     // non-submitted quote. CRM lists are lifecycle read-models, so only the
     // canonical sent/submitted state decides which list owns the row.

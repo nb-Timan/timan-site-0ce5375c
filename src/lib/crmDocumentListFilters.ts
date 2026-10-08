@@ -17,6 +17,7 @@ export interface CrmDocumentListFilterState {
   dealerKey: string;
   country: string;
   status: string;
+  sourceType: 'all' | 'STANDARD' | 'SALES_STOCK_DEMO';
   sort: CrmDocumentSort;
 }
 
@@ -31,6 +32,7 @@ export const DEFAULT_CRM_DOCUMENT_FILTERS: CrmDocumentListFilterState = {
   dealerKey: 'all',
   country: 'all',
   status: 'all',
+  sourceType: 'all',
   sort: 'standard',
 };
 
@@ -105,6 +107,7 @@ export function filterAndSortCrmDocuments(
     if (filters.dealerKey !== 'all' && dealerKeyOf(row) !== filters.dealerKey) return false;
     if (filters.country !== 'all' && row.dealer_country?.trim().toLowerCase() !== country) return false;
     if (filters.status !== 'all' && crmDocumentStatus(row, mode) !== filters.status) return false;
+    if (filters.sourceType !== 'all' && row.sales_source_type !== filters.sourceType) return false;
     if (!query) return true;
 
     const haystack = [

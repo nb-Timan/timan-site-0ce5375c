@@ -307,6 +307,7 @@ export interface CrmLead {
   lead_no?: number | null;
   lead_reference_type?: "L" | "G" | null;
   title: string;
+  sales_source_type?: 'STANDARD' | 'SALES_STOCK_DEMO';
   owner_user_id: string | null;
   owner_name: string | null;
   owner_email?: string | null;
@@ -598,6 +599,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
     const { data, error } = await supabase.from("crm_leads").insert({
       id: row.id,
       title: row.title,
+      sales_source_type: row.sales_source_type ?? 'STANDARD',
       owner_user_id: row.owner_user_id,
       owner_name: row.owner_name,
       owner_email: row.owner_email ?? null,
@@ -805,6 +807,7 @@ export async function updateLead(
       ? { move_to_working_qty: merged.move_to_working_qty ?? 0 }
       : {
       title: merged.title,
+      sales_source_type: merged.sales_source_type ?? 'STANDARD',
       owner_user_id: merged.owner_user_id,
       owner_name: merged.owner_name,
       owner_email: merged.owner_email ?? null,

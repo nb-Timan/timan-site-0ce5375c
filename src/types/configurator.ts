@@ -10,6 +10,31 @@ export type ConfigMode = 'shared' | 'individual';
 export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
 export type ConfiguratorLocale = Language | 'sv' | 'fr' | 'pl' | 'cs';
 export type ConfiguratorCustomerMode = 'dealer' | 'manual';
+export type ConfiguratorSalesChannel = 'standard' | 'sales_stock_demo';
+export type SalesStockPricingMethod = 'adjusted_base' | 'sales_stock_discount';
+
+export interface SalesStockAssetSnapshot {
+  sourceAssetId: string;
+  assetInstanceId: string;
+  itemNumber: string;
+  catalogItemNumber: string;
+  itemText: string;
+  itemType: 'machine' | 'equipment';
+  serialNumber: string | null;
+  brikNumber: number | null;
+  warehouseLocationCode: string;
+  warehouseLocationName: string | null;
+  accountNumber: string | null;
+  sourceOrderNumber: string | null;
+  classification: string;
+  configuratorUnitNumber: number;
+  originalListPrice: number;
+  pricingCurrency: Currency;
+  pricingMethod: SalesStockPricingMethod;
+  adjustedBasePrice: number | null;
+  salesStockDiscountPct: number | null;
+  pricingReason: string;
+}
 
 // Role system
 export type UserRole = 'slutkunde' | 'partner' | 'timan_saelger';
@@ -227,6 +252,10 @@ export interface ConfiguratorCommercialLine {
 export interface ConfiguratorState {
   step: number;
   flowType: FlowType;
+  /** Normal catalogue sale or a sale tied to immutable physical Fabric assets. */
+  salesChannel?: ConfiguratorSalesChannel;
+  /** Physical asset snapshots used only when salesChannel is sales_stock_demo. */
+  salesStockAssets?: SalesStockAssetSnapshot[];
   /** Explicit document-wide commercial pricing mode. Legacy states default to partner pricing. */
   pricingMode?: 'partner' | 'direct';
   /** Canonical type of the commercial account used for pricing and campaign eligibility. */
@@ -329,7 +358,7 @@ export interface LineItem {
 }
 
 export interface DiscountDetail {
-  kind?: 'demo' | 'base' | 'delivery' | 'quantity' | 'dealer' | 'campaign' | 'direct';
+  kind?: 'demo' | 'base' | 'sales_stock_base' | 'sales_stock' | 'delivery' | 'quantity' | 'dealer' | 'campaign' | 'direct';
   percent?: number;
   basis?: number;
   campaignId?: string;

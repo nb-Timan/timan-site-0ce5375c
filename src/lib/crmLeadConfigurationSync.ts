@@ -14,6 +14,7 @@ import {
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { configuratorSalesSourceType, salesStockAssetContextLines } from '@/lib/salesStockConfigurator';
 import { supabase } from '@/lib/supabase';
 import { LOOSE_TOOL_KEY } from '@/data/machines';
 import type { CrmLeadMachineInterestItem } from '@/lib/crmLeadMachineInterest';
@@ -285,6 +286,7 @@ function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRo
     ));
     if (accessoryNames.length > 0) lines.push(`  Udstyr: ${accessoryNames.join(', ')}`);
   }
+  lines.push(...salesStockAssetContextLines(state));
   const sourceValue = Math.round(getConfigurationSourceValue(state, row));
   const sourceCurrency = configuratorCurrency(state);
   const crmValueDkk = getConfigurationValueDkk(state, row);
@@ -341,6 +343,7 @@ export function buildLeadPatchFromConfigurationState(
 
   const patch: CrmLeadPatch = {
     title: preferNonEmpty(state.firmanavn, null) ?? preferNonEmpty(row.title, null) ?? lead.title,
+    sales_source_type: configuratorSalesSourceType(state),
     machine_types: machineTypes.length > 0 ? machineTypes : lead.machine_types,
     machine_interest_items: buildCrmLeadMachineInterestItemsFromConfigurationState(state),
     ...structuredCrmLeadContactColumns(contact),

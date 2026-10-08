@@ -188,6 +188,51 @@ describe("configurator PDF generator", () => {
     expect(output).toContain("T-4003");
   });
 
+  it('renders the physical sales-stock identity in the canonical PDF', () => {
+    const state: ConfiguratorState = {
+      ...baseState,
+      salesChannel: 'sales_stock_demo',
+      salesStockAssets: [{
+        sourceAssetId: '11111111-1111-4111-8111-111111111111',
+        assetInstanceId: 'SERIAL|DAT|410040-QA',
+        itemNumber: '410040',
+        itemText: 'RC-751 salgslager',
+        itemType: 'machine',
+        serialNumber: '410040-QA',
+        brikNumber: 82,
+        warehouseLocationCode: '2',
+        warehouseLocationName: 'Lager 2',
+        accountNumber: '1010',
+        sourceOrderNumber: '138063',
+        classification: 'LOAN_CANDIDATE',
+        configuratorUnitNumber: 1,
+        originalListPrice: 167500,
+        pricingCurrency: 'DKK',
+        pricingMethod: 'adjusted_base',
+        adjustedBasePrice: 150000,
+        salesStockDiscountPct: null,
+        pricingReason: 'QA-safe demo-pris',
+      }],
+    };
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state,
+      calcResult: makeCalcResult(1, 1),
+      flowType: 'quote',
+      quoteNumber: 'T-QA',
+      showPrices: true,
+      uiLanguage: 'da',
+      contentLanguage: 'da',
+      T: key => t(key, 'da'),
+      TC: key => t(key, 'da'),
+    });
+    const output = pdf.output();
+    expect(output).toContain('Salgslager / Demo');
+    expect(output).toContain('410040-QA');
+    expect(output).toContain('138063');
+    expect(output).toContain('150.000');
+  });
+
   it.each([
     ['da', 'Stk.', 'Stk. pris', 'I alt'],
     ['de', 'Stk.', 'Stückpreis', 'Gesamt'],
