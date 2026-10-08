@@ -114,8 +114,11 @@ describe('single Fabric stock dataset', () => {
     expect(screen.getByRole('button', { name: '1020' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('textbox', { name: 'Søg i salgslager' })).toHaveValue('QA-ORDER');
   });
-  it('limits All warehouses to Lager 2 and Lager 4 and keeps search below both filter groups', () => {
-    expect(filterFabricLoanStock([asset, { ...asset, asset_id: 'other-warehouse', warehouse_location_code: '7' }], 'all', '', 'all')).toEqual([asset]);
+  it('limits All warehouses to Lager 2 and Lager 4, All accounts to 1010 and 1020, and keeps search below both groups', () => {
+    expect(filterFabricLoanStock([asset,
+      { ...asset, asset_id: 'other-warehouse', warehouse_location_code: '7' },
+      { ...asset, asset_id: 'other-account', account_number: null },
+    ], 'all', '', 'all')).toEqual([asset]);
     render(<LoanStockPanel />);
     const accountGroup = screen.getByRole('group', { name: 'Konto' });
     const searchInput = screen.getByRole('textbox', { name: 'Søg i salgslager' });
