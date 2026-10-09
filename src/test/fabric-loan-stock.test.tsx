@@ -39,6 +39,29 @@ beforeEach(() => { vi.clearAllMocks(); mocks.state = hook(); mocks.listCases.moc
 afterEach(cleanup);
 
 describe('single Fabric stock dataset', () => {
+  it('defaults to active, preserves partial returns and exposes completed/cancelled history separately', async () => {
+    const base = { id: 'draft', loan_number: 'U-QA-DRAFT', status: 'DRAFT', partner_name: 'QA', responsible_name: 'QA', asset_count: 1,
+      lifecycle_state: { can_cancel_draft: true }, updated_at: '2026-10-09T08:00:00Z' };
+    mocks.listCases.mockResolvedValue([base,
+      { ...base, id: 'partial', loan_number: 'U-QA-PARTIAL', status: 'RETURN_INSPECTION', lifecycle_state: { can_cancel_draft: false } },
+      { ...base, id: 'closed', loan_number: 'U-QA-CLOSED', status: 'CLOSED_OK', lifecycle_state: { can_cancel_draft: false, last_received_at: '2026-10-09T08:00:00Z' } },
+      { ...base, id: 'cancelled', loan_number: 'U-QA-CANCELLED', status: 'CANCELLED', lifecycle_state: { can_cancel_draft: false } },
+    ]);
+    render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    await screen.findAllByText('U-QA-DRAFT');
+    expect(screen.getAllByText('U-QA-PARTIAL')).toHaveLength(2);
+    expect(screen.queryByText('U-QA-CLOSED')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Slet' })).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Afsluttede' }));
+    expect(screen.queryByText('U-QA-DRAFT')).not.toBeInTheDocument();
+    expect(screen.getAllByText('U-QA-CLOSED')).toHaveLength(2);
+    expect(screen.getAllByText('U-QA-CANCELLED')).toHaveLength(2);
+    expect(screen.getAllByText('2026-10-09')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Slet' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Alle' }));
+    expect(screen.getAllByText('U-QA-DRAFT')).toHaveLength(2);
+    expect(screen.getAllByText('U-QA-CLOSED')).toHaveLength(2);
+  });
   it('shows bulk item 65101002 as one row with quantity 18 under item and order search', () => {
     const bulk = { ...asset, asset_id: 'bulk-line', asset_instance_id: 'LINE|DAT|420093276|65101002|4|133226|8|1',
       company: 'DAT', item_number: '65101002', line_text: 'Nr. Hammerslagle', item_name: 'Hammerslagle',

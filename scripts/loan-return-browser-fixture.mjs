@@ -9,17 +9,23 @@ const item=(id,sku,name,serial,brik,reading=null,unit=null)=>({id,case_id:caseId
 const items=[item('machine','410040','RC-751','QA-RC751-001',194,12,'hours'),item('component-a','210100','Komponent A',null,96),item('component-b','210123','Komponent B',null,96),item('km-machine','411000','RC-1000s','QA-RC1000-002',195,120,'km')];
 const summary=items.map(i=>({case_item_id:i.id,item_type:i.item_type,product_sku:i.product_sku,product_name:i.product_name_snapshot,serial_number:i.serial_snapshot,brik_number:i.brik_number_snapshot,checkout_usage_reading:i.usage_reading_value,usage_reading_unit:i.usage_reading_unit,is_outstanding:true,receipt_status:null}));
 const photos=[]; const history=[]; const photoBytes=new Map(); const requests=new Map();
+const draft={...loanCase,id:'qa-draft',loan_number:'U-QA-DRAFT',status:'DRAFT',updated_at:'2026-10-09T08:00:00Z'};
+const draftEvents=[];
 // Seed non-personal meter evidence so browser layout/save QA does not depend on extension file access.
 for (const id of ['machine','km-machine']) {
   const preview_url='/__qa/photo/seed-'+id;
   photoBytes.set(preview_url,readFileSync('public/messe/machines/rc-751-sketch.png'));
   photos.push({id:'seed-'+id,case_id:caseId,case_item_id:id,photo_kind:'return_meter',preview_url,file_name:'qa-meter.png'});
 }
-const state=()=>({loanCase,items,photos,returnSummary:summary,returnState:{case_id:caseId,can_receive:summary.some(i=>i.is_outstanding),presentation_state:summary.some(i=>i.receipt_status==='REVIEW_REQUIRED')?'REVIEW_REQUIRED':summary.every(i=>!i.is_outstanding)?'RECEIVED':summary.some(i=>i.receipt_status==='RECEIVED')?'PARTIALLY_RETURNED':'ON_LOAN'}});
+const state=()=>({loanCase,items,photos,returnSummary:summary,lifecycleState:{case_id:caseId,can_cancel_draft:false,last_received_at:summary.filter(i=>i.returned_at).at(-1)?.returned_at},returnState:{case_id:caseId,can_receive:summary.some(i=>i.is_outstanding),presentation_state:summary.some(i=>i.receipt_status==='REVIEW_REQUIRED')?'REVIEW_REQUIRED':summary.every(i=>!i.is_outstanding)?'RECEIVED':summary.some(i=>i.receipt_status==='RECEIVED')?'PARTIALLY_RETURNED':'ON_LOAN'}});
+const overview=()=>[... [draft,loanCase].map(c=>({...c,partner_name:'Isoleret QA',responsible_name:'QA Timan',asset_count:c.id===draft.id?0:items.length,can_edit_expected_return:!['CANCELLED','CLOSED_OK'].includes(c.status),return_state:c.id===caseId?state().returnState:undefined,lifecycle_state:c.id===caseId?state().lifecycleState:{case_id:draft.id,can_cancel_draft:draft.status==='DRAFT',cancellation_reason:draft.cancellation_reason,cancelled_at:draft.cancelled_at}}))];
 const services=`
 const request=async(path,body)=>{const r=await fetch('/__qa/'+path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});if(!r.ok)throw new Error(await r.text());return r.json();};
-export const getLoanCase=()=>request('data');
-export const listLoanCaseHistory=()=>request('history');
+export const getLoanCase=(id)=>request('data?case='+id);
+export const listLoanCaseHistory=(id)=>request('history?case='+id);
+export const listLoanCases=()=>request('cases');
+export const cancelLoanDraft=(id,updatedAt,reason,key)=>request('cancel',{id,updatedAt,reason,key});
+export const updateLoanExpectedReturn=async()=>{throw new Error('No date edits in this fixture');};
 export const listLoanSellers=async()=>[{id:'qa',display_name:'QA Timan',initials:'QA'}];
 export const listLoanPartners=async()=>[{id:'partner',company_name:'Isoleret QA',account_number:'QA'}];
 export const listLoanContacts=async()=>[{id:'contact',name:'QA'}];
@@ -35,11 +41,12 @@ const modules={
   '/__qa/shell.tsx':"export default function Shell({children}){return <main className='mx-auto max-w-6xl p-4'>{children}</main>;}",
   '/__qa/stock.tsx':"export default function Stock(){return null;}",
   '/__qa/fabric.ts':"export const addFabricLoanAsset=async()=>{throw new Error('No Fabric writes in fixture');};",
-  '/__qa/main.tsx':`import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route,Link} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import ReturnPage from '@/pages/loans/LoanReturnPage';import CasePage from '@/pages/loans/LoanCasePage';import '@/index.css';createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><Routes><Route path='/portal/loans/:caseId/return' element={<ReturnPage/>}/><Route path='/portal/loans/:caseId' element={<CasePage/>}/><Route path='*' element={<Link to='/portal/loans/qa-return/return'>Modtag QA-udlån</Link>}/></Routes></BrowserRouter></QueryClientProvider>);`,
+  '/__qa/main.tsx':`import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import ReturnPage from '@/pages/loans/LoanReturnPage';import CasePage from '@/pages/loans/LoanCasePage';import LoansPage from '@/pages/loans/LoansPage';import '@/index.css';createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><Routes><Route path='/portal/loans/:caseId/return' element={<ReturnPage/>}/><Route path='/portal/loans/:caseId' element={<CasePage/>}/><Route path='/portal/loans' element={<LoansPage/>}/></Routes></BrowserRouter></QueryClientProvider>);`,
 };
 const aliases={
   '@/lib/loanService':'/__qa/service.ts','@/context/AppUserContext':'/__qa/user.ts','@/context/LanguageContext':'/__qa/language.ts',
   '@/pages/loans/LoanShell':'/__qa/shell.tsx','@/pages/loans/LoanStockPanel':'/__qa/stock.tsx','@/lib/fabricLoanStockService':'/__qa/fabric.ts',
+  '@/pages/loans/SalesStockSalePanel':'/__qa/stock.tsx',
 };
 const server=await createServer({configFile:false,define:{__TIMAN_BUILD_ID__:JSON.stringify('local-return-qa')},
   optimizeDeps:{noDiscovery:true,include:['react','react-dom/client','react/jsx-runtime','react-router-dom','@tanstack/react-query','lucide-react','@radix-ui/react-dialog']},
@@ -48,8 +55,9 @@ const server=await createServer({configFile:false,define:{__TIMAN_BUILD_ID__:JSO
     s.middlewares.use(async(req,res,next)=>{
       const url=new URL(req.url,'http://127.0.0.1');
       const send=(data)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));};
-      if(url.pathname==='/__qa/data')return send(state());
-      if(url.pathname==='/__qa/history')return send(history);
+      if(url.pathname==='/__qa/data')return send(url.searchParams.get('case')===draft.id?{loanCase:draft,items:[],photos:[],returnSummary:[],lifecycleState:overview()[0].lifecycle_state}:state());
+      if(url.pathname==='/__qa/history')return send(url.searchParams.get('case')===draft.id?draftEvents:history);
+      if(url.pathname==='/__qa/cases')return send(overview());
       if(url.pathname.startsWith('/__qa/photo/')&&photoBytes.has(url.pathname)){res.setHeader('Content-Type','image/png');return res.end(photoBytes.get(url.pathname));}
       if(req.method==='POST'&&url.pathname.startsWith('/__qa/')){
         const chunks=[];for await(const chunk of req)chunks.push(chunk);const bytes=Buffer.concat(chunks);
@@ -58,6 +66,13 @@ const server=await createServer({configFile:false,define:{__TIMAN_BUILD_ID__:JSO
           photos.push({id,case_id:caseId,case_item_id:req.headers['x-item'],photo_kind:req.headers['x-kind'],preview_url,file_name:'qa-meter.png'});return send({ok:true});
         }
         const input=JSON.parse(bytes.toString());
+        if(url.pathname==='/__qa/cancel'){
+          if(requests.has(input.key))return send(requests.get(input.key));
+          if(input.id!==draft.id||draft.status!=='DRAFT'||input.updatedAt!==draft.updated_at||!input.reason.trim()){res.statusCode=400;return res.end('Invalid draft cancellation');}
+          Object.assign(draft,{status:'CANCELLED',cancellation_reason:input.reason,cancelled_at:new Date().toISOString()});
+          draftEvents.push({id:input.key,event_type:'CASE_CANCELLED',actor_name:'QA Timan',created_at:draft.cancelled_at,metadata:{reason:input.reason}});
+          requests.set(input.key,draft.id);return send(draft.id);
+        }
         if(url.pathname==='/__qa/remove-photo'){const index=photos.findIndex(p=>p.id===input.id&&!p.return_item_inspection_id);if(index>=0)photos.splice(index,1);return send({ok:true});}
         if(url.pathname==='/__qa/receive'){
           if(requests.has(input.key))return send(requests.get(input.key));

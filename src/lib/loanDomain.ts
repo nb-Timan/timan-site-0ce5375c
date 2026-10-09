@@ -5,6 +5,16 @@ export const LOAN_STATUSES = [
 
 export type LoanStatus = typeof LOAN_STATUSES[number];
 
+export type LoanOverviewFilter = 'active' | 'closed' | 'all';
+
+export function isLoanClosed(status: LoanStatus): boolean {
+  return ['CLOSED_OK', 'CLOSED_WITH_DEVIATION', 'CANCELLED'].includes(status);
+}
+
+export function loanMatchesOverviewFilter(status: LoanStatus, filter: LoanOverviewFilter): boolean {
+  return filter === 'all' || (filter === 'closed' ? isLoanClosed(status) : !isLoanClosed(status));
+}
+
 export function loanDerivedTimingStatus(
   status: LoanStatus,
   expectedReturnDate: string | null,

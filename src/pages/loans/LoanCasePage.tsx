@@ -4,12 +4,13 @@ import { Camera, CheckCircle2, History, PackageCheck, Plus, RotateCcw, Trash2, U
 import { useQueryClient } from '@tanstack/react-query';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
+import LoanCancelDialog from '@/pages/loans/LoanCancelDialog';
 import { addFabricLoanAsset } from '@/lib/fabricLoanStockService';
 import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import { t } from '@/lib/i18n/translations';
-import { getLoanPreparationIssues, isLoanDateRangeValid } from '@/lib/loanDomain';
+import { getLoanPreparationIssues, isLoanClosed, isLoanDateRangeValid, loanStatusTranslationKey } from '@/lib/loanDomain';
 import { derivePortalRole, isInternalTimanPortalRole } from '@/lib/portalAccess';
 import {
   createLoanCase,
@@ -36,6 +37,7 @@ import {
   type LoanPartner,
   type LoanPhotoKind,
   type LoanCaseReturnState,
+  type LoanCaseLifecycleState,
   type LoanReturnSummary,
   type LoanSeller,
 } from '@/lib/loanService';
@@ -66,6 +68,8 @@ export default function LoanCasePage() {
   const [history, setHistory] = useState<LoanCaseEvent[]>([]);
   const [returnSummary, setReturnSummary] = useState<LoanReturnSummary[]>([]);
   const [returnState, setReturnState] = useState<LoanCaseReturnState | null>(null);
+  const [lifecycleState, setLifecycleState] = useState<LoanCaseLifecycleState | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [sellerId, setSellerId] = useState('');
   const [partnerId, setPartnerId] = useState('');
   const [contactId, setContactId] = useState('');
@@ -101,6 +105,7 @@ export default function LoanCasePage() {
     setHistory(events);
     setReturnSummary(detail.returnSummary ?? []);
     setReturnState(detail.returnState ?? null);
+    setLifecycleState(detail.lifecycleState ?? null);
     setReadingDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.usage_reading_value?.toString() ?? ''])));
     setUnitDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.usage_reading_unit ?? ''])));
     setLimitDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.driving_use_limit ?? ''])));
@@ -310,10 +315,20 @@ export default function LoanCasePage() {
       <div className="flex flex-wrap gap-2">
         {canManageCase && caseId && returnState?.can_receive && <Link to={`/portal/loans/${caseId}/return`} className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white"><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}
         {canAdministerCase && loanCase && ['READY_FOR_REVIEW','AWAITING_ACCEPTANCE','ACCEPTED'].includes(loanCase.status) && <button type="button" disabled={busy} onClick={() => void reopen()} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800"><RotateCcw className="h-4 w-4" />{label('loansReopen')}</button>}
+        {canAdministerCase && lifecycleState?.can_cancel_draft && <button type="button" disabled={busy} onClick={() => setCancelDialogOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700"><Trash2 className="h-4 w-4" />{label('loansDelete')}</button>}
       </div>
     </div>
     {error && <p role="alert" className="mt-4 border-l-4 border-red-500 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {notice && <p role="status" className="mt-4 border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
+    {loanCase && isLoanClosed(loanCase.status) && <section aria-label={label('loansClosedCases')} className="mt-4 border-l-4 border-slate-400 bg-slate-50 p-4 text-sm text-slate-800">
+      <h2 className="font-semibold">{label(loanStatusTranslationKey(loanCase.status))}</h2>
+      {lifecycleState?.cancellation_reason && <p className="mt-1">{label('loansDeleteReason')}: {lifecycleState.cancellation_reason}</p>}
+      {lifecycleState?.cancelled_at && <time className="mt-1 block text-xs text-slate-600">{new Date(lifecycleState.cancelled_at).toLocaleString(uiLanguage)}</time>}
+    </section>}
+    <LoanCancelDialog target={cancelDialogOpen ? loanCase : null} label={label} onClose={() => setCancelDialogOpen(false)} onCancelled={async () => {
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ['loans'] });
+    }} />
 
     <div className="mt-5 max-w-5xl space-y-5">
       {loanCase?.status === 'READY_FOR_REVIEW' && <section className="border-l-4 border-emerald-600 bg-emerald-50 p-4" aria-label={label('loansReviewReady')}>
@@ -378,7 +393,7 @@ export default function LoanCasePage() {
         {caseId && <button type="button" disabled={busy} onClick={() => void continueToReview()} className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white disabled:opacity-50">{label('loansContinueReview')}</button>}
       </div>}
       {caseId && returnSummary.some((item) => item.receipt_status) && <ReturnSummarySection summary={returnSummary} photos={photos} label={label} language={uiLanguage} />}
-      {caseId && history.length > 0 && <section className="border border-slate-200 bg-white p-4" aria-label={label('loansHistory')}><h2 className="flex items-center gap-2 font-semibold text-slate-900"><History className="h-4 w-4" />{label('loansHistory')}</h2><ol className="mt-3 divide-y divide-slate-200">{history.slice(0, 20).map((event) => <li key={event.id} className="py-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium text-slate-800">{historyLabel(event, label)}</span><time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString(uiLanguage)}</time></div><p className="mt-1 text-xs text-slate-600">{event.actor_name}</p></li>)}</ol></section>}
+      {caseId && history.length > 0 && <section className="border border-slate-200 bg-white p-4" aria-label={label('loansHistory')}><h2 className="flex items-center gap-2 font-semibold text-slate-900"><History className="h-4 w-4" />{label('loansHistory')}</h2><ol className="mt-3 divide-y divide-slate-200">{history.map((event) => <li key={event.id} className="py-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium text-slate-800">{event.event_type === 'CASE_CANCELLED' ? label('loansHistoryCancelled') : historyLabel(event, label)}</span><time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString(uiLanguage)}</time></div><p className="mt-1 text-xs text-slate-600">{event.actor_name}</p>{event.event_type === 'CASE_CANCELLED' && typeof event.metadata.reason === 'string' && <p className="mt-1 text-sm text-slate-700">{event.metadata.reason}</p>}</li>)}</ol></section>}
     </div>
   </LoanShell>;
 }

@@ -59,6 +59,8 @@ try {
   await db.exec(foundation.slice(foundation.indexOf('do $$ declare t text; begin')));
   await db.exec(`
     alter table public.loan_case_items add column brik_number_snapshot integer,add column fabric_asset_id uuid;
+    create sequence public.loan_test_number_seq start 6601;
+    alter table public.loan_cases add column loan_number text unique default ('U-'||nextval('public.loan_test_number_seq'));
     insert into public.loan_cases(id,case_number,responsible_user_id,dealer_account_id,dealer_contact_id,created_by,status)
       values('${caseId}','QA-RETURN','${actor}','${partner}','${contact}','${actor}','ON_LOAN');
   `);
@@ -73,6 +75,7 @@ try {
     await db.query('insert into public.loan_asset_allocations(case_item_id,supply_unit_id,allocated_by) values($1,$1,$2)',[id,actor]);
   }
   await db.exec(migration);
+  await db.exec(readFileSync('supabase/migrations/20261009083118_loan_case_lifecycle.sql','utf8'));
   await role('timan_dealer');
   assert.equal(await scalar('select count(*)::int as value from public.loan_list_return_summary($1)',[caseId]),4,'scoped partner summary is read-only');
   await assert.rejects(receive([entry(1)]),/denied/);
@@ -135,10 +138,61 @@ try {
   assert.equal(await scalar('select status as value from public.loan_cases where id=$1',[kmCase]),'CLOSED_OK');
   assert.equal(await scalar('select calculated_usage as value from public.loan_list_return_summary($1)',[kmCase]),'-20');
   assert.equal(await scalar('select lower_reading_explanation as value from public.loan_list_return_summary($1)',[kmCase]),'Meter replaced');
+  await db.exec('reset role');
+  for (const statement of [
+    'delete from public.loan_cases where id=$1',
+    "update public.loan_cases set notes='FORGED' where id=$1",
+    'delete from public.loan_case_items where case_id=$1',
+    "update public.loan_case_items set product_name_snapshot='FORGED' where case_id=$1",
+  ]) await assert.rejects(db.query(statement,[caseId]),/history/);
+  assert.equal(await scalar('select count(*)::int as value from public.loan_case_items where case_id=$1',[caseId]),4);
+  const draft='88888888-8888-4888-8888-888888888888';
+  const draftItem='99999999-9999-4999-8999-999999999999';
+  await db.query("insert into public.loan_cases(id,case_number,responsible_user_id,dealer_account_id,dealer_contact_id,created_by) values($1,'QA-CANCEL',$2,$3,$4,$2)",[draft,actor,partner,contact]);
+  // Reuse a returned physical asset without deleting its original case/item link.
+  await db.query("insert into public.loan_case_items(id,case_id,item_type,product_sku,planning_supply_unit_id,created_by) values($1,$2,'machine','QA-1',$3,$4)",[draftItem,draft,ids[0],actor]);
+  await db.query('insert into public.loan_asset_allocations(case_item_id,supply_unit_id,allocated_by) values($1,$2,$3)',[draftItem,ids[0],actor]);
+  assert.equal(await scalar('select count(*)::int as value from public.loan_case_items where planning_supply_unit_id=$1',[ids[0]]),2);
+  const updated=await scalar('select updated_at::text as value from public.loan_cases where id=$1',[draft]);
+  const originalNumber=await scalar('select loan_number as value from public.loan_cases where id=$1',[draft]);
+  const cancel=(reason='Wrong QA draft',timestamp=updated,request=key(20))=>scalar('select public.loan_cancel_unissued_case($1,$2,$3,$4) as value',[draft,timestamp,reason,request]);
+  for (const portalRole of ['timan_seller','timan_service','timan_dealer']) {
+    await db.query('update public.app_users set portal_role=$1 where id=$2',[portalRole,actor]);
+    await db.exec('set role authenticated');
+    await assert.rejects(cancel(),/Backend loan administration required/);
+    await db.exec('reset role');
+  }
+  await db.query("update public.app_users set portal_role='timan_backend' where id=$1",[actor]);
+  await db.exec('set role authenticated');
+  await assert.rejects(cancel(''),/reason/);
+  await assert.rejects(cancel('QA','2000-01-01T00:00:00Z'),/changed/);
+  assert.equal(await scalar('select can_cancel_draft as value from public.loan_list_case_lifecycle_states() where case_id=$1',[draft]),true);
+  await cancel();
+  await cancel();
+  await assert.rejects(cancel('Changed reason'),/different input/);
+  assert.equal(await scalar('select status as value from public.loan_cases where id=$1',[draft]),'CANCELLED');
+  assert.equal(await scalar("select count(*)::int as value from public.loan_asset_allocations where case_item_id=$1 and allocation_status='active'",[draftItem]),0);
+  assert.equal(await scalar("select count(*)::int as value from public.loan_case_events where case_id=$1 and event_type='CASE_CANCELLED'",[draft]),1);
+  assert.equal(await scalar("select metadata->>'loan_number' as value from public.loan_case_events where case_id=$1 and event_type='CASE_CANCELLED'",[draft]),originalNumber);
+  assert.ok(await scalar('select last_received_at as value from public.loan_list_case_lifecycle_states() where case_id=$1',[caseId]));
+  assert.equal(await scalar('select can_cancel_draft as value from public.loan_list_case_lifecycle_states() where case_id=$1',[caseId]),false);
+  await db.exec('reset role');
+  await assert.rejects(db.query('delete from public.loan_case_items where case_id=$1',[draft]),/history/);
+  await assert.rejects(db.query("insert into public.loan_case_items(case_id,item_type,product_sku,created_by) values($1,'equipment','FORGED',$2)",[draft,actor]),/history/);
+  const reopened='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  await db.query("insert into public.loan_cases(id,case_number,responsible_user_id,dealer_account_id,dealer_contact_id,created_by) values($1,'QA-REOPENED',$2,$3,$4,$2)",[reopened,actor,partner,contact]);
+  await db.query("insert into public.loan_case_events(case_id,event_type,actor_user_id,from_status,to_status) values($1,'REOPENED_FOR_EDIT',$2,'ACCEPTED','DRAFT')",[reopened,actor]);
+  const nextNumber=await scalar('select loan_number as value from public.loan_cases where id=$1',[reopened]);
+  assert.notEqual(nextNumber,originalNumber,'cancelled U-number remains allocated');
+  await db.exec('set role authenticated');
+  assert.equal(await scalar('select can_cancel_draft as value from public.loan_list_case_lifecycle_states() where case_id=$1',[reopened]),false,'reopened accepted history cannot be cancelled');
+  await assert.rejects(scalar('select public.loan_cancel_unissued_case($1,(select updated_at from public.loan_cases where id=$1),$2,$3) as value',[reopened,'QA',key(21)]),/never-issued/);
+  const cancelledMedia=`${draft}/${draftItem}/checkout.png`;
+  await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('loan-case-media',$1)",[cancelledMedia]),/row-level security/);
   await db.exec('reset role; set role anon');
   await assert.rejects(receive([entry(1)]),/permission denied/);
   await assert.rejects(db.exec('select * from public.loan_case_item_photos'),/permission denied/);
   await db.exec('reset role');
   assert.equal(await scalar("select public as value from storage.buckets where id='loan-case-media'"),false);
-  console.log('PASS: actual migration, canonical Timan/partner/seller RLS, partial/full receipt, serial/Brik/shared group validation, finite meter readings, real private media requirement, idempotency, discrepancy retention/resolution, reservation release, immutable receipt/photo/event history. Isolated PostgreSQL only.');
+  console.log('PASS: actual return/lifecycle migrations, canonical RLS, partial/full receipt, shared Brik, private media, Backend-only version-checked idempotent cancellation, audit, immutable completed/cancelled history, reservation release and asset reuse, U-number retention, accepted/reopened protection. Isolated PostgreSQL only.');
 } finally { await db.close(); }

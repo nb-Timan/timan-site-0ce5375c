@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { LoanReturnPresentationState, LoanStatus } from '@/lib/loanDomain';
+import { isLoanClosed } from '@/lib/loanDomain';
 
 export interface LoanSeller { id: string; display_name: string; initials: string; }
 export interface LoanPartner { id: string; account_number: string; company_name: string; customer_type: string | null; }
@@ -56,6 +57,14 @@ export interface LoanCaseSummary {
   created_at: string;
   updated_at: string;
   return_state?: LoanCaseReturnState;
+  lifecycle_state?: LoanCaseLifecycleState;
+}
+export interface LoanCaseLifecycleState {
+  case_id: string;
+  can_cancel_draft: boolean;
+  last_received_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
 }
 export interface LoanCaseReturnState {
   case_id: string;
@@ -139,16 +148,21 @@ const LOAN_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 function rows<T>(data: unknown): T[] { return Array.isArray(data) ? data as T[] : []; }
 
 export async function listLoanCases(partnerId?: string | null): Promise<LoanCaseSummary[]> {
-  const [casesResult, stateResult] = await Promise.all([
+  const [casesResult, stateResult, lifecycleResult] = await Promise.all([
     supabase.rpc('loan_list_case_overview', { p_partner_id: partnerId || null }),
     supabase.rpc('loan_list_case_return_states'),
+    supabase.rpc('loan_list_case_lifecycle_states'),
   ]);
   if (casesResult.error) throw casesResult.error;
   if (stateResult.error) throw stateResult.error;
+  if (lifecycleResult.error) throw lifecycleResult.error;
   const stateByCase = new Map(rows<LoanCaseReturnState>(stateResult.data).map((state) => [state.case_id, state]));
+  const lifecycleByCase = new Map(rows<LoanCaseLifecycleState>(lifecycleResult.data).map((state) => [state.case_id, state]));
   return rows<LoanCaseSummary>(casesResult.data).map((loanCase) => ({
     ...loanCase,
+    can_edit_expected_return: loanCase.can_edit_expected_return && !isLoanClosed(loanCase.status),
     return_state: stateByCase.get(loanCase.id),
+    lifecycle_state: lifecycleByCase.get(loanCase.id),
   }));
 }
 
@@ -158,19 +172,22 @@ export async function getLoanCase(caseId: string): Promise<{
   photos: LoanItemPhoto[];
   returnSummary: LoanReturnSummary[];
   returnState: LoanCaseReturnState | null;
+  lifecycleState: LoanCaseLifecycleState | null;
 }> {
-  const [caseResult, itemResult, photoResult, summaryResult, stateResult] = await Promise.all([
+  const [caseResult, itemResult, photoResult, summaryResult, stateResult, lifecycleResult] = await Promise.all([
     supabase.from('loan_cases').select('*').eq('id', caseId).single(),
     supabase.from('loan_case_items').select('*').eq('case_id', caseId).order('created_at'),
     supabase.from('loan_case_item_photos').select('*').eq('case_id', caseId).order('created_at'),
     supabase.rpc('loan_list_return_summary', { p_case_id: caseId }),
     supabase.rpc('loan_list_case_return_states'),
+    supabase.rpc('loan_list_case_lifecycle_states'),
   ]);
   if (caseResult.error) throw caseResult.error;
   if (itemResult.error) throw itemResult.error;
   if (photoResult.error) throw photoResult.error;
   if (summaryResult.error) throw summaryResult.error;
   if (stateResult.error) throw stateResult.error;
+  if (lifecycleResult.error) throw lifecycleResult.error;
 
   const rawPhotos = rows<Omit<LoanItemPhoto, 'preview_url'>>(photoResult.data);
   const photos = await Promise.all(rawPhotos.map(async (photo) => {
@@ -184,6 +201,7 @@ export async function getLoanCase(caseId: string): Promise<{
     photos,
     returnSummary: rows<LoanReturnSummary>(summaryResult.data),
     returnState,
+    lifecycleState: rows<LoanCaseLifecycleState>(lifecycleResult.data).find((state) => state.case_id === caseId) ?? null,
   };
 }
 
@@ -393,6 +411,16 @@ export async function removeLoanItemPhoto(caseId: string, photo: LoanItemPhoto):
   const path = typeof data === 'string' ? data : photo.storage_path;
   const removal = await supabase.storage.from(LOAN_MEDIA_BUCKET).remove([path]);
   if (removal.error) throw removal.error;
+}
+
+export async function cancelLoanDraft(caseId: string, updatedAt: string, reason: string, requestId: string): Promise<void> {
+  const { error } = await supabase.rpc('loan_cancel_unissued_case', {
+    p_case_id: caseId,
+    p_expected_updated_at: updatedAt,
+    p_reason: reason,
+    p_request_id: requestId,
+  });
+  if (error) throw error;
 }
 
 export async function uploadLoanReturnPhoto(

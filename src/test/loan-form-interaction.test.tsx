@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   submitLoanCaseForReview: vi.fn(),
   confirmLoanDraftSerials: vi.fn(),
   reopenLoanForEdit: vi.fn(),
+  cancelLoanDraft: vi.fn(),
 }));
 const identity = vi.hoisted(() => ({ role: 'timan_backend' }));
 vi.mock('@/lib/loanService', () => mocks);
@@ -72,6 +73,26 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Loan form interactions', () => {
+  it('shows cancel only for Backend when server confirms never-issued eligibility', async () => {
+    mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item], photos: [photo], lifecycleState: { can_cancel_draft: true } });
+    const mounted = mount();
+    expect(await screen.findByRole('button', { name: 'Slet' })).toBeInTheDocument();
+    mounted.unmount();
+    identity.role = 'timan_seller';
+    mount();
+    await screen.findByText('QA-LOAN');
+    expect(screen.queryByRole('button', { name: 'Slet' })).not.toBeInTheDocument();
+  });
+  it('keeps completed detail read-only and displays the full append-only timeline beyond 20 events', async () => {
+    mocks.getLoanCase.mockResolvedValue({ loanCase: { ...loan, status: 'CLOSED_OK' }, items: [item], photos: [photo], lifecycleState: { can_cancel_draft: false } });
+    mocks.listLoanCaseHistory.mockResolvedValue(Array.from({ length: 25 }, (_, n) => ({ id: `event-${n}`, event_type: 'CASE_CANCELLED', actor_name: 'QA', created_at: '2026-10-09T08:00:00Z', metadata: { reason: `Retained event ${n}` } })));
+    mount();
+    await screen.findByText('Retained event 24');
+    expect(screen.getByLabelText('Noter')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Slet' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gem kladde' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Serienr\.: QA-SERIAL/)).toBeInTheDocument();
+  });
   it('hydrates the persisted dates and keeps draft fields editable', async () => {
     mount();
     await screen.findByText('QA-LOAN');

@@ -312,3 +312,28 @@ Object.assign(LOAN_TRANSLATIONS.de, RETURN_DE);
 for (const language of Object.keys(LOAN_STOCK_TRANSLATIONS) as PortalUiLanguage[]) {
   Object.assign(LOAN_TRANSLATIONS[language], LOAN_STOCK_TRANSLATIONS[language]);
 }
+
+const LIFECYCLE_EN = {
+  loansLifecycleFilter: 'Loan status', loansActiveCases: 'Active', loansClosedCases: 'Completed', loansAllCases: 'All',
+  loansLastReceivedDate: 'Last received date', loansDelete: 'Delete', loansDeleteTitle: 'Delete loan {number}?',
+  loansDeleteDescription: 'The loan has not been handed out. Selected assets will be released. The loan number and history are retained.',
+  loansDeleteReason: 'Reason for deletion', loansDeleteReasonRequired: 'Enter a reason of 1-500 characters.',
+  loansDeleteRetrySameReason: 'Retry with the same reason, or reload to verify the loan status.', loansHistoryCancelled: 'Loan cancelled',
+};
+for (const language of Object.keys(LOAN_TRANSLATIONS) as PortalUiLanguage[]) {
+  Object.assign(LOAN_TRANSLATIONS[language], LIFECYCLE_EN);
+}
+Object.assign(LOAN_TRANSLATIONS.da, {
+  loansLifecycleFilter: 'Udlånsstatus', loansActiveCases: 'Aktive', loansClosedCases: 'Afsluttede', loansAllCases: 'Alle',
+  loansLastReceivedDate: 'Sidste modtagelsesdato', loansDelete: 'Slet', loansDeleteTitle: 'Slet udlån {number}?',
+  loansDeleteDescription: 'Udlånet er ikke udleveret. Valgte aktiver frigives igen. Udlånsnummer og historik bevares.',
+  loansDeleteReason: 'Årsag til sletning', loansDeleteReasonRequired: 'Angiv en årsag på 1-500 tegn.',
+  loansDeleteRetrySameReason: 'Prøv igen med samme årsag, eller genindlæs for at kontrollere udlånsstatus.', loansHistoryCancelled: 'Udlån annulleret',
+});
+Object.assign(LOAN_TRANSLATIONS.de, {
+  loansLifecycleFilter: 'Leihstatus', loansActiveCases: 'Aktiv', loansClosedCases: 'Abgeschlossen', loansAllCases: 'Alle',
+  loansLastReceivedDate: 'Letzte Rücknahme', loansDelete: 'Löschen', loansDeleteTitle: 'Leihe {number} löschen?',
+  loansDeleteDescription: 'Die Leihe wurde nicht ausgegeben. Ausgewählte Einheiten werden freigegeben. Leihnummer und Verlauf bleiben erhalten.',
+  loansDeleteReason: 'Grund der Löschung', loansDeleteReasonRequired: 'Geben Sie einen Grund mit 1-500 Zeichen an.',
+  loansDeleteRetrySameReason: 'Mit demselben Grund erneut versuchen oder den Leihstatus neu laden.', loansHistoryCancelled: 'Leihe storniert',
+});
