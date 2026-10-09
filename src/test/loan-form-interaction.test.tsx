@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoanCasePage from '@/pages/loans/LoanCasePage';
+import LoansPage from '@/pages/loans/LoansPage';
 import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import type { LoanCase, LoanCaseItem, LoanItemPhoto } from '@/lib/loanService';
 
@@ -16,9 +17,12 @@ const mocks = vi.hoisted(() => ({
   confirmLoanDraftSerials: vi.fn(),
   reopenLoanForEdit: vi.fn(),
   cancelLoanDraft: vi.fn(),
+  listLoanCases: vi.fn(), updateLoanExpectedReturn: vi.fn(), toastSuccess: vi.fn(),
 }));
 const identity = vi.hoisted(() => ({ role: 'timan_backend' }));
 vi.mock('@/lib/loanService', () => mocks);
+vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess } }));
+vi.mock('@/pages/loans/SalesStockSalePanel', () => ({ default: () => null }));
 vi.mock('@/lib/fabricLoanStockService', () => ({ addFabricLoanAsset: mocks.addFabricLoanAsset }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
 vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: {
@@ -57,6 +61,7 @@ function mount(path = '/portal/loans/case') {
   return render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[path]}><Routes>
     <Route path="/portal/loans/new" element={<LoanCasePage />} />
     <Route path="/portal/loans/:caseId" element={<LoanCasePage />} />
+    <Route path="/portal/loans" element={<LoansPage />} />
   </Routes></MemoryRouter></QueryClientProvider>);
 }
 
@@ -69,6 +74,8 @@ beforeEach(() => {
   mocks.listLoanPartners.mockResolvedValue([{ id: 'partner', company_name: 'QA Partner', account_number: 'QA' }]);
   mocks.listLoanContacts.mockResolvedValue([{ id: 'contact', name: 'QA Contact' }]);
   mocks.listEligibleLoanAssets.mockResolvedValue([]);
+  mocks.listLoanCases.mockResolvedValue([{ ...loan, status: 'READY_FOR_REVIEW', asset_count: 1,
+    partner_name: 'QA Partner', responsible_name: 'QA Seller' }]);
 });
 afterEach(cleanup);
 
@@ -104,6 +111,9 @@ describe('Loan form interactions', () => {
       notes: 'Updated QA note', loanDate: '2026-10-07', expectedReturnDate: '2026-10-14',
     })));
     await screen.findByText('Kladden er gemt.');
+    expect(screen.getByRole('button', { name: 'Gem kladde' })).toBeInTheDocument();
+    expect(mocks.listLoanCases).not.toHaveBeenCalled();
+    expect(mocks.submitLoanCaseForReview).not.toHaveBeenCalled();
   });
 
   it('keeps loan and expected-return dates in one responsive two-column row', async () => {
@@ -194,13 +204,16 @@ describe('Loan form interactions', () => {
     mount();
     await screen.findByText('QA-LOAN');
     fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
-    expect((await screen.findAllByText('Tællerstand ved udlån mangler.')).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Enhed')).toBeInTheDocument();
-    expect(screen.getAllByText('Bekræft serienumrene.').length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByText('Tællerstand ved udlån mangler.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Enhed \*/)).toBeInTheDocument();
+    expect(screen.getAllByText('Bekræft serienumrene.')).toHaveLength(1);
+    expect(screen.queryByText('Udfyld den manglende dokumentation, før du fortsætter.')).not.toBeInTheDocument();
+    expect(mocks.listLoanCases).not.toHaveBeenCalled();
     expect(mocks.submitLoanCaseForReview).not.toHaveBeenCalled();
     expect(mocks.updateLoanDraft).not.toHaveBeenCalled();
     const reading = screen.getByLabelText(/^Tællerstand ved udlån \*/);
     expect(reading).toHaveClass('border-red-500');
+    expect(reading).toHaveFocus();
     fireEvent.change(reading, { target: { value: '12' } });
     expect(reading).not.toHaveClass('border-red-500');
     expect(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./).closest('label')).toHaveClass('border-red-400');
@@ -213,7 +226,7 @@ describe('Loan form interactions', () => {
     mount();
     await screen.findByText('QA-LOAN');
     fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
-    expect((await screen.findAllByText('Foto af typeskilt mangler.')).length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByText('Foto af typeskilt mangler.')).toBeInTheDocument();
     expect(screen.getByText('Foto af typeskilt *').parentElement).toHaveClass('border-red-400');
   });
 
@@ -228,14 +241,67 @@ describe('Loan form interactions', () => {
     expect(await screen.findByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./)).not.toBeChecked();
   });
 
-  it('submits complete checkout to review, not partner acceptance', async () => {
+  it('waits for successful server review before returning to the freshly loaded overview', async () => {
+    let finishReview!: () => void;
+    mocks.submitLoanCaseForReview.mockReturnValue(new Promise<void>((resolve) => { finishReview = resolve; }));
     mount();
     await screen.findByText('QA-LOAN');
     fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./));
     fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
     await waitFor(() => expect(mocks.submitLoanCaseForReview).toHaveBeenCalledWith('case', true));
     expect(mocks.updateLoanDraft).toHaveBeenCalledTimes(1);
-    await screen.findByText('Klar til intern kontrol');
+    expect(mocks.updateLoanCaseRelationships).toHaveBeenCalledWith('case', { sellerId: 'seller', partnerId: 'partner', contactId: 'contact' });
+    expect(mocks.listLoanCases).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Fortsæt til kontrol' })).toBeDisabled();
+    await act(async () => finishReview());
+    expect(await screen.findByRole('tab', { name: 'Udlån' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => expect(screen.getAllByText('QA-LOAN')).toHaveLength(2));
+    expect(screen.getAllByText('Klar til kontrol')).toHaveLength(2);
+    expect(mocks.listLoanCases).toHaveBeenCalledOnce();
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('QA-LOAN · Klar til intern kontrol');
+    expect(screen.queryByRole('button', { name: 'Fortsæt til kontrol' })).not.toBeInTheDocument();
+  });
+
+  it.each(['updateLoanCaseRelationships', 'updateLoanDraft', 'updateLoanItemUsage', 'submitLoanCaseForReview'] as const)('stays on the form when %s fails', async (stage) => {
+    mocks[stage].mockRejectedValue({ message: 'QA server failure' });
+    mount();
+    await screen.findByText('QA-LOAN');
+    fireEvent.change(screen.getByLabelText(/^Tællerstand ved udlån \*/), { target: { value: '42' } });
+    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./));
+    fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('QA server failure');
+    expect(screen.getByRole('button', { name: 'Fortsæt til kontrol' })).toBeEnabled();
+    expect(mocks.listLoanCases).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    if (stage !== 'submitLoanCaseForReview') expect(mocks.submitLoanCaseForReview).not.toHaveBeenCalled();
+  });
+
+  it('marks only the physical asset whose serial/Brik identity is missing', async () => {
+    mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item, { ...item, id: 'missing', serial_snapshot: null, product_name_snapshot: 'Missing identity' }], photos: [photo] });
+    mount();
+    await screen.findByText('QA-LOAN');
+    fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til kontrol' }));
+    expect(screen.getByText('Missing identity').closest('article')).toHaveClass('border-red-400');
+    expect(screen.getByText('QA machine').closest('article')).not.toHaveClass('border-red-400');
+    expect(mocks.submitLoanCaseForReview).not.toHaveBeenCalled();
+  });
+
+  it('blocks review while a required photo upload is pending and stays after upload failure', async () => {
+    let failUpload!: (cause: Error) => void;
+    mocks.uploadLoanItemPhoto.mockReturnValue(new Promise<void>((_, reject) => { failUpload = reject; }));
+    mount();
+    await screen.findByText('QA-LOAN');
+    fireEvent.click(screen.getByLabelText(/Jeg bekræfter, at serienummer eller Brik nr\./));
+    const input = screen.getByText('Udskift billede').closest('label')!.querySelector('input')!;
+    fireEvent.change(input, { target: { files: [new File(['qa'], 'qa.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(mocks.uploadLoanItemPhoto).toHaveBeenCalledOnce());
+    expect(screen.getByRole('button', { name: 'Fortsæt til kontrol' })).toBeDisabled();
+    expect(mocks.submitLoanCaseForReview).not.toHaveBeenCalled();
+    await act(async () => failUpload(new Error('QA upload failed')));
+    expect(await screen.findByRole('alert')).toHaveTextContent('QA upload failed');
+    expect(mocks.listLoanCases).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 
   it('persists the selected meter unit and usage limit and shows Fabric snapshots', async () => {

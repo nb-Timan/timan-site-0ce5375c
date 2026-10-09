@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Camera, CheckCircle2, History, PackageCheck, Plus, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoanCancelDialog from '@/pages/loans/LoanCancelDialog';
@@ -58,6 +59,7 @@ export default function LoanCasePage() {
   const label = useCallback((key: string) => t(key, uiLanguage), [uiLanguage]);
   const hydratedCaseId = useRef<string | null>(null);
   const refreshGeneration = useRef(0);
+  const formContent = useRef<HTMLDivElement>(null);
 
   const [sellers, setSellers] = useState<LoanSeller[]>([]);
   const [partners, setPartners] = useState<LoanPartner[]>([]);
@@ -93,6 +95,14 @@ export default function LoanCasePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    if (validationIssues.length === 0) return;
+    const invalidArea = formContent.current?.querySelector<HTMLElement>('[data-loan-invalid="true"]');
+    invalidArea?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    const control = invalidArea?.querySelector<HTMLElement>('input:not([type="file"]), select, button');
+    (control ?? invalidArea)?.focus({ preventScroll: true });
+  }, [validationIssues]);
 
   const refresh = useCallback(async (targetId = caseId) => {
     if (!targetId) return;
@@ -268,27 +278,31 @@ export default function LoanCasePage() {
   };
 
   const continueToReview = async () => {
-    if (!caseId || !loanCase) return;
-    const issues = getLoanPreparationIssues({
-      loanDate: loanDate || null,
-      expectedReturnDate: expectedReturn || null,
-      serialNumbersConfirmed: serialConfirmed,
-      items: items.map((item) => ({
-        ...item,
-        usage_reading_value: readingDrafts[item.id]?.trim() ? Number(readingDrafts[item.id].replace(',', '.')) : null,
-        usage_reading_unit: unitDrafts[item.id] || null,
-        photoKinds: photos.filter((photo) => photo.case_item_id === item.id).map((photo) => photo.photo_kind),
-      })),
-    });
+    if (!caseId || !loanCase || busy || Object.keys(uploadProgress).length > 0) return;
+    const issues = [
+      ...([!sellerId && 'seller', !partnerId && 'partner', !contactId && 'contact'].filter(Boolean) as string[]),
+      ...getLoanPreparationIssues({
+        loanDate: loanDate || null,
+        expectedReturnDate: expectedReturn || null,
+        serialNumbersConfirmed: serialConfirmed,
+        items: items.map((item) => ({
+          ...item,
+          usage_reading_value: readingDrafts[item.id]?.trim() ? Number(readingDrafts[item.id].replace(',', '.')) : null,
+          usage_reading_unit: unitDrafts[item.id] || null,
+          photoKinds: photos.filter((photo) => photo.case_item_id === item.id).map((photo) => photo.photo_kind),
+        })),
+      }),
+    ];
     setValidationIssues(issues);
     if (issues.length > 0) return;
     setBusy(true); setError(''); setNotice('');
     try {
+      if (canAdministerCase) await updateLoanCaseRelationships(caseId, { sellerId, partnerId, contactId });
       await updateLoanDraft(caseId, draftInput);
       await persistUsageDrafts(caseId);
       await submitLoanCaseForReview(caseId, true);
-      setNotice(label('loansReviewReady'));
-      await refresh();
+      navigate('/portal/loans');
+      toast.success(`${loanCase.loan_number} · ${label('loansReviewReady')}`);
     } catch (cause) { setError(errorText(cause, label)); }
     finally { setBusy(false); }
   };
@@ -330,7 +344,7 @@ export default function LoanCasePage() {
       await queryClient.invalidateQueries({ queryKey: ['loans'] });
     }} />
 
-    <div className="mt-5 max-w-5xl space-y-5">
+    <div ref={formContent} className="mt-5 max-w-5xl space-y-5">
       {loanCase?.status === 'READY_FOR_REVIEW' && <section className="border-l-4 border-emerald-600 bg-emerald-50 p-4" aria-label={label('loansReviewReady')}>
         <div className="flex items-start gap-2 text-emerald-900"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><div><h2 className="font-semibold">{label('loansReviewReady')}</h2><p className="mt-1 text-sm">{label('loansPhysicalIdentityConfirmation')}</p></div></div>
       </section>}
@@ -351,7 +365,7 @@ export default function LoanCasePage() {
             <Input label={label('loansLoanDate')} value={loanDate} setValue={setLoanDate} type="date" invalid={validationIssues.includes('loan_date') && !loanDate} error={label('loansRequiredLoanDate')} />
             <Input label={label('loansExpectedReturn')} value={expectedReturn} setValue={setExpectedReturn} type="date" invalid={validationIssues.includes('expected_return_date') && !expectedReturn} error={label('loansRequiredReturnDate')} />
           </div>
-          {!dateRangeValid && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{label('loansDateRangeError')}</p>}
+          {!dateRangeValid && <p role="alert" data-loan-invalid="true" tabIndex={-1} className="text-sm text-red-700 sm:col-span-2">{label('loansDateRangeError')}</p>}
           <Field label={label('loansNotes')} wide><textarea className={textareaClass} value={notes} onChange={(event) => setNotes(event.target.value)} /></Field>
         </div>
       </section>
@@ -371,6 +385,8 @@ export default function LoanCasePage() {
           </button>}
         </div>
 
+        {validationIssues.includes('asset') && items.length === 0 && <p data-loan-invalid="true" tabIndex={-1} className="mt-2 text-sm text-red-700">{label('loansRequiredAsset')}</p>}
+
         <div className="mt-4 space-y-4" data-testid="selected-loan-assets">
           {items.map((item) => <LoanItemCard key={item.id} item={item} photos={photos.filter((photo) => photo.case_item_id === item.id)} editable={canManageCase && loanCase?.status === 'DRAFT'} busy={busy} validationIssues={validationIssues}
             reading={readingDrafts[item.id] ?? ''} setReading={(value) => setReadingDrafts((current) => ({ ...current, [item.id]: value }))}
@@ -383,14 +399,12 @@ export default function LoanCasePage() {
           <LoanStockPanel busy={busy} selectionReady={dateRangeValid && (!isNew || Boolean(sellerId && partnerId && contactId))} onSelect={(asset) => void addAsset(asset)} />
         </div>}
 
-        {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label className={`mt-5 flex items-start gap-3 border-t p-3 text-sm font-medium ${validationIssues.includes('serial_confirmation') && !serialConfirmed ? 'border-red-400 bg-red-50 text-red-900' : 'border-slate-200 text-slate-800'}`}><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} /><span>{label('loansPhysicalIdentityConfirmation')}{validationIssues.includes('serial_confirmation') && !serialConfirmed && <span className="mt-1 block text-xs text-red-700">{label('loansRequiredConfirmation')}</span>}</span></label>}
+        {caseId && canManageCase && loanCase?.status === 'DRAFT' && <label data-loan-invalid={validationIssues.includes('serial_confirmation') && !serialConfirmed} className={`mt-5 flex items-start gap-3 border-t p-3 text-sm font-medium ${validationIssues.includes('serial_confirmation') && !serialConfirmed ? 'border-red-400 bg-red-50 text-red-900' : 'border-slate-200 text-slate-800'}`}><input className="mt-0.5 h-4 w-4" type="checkbox" checked={serialConfirmed} onChange={(event) => setSerialConfirmed(event.target.checked)} /><span>{label('loansPhysicalIdentityConfirmation')}{validationIssues.includes('serial_confirmation') && !serialConfirmed && <span className="mt-1 block text-xs text-red-700">{label('loansRequiredConfirmation')}</span>}</span></label>}
       </section>
-
-      {validationIssues.length > 0 && <div role="alert" className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-medium">{label('loansPreparationMissing')}</p><ul className="mt-2 list-disc pl-5">{validationIssues.map((issue) => <li key={issue}>{issueLabel(issue, label)}</li>)}</ul></div>}
 
       {canManageCase && (!loanCase || loanCase.status === 'DRAFT') && <div className="flex flex-wrap gap-3">
         <button type="button" disabled={busy} onClick={() => void saveDraft()} className="h-10 rounded-md border border-emerald-700 bg-white px-4 text-sm font-medium text-emerald-800 disabled:opacity-50">{label('loansSaveDraft')}</button>
-        {caseId && <button type="button" disabled={busy} onClick={() => void continueToReview()} className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white disabled:opacity-50">{label('loansContinueReview')}</button>}
+        {caseId && <button type="button" disabled={busy || Object.keys(uploadProgress).length > 0} onClick={() => void continueToReview()} className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white disabled:opacity-50">{label('loansContinueReview')}</button>}
       </div>}
       {caseId && returnSummary.some((item) => item.receipt_status) && <ReturnSummarySection summary={returnSummary} photos={photos} label={label} language={uiLanguage} />}
       {caseId && history.length > 0 && <section className="border border-slate-200 bg-white p-4" aria-label={label('loansHistory')}><h2 className="flex items-center gap-2 font-semibold text-slate-900"><History className="h-4 w-4" />{label('loansHistory')}</h2><ol className="mt-3 divide-y divide-slate-200">{history.map((event) => <li key={event.id} className="py-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium text-slate-800">{event.event_type === 'CASE_CANCELLED' ? label('loansHistoryCancelled') : historyLabel(event, label)}</span><time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString(uiLanguage)}</time></div><p className="mt-1 text-xs text-slate-600">{event.actor_name}</p>{event.event_type === 'CASE_CANCELLED' && typeof event.metadata.reason === 'string' && <p className="mt-1 text-sm text-slate-700">{event.metadata.reason}</p>}</li>)}</ol></section>}
@@ -448,11 +462,16 @@ function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit,
   const readingInvalid = validationIssues.includes('usage_reading_value') && !reading.trim();
   const unitInvalid = validationIssues.includes('usage_reading_unit') && !unit;
   const plateInvalid = validationIssues.includes('type_plate_photo') && !photo('serial_plate');
-  return <article className="border border-slate-200 bg-slate-50 p-4">
+  const identityInvalid = validationIssues.includes('serial') && getLoanPreparationIssues({
+    loanDate: null, expectedReturnDate: null, serialNumbersConfirmed: true,
+    items: [{ ...item, photoKinds: photos.map((entry) => entry.photo_kind) }],
+  }).includes('serial');
+  return <article data-loan-invalid={identityInvalid} tabIndex={identityInvalid ? -1 : undefined} className={`border p-4 ${identityInvalid ? 'border-red-400 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="font-semibold text-slate-900">{item.product_name_snapshot ?? item.product_sku}</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600"><span>{label('loansItemNumber')}: {item.product_sku}</span><span>{label('loansSerialNumber')}: {item.serial_snapshot ?? '—'}</span>{item.brik_number_snapshot && <span>{label('loansStockBrikNumber')}: {item.brik_number_snapshot}</span>}<span>{label('loansWarehouse')}: {item.warehouse_snapshot ?? item.warehouse_location_code_snapshot ?? '—'}</span><span>{label('loansStockAccount')}: {item.fabric_account_number_snapshot ?? '—'}</span>{item.fabric_order_number_snapshot && <span>{label('loansStockOrder')}: {item.fabric_order_number_snapshot}</span>}</div></div>
       <div className="flex items-center gap-2"><span className="rounded-sm bg-white px-2 py-1 text-xs font-medium text-slate-700">{label(item.item_type === 'machine' ? 'loansMachine' : 'loansEquipment')}</span>{editable && <button type="button" onClick={onRemoveAsset} disabled={busy} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-200 text-red-700" title={label('loansRemoveAsset')}><Trash2 className="h-4 w-4" /></button>}</div>
     </div>
+    {identityInvalid && <p className="mt-2 text-xs text-red-700">{label('loansRequiredPhysicalIdentity')}</p>}
     {item.item_type === 'machine' && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_9rem_minmax(0,1.4fr)_auto]">
       <Field label={`${label('loansHourMeterCheckout')} *`} invalid={readingInvalid} error={label('loansRequiredHourValue')}><input type="number" inputMode="decimal" min="0" step="any" className={controlClass(readingInvalid)} value={reading} onChange={(event) => setReading(event.target.value)} disabled={!editable} /></Field>
       <Field label={`${label('loansUsageUnit')} *`} invalid={unitInvalid} error={label('loansRequiredUsageUnit')}><select className={controlClass(unitInvalid)} value={unit} onChange={(event) => setUnit(event.target.value as '' | 'km' | 'hours')} disabled={!editable}><option value="">—</option><option value="hours">h</option><option value="km">km</option></select></Field>
@@ -468,7 +487,7 @@ function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit,
 
 function PhotoField({ label, photo, progress, editable, onFile, onRemove, copy, invalid = false }: { label: string; photo?: LoanItemPhoto; progress?: number; editable: boolean; onFile: (file: File | undefined) => void; onRemove: (photo: LoanItemPhoto) => void; copy: (key: string) => string; invalid?: boolean }) {
   const uploading = progress !== undefined;
-  return <div className={`rounded-md border p-3 ${invalid ? 'border-red-400 bg-red-50' : 'border-slate-200 bg-white'}`}>
+  return <div data-loan-invalid={invalid} tabIndex={invalid ? -1 : undefined} className={`rounded-md border p-3 ${invalid ? 'border-red-400 bg-red-50' : 'border-slate-200 bg-white'}`}>
     <p className="text-sm font-medium text-slate-700">{label}</p>
     {photo?.preview_url ? <img src={photo.preview_url} alt={label} className="mt-2 aspect-video w-full rounded-sm object-cover" /> : <div className="mt-2 flex aspect-video items-center justify-center rounded-sm bg-slate-100 text-slate-400"><Camera className="h-7 w-7" /></div>}
     {photo && <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" />{copy('loansPhotoUploaded')}</p>}
@@ -482,20 +501,11 @@ function PhotoField({ label, photo, progress, editable, onFile, onRemove, copy, 
   </div>;
 }
 
-function Field({ label, children, wide = false, invalid = false, error }: { label: string; children: ReactNode; wide?: boolean; invalid?: boolean; error?: string }) { return <label className={`block text-sm font-medium ${invalid ? 'text-red-800' : 'text-slate-700'} ${wide ? 'sm:col-span-2' : ''}`}><span className="mb-1 block">{label}</span>{children}{invalid && error && <span className="mt-1 block text-xs text-red-700">{error}</span>}</label>; }
+function Field({ label, children, wide = false, invalid = false, error }: { label: string; children: ReactNode; wide?: boolean; invalid?: boolean; error?: string }) { return <label data-loan-invalid={invalid} className={`block text-sm font-medium ${invalid ? 'text-red-800' : 'text-slate-700'} ${wide ? 'sm:col-span-2' : ''}`}><span className="mb-1 block">{label}</span>{children}{invalid && error && <span className="mt-1 block text-xs text-red-700">{error}</span>}</label>; }
 function Input({ label, value, setValue, type = 'text', invalid = false, error }: { label: string; value: string; setValue: (value: string) => void; type?: string; invalid?: boolean; error?: string }) { return <Field label={label} invalid={invalid} error={error}><input type={type} className={controlClass(invalid)} value={value} onChange={(event) => setValue(event.target.value)} /></Field>; }
 function Info({ label, value }: { label: string; value: string }) { return <div><p className="text-xs font-medium uppercase text-slate-500">{label}</p><p className="mt-1 break-words text-sm text-slate-900">{value}</p></div>; }
 
 function controlClass(invalid: boolean) { return invalid ? `${fieldClass} border-red-500 bg-red-50 focus:border-red-600` : fieldClass; }
-
-function issueLabel(issue: string, label: (key: string) => string): string {
-  const keys: Record<string, string> = {
-    loan_date: 'loansRequiredLoanDate', expected_return_date: 'loansRequiredReturnDate', date_range: 'loansDateRangeError',
-    asset: 'loansRequiredAsset', serial: 'loansRequiredPhysicalIdentity', type_plate_photo: 'loansRequiredTypePlate',
-    usage_reading_value: 'loansRequiredHourValue', usage_reading_unit: 'loansUsageUnit', serial_confirmation: 'loansRequiredConfirmation',
-  };
-  return label(keys[issue] ?? 'loansPreparationMissing');
-}
 
 function historyLabel(event: LoanCaseEvent, label: (key: string) => string): string {
   const field = typeof event.metadata.field === 'string' ? event.metadata.field : '';
@@ -512,5 +522,6 @@ function historyLabel(event: LoanCaseEvent, label: (key: string) => string): str
 function errorText(cause: unknown, label: (key: string) => string): string {
   if (cause instanceof Error && cause.message === 'loan_image_type') return label('loansImageTypeError');
   if (cause instanceof Error && cause.message === 'loan_image_size') return label('loansImageSizeError');
-  return cause instanceof Error ? cause.message : label('loansLoadError');
+  return cause && typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string'
+    ? cause.message : label('loansLoadError');
 }
