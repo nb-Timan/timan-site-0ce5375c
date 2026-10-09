@@ -1,7 +1,59 @@
 import type { ConfiguratorState, MachineDeliveryAddress } from '@/types/configurator';
-import { LOOSE_TOOL_KEY } from '@/data/machines';
+import { LOOSE_TOOL_KEY, getAccessoriesFlat, getLocalizedName } from '@/data/machines';
+import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 
-type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDeliveryDates'> & Partial<Pick<ConfiguratorState, 'date'>>;
+type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDeliveryDates'> & Partial<Pick<ConfiguratorState, 'date' | 'accQty' | 'individualUnitConfigs' | 'language'>>;
+
+export interface ProductDeliveryUnit {
+  key: string;
+  groupKey: string;
+  itemNumber: string;
+  name: string;
+  ordinal: number;
+  parentUnitNumber: number;
+}
+
+/** Quantity dates share the existing delivery map, never duplicate commercial/cart rows. */
+export function productDeliveryUnits(state: DeliveryState): ProductDeliveryUnit[] {
+  let parentUnitNumber = 0;
+  return state.machineConfigs.flatMap(machine => Array.from({ length: machine.qty }, (_, index) => {
+    parentUnitNumber += 1;
+    if (machine.type !== LOOSE_TOOL_KEY && machine.type !== 'Loader Line') return [];
+    const selectionKey = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index + 1}`;
+    const selected = machine.configMode === 'shared' ? machine.acc : state.individualUnitConfigs?.[selectionKey]?.acc ?? [];
+    const stableUnitKey = `${machine.id}_${index + 1}`;
+    return getAccessoriesFlat(machine.type).flatMap(accessory => {
+      if (accessory.isHeader || accessory.isProductGroup || accessory.hidden) return [];
+      const quantity = state.accQty?.[`${selectionKey}_${accessory.id}`] || 0;
+      if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, quantity)) return [];
+      const groupKey = `${stableUnitKey}_item_${accessory.id}`;
+      return Array.from({ length: quantity || 1 }, (_, ordinal) => ({
+        key: `${groupKey}_${ordinal + 1}`, groupKey, itemNumber: accessory.varenr,
+        name: getLocalizedName(accessory.name, state.language ?? 'da'),
+        ordinal: ordinal + 1, parentUnitNumber,
+      }));
+    });
+  }).flat());
+}
+
+export function productDeliveryDate(state: DeliveryState, unit: ProductDeliveryUnit): string {
+  return state.machineDeliveryDates?.[unit.key] || machineDeliveryDate(state, unit.parentUnitNumber);
+}
+
+export function hasProductSplitDelivery(state: DeliveryState): boolean {
+  const counts = new Map<string, number>();
+  for (const unit of productDeliveryUnits(state)) counts.set(unit.groupKey, (counts.get(unit.groupKey) ?? 0) + 1);
+  return [...counts.values()].some(quantity => quantity > 1);
+}
+
+export function lineDeliveryDates(state: ConfiguratorState, unitNumber: number, itemNumber: string): string[] {
+  const units = productDeliveryUnits(state).filter(unit => unit.parentUnitNumber === unitNumber && unit.itemNumber === itemNumber);
+  return units.length ? units.map(unit => productDeliveryDate(state, unit)) : [machineDeliveryDate(state, unitNumber)];
+}
+
+function supportsMachineDeliveryOverrides(state: DeliveryState): boolean {
+  return state.machineConfigs.reduce((quantity, machine) => quantity + Math.max(0, machine.qty), 0) >= 2;
+}
 
 export const DELIVERY_DISCOUNT_PERCENT = 2;
 
@@ -135,11 +187,14 @@ export function normalizeMachineDeliveryDates(state: DeliveryState): Record<stri
       if (value) normalized[stableKey] = value;
     }
   }
+  for (const unit of productDeliveryUnits(state)) {
+    if (source[unit.key]) normalized[unit.key] = source[unit.key];
+  }
   return normalized;
 }
 
 export function machineDeliveryDate(state: DeliveryState, unitNumber: number): string {
-  if (baseMachineQuantity(state) <= 1) return state.date || '';
+  if (!supportsMachineDeliveryOverrides(state)) return state.date || '';
   const stableKey = machineDeliveryDateKey(state, unitNumber);
   return state.machineDeliveryDates?.[stableKey]
     || state.machineDeliveryDates?.[`machine_${unitNumber}`]
@@ -148,7 +203,7 @@ export function machineDeliveryDate(state: DeliveryState, unitNumber: number): s
 }
 
 export function hasMachineDeliveryOverride(state: DeliveryState, unitNumber: number): boolean {
-  if (baseMachineQuantity(state) <= 1) return false;
+  if (!supportsMachineDeliveryOverrides(state)) return false;
   const stableKey = machineDeliveryDateKey(state, unitNumber);
   return Boolean(state.machineDeliveryDates?.[stableKey] || state.machineDeliveryDates?.[`machine_${unitNumber}`]);
 }
@@ -188,7 +243,7 @@ export function activeMachineDeliveryDates(state: ConfiguratorState): string[] {
 }
 
 export function commonMachineDeliveryDate(state: ConfiguratorState): string | null {
-  const dates = activeMachineDeliveryDates(state).filter(Boolean);
+  const dates = [...activeMachineDeliveryDates(state), ...productDeliveryUnits(state).map(unit => productDeliveryDate(state, unit))].filter(Boolean);
   if (dates.length === 0) return state.date || null;
   return new Set(dates).size === 1 ? dates[0] : null;
 }

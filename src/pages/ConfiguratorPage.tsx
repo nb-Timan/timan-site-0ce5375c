@@ -39,6 +39,7 @@ import { PlanningAvailabilityBadge } from '@/components/configurator/PlanningAva
 import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlanningAvailability';
 import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
+import { ConfiguratorProductDeliveryDates } from '@/components/configurator/ConfiguratorProductDeliveryDates';
 import { ConfiguratorDeliveryAddress } from '@/components/configurator/ConfiguratorDeliveryAddress';
 import { ConfiguratorNettoLines } from '@/components/configurator/ConfiguratorNettoLines';
 import { ConfiguratorStartupOptions } from '@/components/configurator/ConfiguratorStartupOptions';
@@ -142,7 +143,7 @@ import { calculateConfiguration, configurationCampaignSelection, formatDiscountD
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
-import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
+import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, hasProductSplitDelivery, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
 import { buildSalesStockConfiguratorState, configuratorSalesSourceType, consumeSalesStockHandoff, isSalesStockConfiguration, salesStockAssetContextLines } from '@/lib/salesStockConfigurator';
 import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
@@ -1027,11 +1028,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [savedConfigurationId, ownership.sellerEmail, ownership.dealerAccountId]);
 
   useEffect(() => {
-    if (baseMachineQty >= 2) return;
+    if (baseMachineQty >= 2 || totalQty >= 2 || hasProductSplitDelivery(state)) return;
     setMachineDeliveryEditorOpen(false);
     if (Object.keys(state.machineDeliveryDates ?? {}).length === 0) return;
     setState(current => ({ ...current, machineDeliveryDates: {} }));
-  }, [baseMachineQty, setState, state.machineDeliveryDates]);
+  }, [baseMachineQty, totalQty, setState, state]);
 
   useEffect(() => {
     savedConfigurationIdRef.current = savedConfigurationId;
@@ -3943,7 +3944,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   </div>
                 </div>
 
-                {baseMachineQty >= 2 && <div className="mb-8 mx-auto max-w-2xl text-left" data-testid="machine-delivery-date-editor">
+                {(baseMachineQty >= 2 || totalQty >= 2) && <div className="mb-8 mx-auto max-w-2xl text-left" data-testid="machine-delivery-date-editor">
                   <button
                     type="button"
                     aria-expanded={machineDeliveryEditorOpen}
@@ -3952,13 +3953,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     className="mx-auto flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-gray-400"
                   >
                     <CalendarIcon className="h-4 w-4" />
-                    {T('customizeMachineDeliveryDates')}
+                    {T(state.machineConfigs.some(machine => machine.type === LOOSE_TOOL_KEY || machine.type === 'Loader Line') ? 'customizeProductDeliveryDates' : 'customizeMachineDeliveryDates')}
                   </button>
                   {machineDeliveryEditorOpen && state.date && (
                     <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 sm:p-4">
                       <p className="mb-3 text-xs text-gray-500">{T('machineDeliveryDateHelp')}</p>
                       <div className="space-y-3">
-                        {getDisplayMachineUnits().map(unit => {
+                        {getGlobalMachineUnits().map(unit => {
                           const overridden = hasMachineDeliveryOverride(state, unit.unitNumber);
                           const effectiveDate = machineDeliveryDate(state, unit.unitNumber);
                           const deliveryDiscount = machineDeliveryDiscountByUnit.get(unit.unitNumber);
@@ -4018,6 +4019,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   )}
                 </div>}
 
+                <ConfiguratorProductDeliveryDates state={state} T={T} locale={dateLocale}
+                  disabled={submittedOrderEditorLocked} canSelectPastDate={canSelectPastDeliveryDate}
+                  onChange={dates => setState(current => ({ ...current, machineDeliveryDates: dates }))} />
+
                 <div className="mb-8 mx-auto max-w-2xl">
                   <ConfiguratorDeliveryAddress
                     state={state}
@@ -4038,7 +4043,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         }} />
                       <div className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 transition peer-checked:bg-emerald-50 peer-checked:border-emerald-500 peer-checked:shadow-sm">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="flex-1 min-w-0 text-[13px] md:text-sm whitespace-nowrap">{T(method)}</span>
+                          <span className="flex-1 min-w-0 break-words text-[13px] md:text-sm">{T(method)}</span>
                           <button type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeliveryInfoOpen(true); }}
                             className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-[11px] font-bold text-gray-600 hover:bg-gray-100 flex-shrink-0"
@@ -4485,6 +4490,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <div className="bg-white rounded-2xl shadow p-6" data-testid="configurator-step4">
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
+                {!isExhibition && <ConfiguratorProductDeliveryDates state={state} T={T} locale={dateLocale} />}
                 <div className="mx-auto max-w-3xl">
                   <SalesStockPricingPanel state={state} setState={setState} canEdit={canEditSalesStockPricing && !submittedOrderEditorLocked} />
                 </div>

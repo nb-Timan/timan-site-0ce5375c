@@ -232,7 +232,7 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     const step2Source = source.slice(step2Start, step3Start);
     const cartSummarySource = source.slice(cartSummaryStart, cartSummaryEnd);
 
-    expect(step2Source).toContain("T('customizeMachineDeliveryDates')");
+    expect(step2Source).toContain("'customizeMachineDeliveryDates'");
     expect(source).toContain("T('useDifferentDeliveryDate')");
     expect(source).toContain('machineDeliveryDate(state, item.index)');
     expect(step2Source).toContain('setMachineDeliveryOverride(unit.unitNumber, event.target.checked)');

@@ -1,4 +1,4 @@
-import { machineDeliveryDate } from '@/lib/configuratorDelivery';
+import { lineDeliveryDates } from '@/lib/configuratorDelivery';
 import { configuratorCurrency, hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import { roundPricingMoney } from '@/lib/calcConfiguration';
 import type { ConfiguratorLineDiscountApplication, ConfiguratorState } from '@/types/configurator';
@@ -158,6 +158,10 @@ export function buildSubmittedOrderCsv(input: SubmittedOrderCsvInput): Submitted
     const netAfterNavBase = roundPricingMoney(line.total - navBaseAmount);
     const netAfterExtra = roundPricingMoney(netAfterNavBase - extraAmount);
     const unitNumber = line.unitNumber;
+    const dates = unitNumber ? lineDeliveryDates(state, unitNumber, line.itemNo) : [state.date];
+    if (new Set(dates).size > 1) {
+      throw new Error(`C5/NAV CSV kan ikke repræsentere flere leveringsdatoer på den samme mængdelinje: ${line.itemNo}. Portalens enhedsdatoer er bevaret.`);
+    }
 
     return [
       input.orderNumber, orderDate, currency, input.dealerNumber, input.dealerName, state.firmanavn, input.sellerInitials,
@@ -165,7 +169,7 @@ export function buildSubmittedOrderCsv(input: SubmittedOrderCsvInput): Submitted
       money(line.unitPrice), money(line.total), percent(standardPct), percent(quantityPct), percent(deliveryPct), percent(extraPct),
       percent(campaignPct), percent(demoPct), percent(directPct), percent(navBasePct),
       money(netAfterNavBase), money(netAfterExtra), money(Number(line.finalNetAmount)),
-      unitNumber ? machineDeliveryDate(state, unitNumber) : state.date, input.confirmedDeliveryDate ?? '',
+      dates[0] ?? state.date, input.confirmedDeliveryDate ?? '',
       unitNumber ? input.serialNumbersByUnit?.[unitNumber] ?? '' : '', unitNumber ? input.erpReferencesByUnit?.[unitNumber] ?? '' : '',
       money(orderTotals.gross), money(orderTotals.base), money(orderTotals.quantity), money(orderTotals.delivery),
       money(orderTotals.dealer), money(orderTotals.campaign), money(orderTotals.demo), money(orderTotals.direct),

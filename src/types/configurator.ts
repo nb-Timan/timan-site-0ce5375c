@@ -274,7 +274,7 @@ export interface ConfiguratorState {
   ralCodes: Record<string, string>;
   accQty: Record<string, number>;
   date: string;
-  /** Optional delivery-date overrides keyed by stable machine id and unit index, e.g. m1_1. */
+  /** Stable unit date overrides; quantity items append _item_<accessory id>_<ordinal>. */
   machineDeliveryDates?: Record<string, string>;
   /** Existing configuration snapshot, keyed by stable machine id + unit ordinal. */
   machineDeliveryAddresses?: Record<string, MachineDeliveryAddress>;

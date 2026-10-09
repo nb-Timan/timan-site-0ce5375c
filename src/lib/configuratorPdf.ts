@@ -4,7 +4,7 @@ import { configuratorCurrency } from "@/lib/configuratorPricing";
 import { formatDiscountDetailLabel } from "@/lib/calcConfiguration";
 import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
-import { commonMachineDeliveryDate, machineDeliveryDate, deliveryDestinationSections } from "@/lib/configuratorDelivery";
+import { commonMachineDeliveryDate, machineDeliveryDate, productDeliveryUnits, productDeliveryDate, deliveryDestinationSections } from "@/lib/configuratorDelivery";
 import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from "@/lib/configuratorLinePresentation";
 import { timanCompanyLegalLine } from "../../supabase/functions/_shared/timanCompanyProfile";
 
@@ -546,6 +546,15 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
   });
   const nettoLines = input.calcResult.lineItems.filter(line => line.isNetto);
   if (nettoLines.length) y = drawMachineSection(pdf, { title: input.TC('nettoProducts'), rows: nettoLines }, y, input);
+
+  const productDates = productDeliveryUnits(input.state);
+  const splitGroups = new Map<string, typeof productDates>();
+  for (const unit of productDates) splitGroups.set(unit.groupKey, [...(splitGroups.get(unit.groupKey) ?? []), unit]);
+  for (const units of splitGroups.values()) {
+    if (!units.some(unit => input.state.machineDeliveryDates?.[unit.key])) continue;
+    y = drawLabelValueGrid(pdf, `${input.TC('deliveryDate')} - ${units[0].name} (${units[0].itemNumber})`,
+      units.map(unit => [`${input.TC('pdfQuantity')} ${unit.ordinal}`, formatDate(productDeliveryDate(input.state, unit), input.contentLanguage)]), y);
+  }
 
   y = drawPriceSummary(pdf, input.calcResult, input.calcResult.discountDetails, y, input);
 

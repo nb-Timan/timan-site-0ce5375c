@@ -4,7 +4,7 @@ import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNetto
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
-import { hasMachineDeliveryOverride, machineDeliveryDate, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
+import { hasMachineDeliveryOverride, machineDeliveryDate, lineDeliveryDates, resolveDeliveryDestination } from '@/lib/configuratorDelivery';
 import { DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
 import { TIMAN_COMPANY_PROFILE } from '../../supabase/functions/_shared/timanCompanyProfile';
 
@@ -72,6 +72,8 @@ export function buildReadOnlySalesDocument(state: ConfiguratorState) {
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       varenr: line.itemNo, price: line.total,
+      index: line.unitNumber,
+      ...(machineGroups.some(group => group.lines[0] === line) ? { isMachine: true, bold: true } : { sub: true }),
     })),
     subtotal: totals.subtotal,
     ...(nettoTotal ? { nettoTotal } : {}),
@@ -112,6 +114,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
         accessories: accessories.map(line => ({
           id: line.itemNo, varenr: line.itemNo, name: line.description,
           qty: line.quantity, unit_price: line.unitPrice, total: line.total,
+          delivery_dates: lineDeliveryDates(state, unitNumber, line.itemNo),
           ...(state.pricingSnapshot?.nettoPricingVersion === 1 && isConfiguratorNettoSku(line.itemNo) ? { is_netto: true } : {}),
         })),
         unit_total: unitLines.reduce((sum, line) => sum + line.total, 0),

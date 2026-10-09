@@ -129,6 +129,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     accQty: value?.accQty ?? {},
     date: value?.date ?? '',
     machineDeliveryDates: normalizeMachineDeliveryDates({
+      ...base, ...value,
       machineConfigs: Array.isArray(value?.machineConfigs) ? value.machineConfigs : [],
       machineDeliveryDates: value?.machineDeliveryDates,
     }),
