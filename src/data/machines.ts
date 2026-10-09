@@ -1039,6 +1039,10 @@ function remapFactoryCenterHoseForLoose(item: Accessory): Accessory {
 }
 
 export function getLooseToolAccessories(): Accessory[] {
+  const rc751Equipment = (ACCESSORIES['RC-751'] || [])
+    .map(item => ({ ...item, looseToolMachine: 'RC-751' as const }));
+  const loaderEquipment = (ACCESSORIES['Loader Line'] || [])
+    .map(item => ({ ...item, looseToolMachine: 'Loader Line' as const }));
   const rcAll = ACCESSORIES['RC-1000S'] || [];
   const timanAll = ACCESSORIES['Timan 3330'] || [];
   const timan2620All = ACCESSORIES['Timan 2620'] || [];
@@ -1120,9 +1124,10 @@ export function getLooseToolAccessories(): Accessory[] {
   if (!termitInserted) timanWithTermit.push(...LOOSE_TERMIT_ITEMS);
 
   // Extra items from both lists
-  const extras = [...rcAll, ...timanAll].filter(item =>
-    item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr))
-  );
+  const extras = [
+    ...rcAll.map(item => ({ ...item, looseToolMachine: 'RC-1000S' as const })),
+    ...timanAll.map(item => ({ ...item, looseToolMachine: 'Timan 3330' as const })),
+  ].filter(item => item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr)));
 
   // Inject 721059 (Centerslange eftermontering) — only available under Løse redskaber
   const looseOnly721059: Accessory = {
@@ -1135,12 +1140,14 @@ export function getLooseToolAccessories(): Accessory[] {
   };
 
   const merged = [
+    ...rc751Equipment,
     ...rcRedskaber,
     timan3330Header,
     ...timanWithTermit,
     looseOnly721059,
     timan2620Header,
     ...timan2620Redskaber,
+    ...loaderEquipment,
     ...extras,
   ];
 

@@ -142,7 +142,7 @@ export interface Accessory {
   images?: MediaLink[];
   specs?: TechSpec[];
   subItems?: SubItem[];
-  looseToolMachine?: 'RC-1000S' | 'Timan 3330' | 'Timan 2620';
+  looseToolMachine?: 'RC-751' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620' | 'Loader Line';
   isNew?: boolean;
   /** Non-commercial family node. It is never persisted or priced as a line. */
   isProductGroup?: boolean;

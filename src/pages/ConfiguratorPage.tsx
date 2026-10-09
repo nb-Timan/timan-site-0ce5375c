@@ -108,6 +108,7 @@ import { ACADEMY_SALES_BONUS_CUSTOMER, isAcademySalesBonusCustomer, withAcademyS
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
+import { filterLooseToolAccessories, LOOSE_TOOL_MACHINE_FILTERS, type LooseToolMachineFilter } from '@/lib/looseToolPresentation';
 import { validateConfiguratorLead, type ConfiguratorLeadField } from '@/lib/configuratorLeadValidation';
 import { buildStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 
@@ -285,7 +286,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
-  const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<'all' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620'>('all');
+  const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<LooseToolMachineFilter>('all');
   const { appUser: sessionAppUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const renderNewBadge = (isNew?: boolean) => isNew ? (
@@ -4089,9 +4090,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               const machineType = currentUnit.modelType;
               const currentUnitDemo = !!state.demoMachines[`${PRODUCTS[machineType]?.varenr}_${currentUnit.unitNumber}`];
               const looseToolAccessories = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : [];
-              const accs = machineType === LOOSE_TOOL_KEY
-                ? looseToolAccessories.filter(item => looseToolMachineFilter === 'all' || item.looseToolMachine === looseToolMachineFilter)
-                : (ACCESSORIES[machineType] || []);
               const displayUnits = getDisplayMachineUnits();
 
               let selectedIds: string[] = [];
@@ -4101,6 +4099,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               } else {
                 selectedIds = state.individualUnitConfigs[currentUnit.configKey]?.acc || [];
               }
+
+              const accs = machineType === LOOSE_TOOL_KEY
+                ? filterLooseToolAccessories(looseToolAccessories, looseToolMachineFilter, [
+                  ...selectedIds,
+                  ...getAccessoriesFlat(machineType)
+                    .filter(item => item.isQtyInput && (state.accQty[`${currentUnit.configKey}_${item.id}`] ?? 0) > 0)
+                    .map(item => item.id),
+                ])
+                : (ACCESSORIES[machineType] || []);
 
               const currentDisplayIdx = displayUnits.findIndex(u => u.globalIndex === state.currentMachineIndex);
 
@@ -4358,18 +4365,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <div className="mb-5 text-left">
                       <p className="text-sm font-semibold text-gray-800 mb-2">{T('looseToolsMachineFilterPrompt')}</p>
                       <div className="flex flex-wrap gap-2">
-                        {[
-                          { value: 'all', label: T('allMachines') },
-                          { value: 'RC-1000S', label: 'RC-1000s' },
-                          { value: 'Timan 3330', label: 'Timan 3330' },
-                          { value: 'Timan 2620', label: 'Timan 2620' },
-                        ].map(option => (
+                        {LOOSE_TOOL_MACHINE_FILTERS.map(value => (
                           <button
-                            key={option.value}
+                            key={value}
                             type="button"
-                            onClick={() => setLooseToolMachineFilter(option.value as typeof looseToolMachineFilter)}
-                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${looseToolMachineFilter === option.value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-500'}`}>
-                            {option.label}
+                            aria-pressed={looseToolMachineFilter === value}
+                            onClick={() => setLooseToolMachineFilter(value)}
+                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${looseToolMachineFilter === value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-500'}`}>
+                            {value === 'all' ? T('allMachines') : value === 'RC-1000S' ? 'RC-1000s' : value}
                           </button>
                         ))}
                       </div>
