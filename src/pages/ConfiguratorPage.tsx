@@ -1018,6 +1018,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // links the new lead to the row.
   const [pendingNewLead, setPendingNewLead] = useState(false);
 
+  const handleOwnershipChange = useCallback((next: OwnershipSelection) => {
+    setOwnership(next);
+    if (!savedConfigurationId && (
+      next.sellerEmail !== ownership.sellerEmail || next.dealerAccountId !== ownership.dealerAccountId
+    )) setLinkedLeadId(null);
+  }, [savedConfigurationId, ownership.sellerEmail, ownership.dealerAccountId]);
+
   useEffect(() => {
     if (baseMachineQty >= 2) return;
     setMachineDeliveryEditorOpen(false);
@@ -1165,7 +1172,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         owner_user_id: sellerId,
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
-        linked_dealer_id: ownership.dealerNumber || null,
+        linked_dealer_id: ownership.dealerAccountId || null,
         linked_dealer_contact_id: state.dealerContactId || null,
         first_contact_date: new Date().toISOString().slice(0, 10),
         expected_close_date: null,
@@ -1452,7 +1459,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         owner_user_id: sellerId,
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
-        linked_dealer_id: ownership.dealerNumber || null,
+        linked_dealer_id: ownership.dealerAccountId || null,
         linked_dealer_contact_id: state.dealerContactId || null,
         first_contact_date: new Date().toISOString().slice(0, 10),
         expected_close_date: null,
@@ -4479,7 +4486,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <SalesStockPricingPanel state={state} setState={setState} canEdit={canEditSalesStockPricing && !submittedOrderEditorLocked} />
                 </div>
                 <div className="max-w-lg mx-auto mb-5">
-                  <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" hideDealer={isExhibition} />
+                  <OwnershipPicker value={ownership} onChange={handleOwnershipChange} language={uiLanguage} variant="full" hideDealer={isExhibition} />
                 </div>
                 {state.flowType === 'quote' && !isExhibition && (
                   <div className="max-w-lg mx-auto mb-5">
@@ -4498,7 +4505,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           setLinkedLeadId(val);
                         }
                       }}
-                      dealerNumber={ownership.dealerNumber || null}
+                      sellerEmail={ownership.sellerEmail}
+                      dealerAccountId={ownership.dealerAccountId}
                       language={lang}
                     />
                   </div>
@@ -4784,7 +4792,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               );
             })()}
             <fieldset disabled={submittedOrderEditorLocked} className="contents">
-              <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
+              <OwnershipPicker value={ownership} onChange={handleOwnershipChange} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
             </fieldset>
             <AccountPanel
               appUser={effectiveUser ?? appUser}

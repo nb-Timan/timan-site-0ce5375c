@@ -51,4 +51,23 @@ describe('configurator existing lead protection', () => {
     expect(code).toContain('if (!validateNewLeadIntent()) return null');
     expect(picker()).toContain("none:     { da: 'Gem uden lead'");
   });
+
+  it('prefills both existing new-lead creation paths with the canonical selected seller and dealer', () => {
+    const code = configurator();
+    expect(code.match(/linked_dealer_id: ownership\.dealerAccountId \|\| null/g)).toHaveLength(2);
+    expect(code).not.toContain('linked_dealer_id: ownership.dealerNumber');
+    expect(code.match(/owner_user_id: sellerId/g)).toHaveLength(2);
+    expect(code).toContain('await resolveSid(ownership.sellerEmail)');
+    expect(code).toContain('sellerEmail={ownership.sellerEmail}');
+    expect(code).toContain('dealerAccountId={ownership.dealerAccountId}');
+  });
+
+  it('invalidates only unsaved selections through both ownership controls, not programmatic reopen', () => {
+    const code = configurator();
+    expect(code.match(/onChange={handleOwnershipChange}/g)).toHaveLength(2);
+    expect(code).toContain('if (!savedConfigurationId && (');
+    expect(code).toContain('next.sellerEmail !== ownership.sellerEmail || next.dealerAccountId !== ownership.dealerAccountId');
+    expect(code).toContain(')) setLinkedLeadId(null)');
+    expect(code).toContain('setLinkedLeadId(options?.linkedLeadId ?? null)');
+  });
 });
