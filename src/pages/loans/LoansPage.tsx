@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CalendarClock, Pencil, Plus } from 'lucide-react';
+import { CalendarClock, PackageCheck, Pencil, Plus } from 'lucide-react';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import SalesStockSalePanel from '@/pages/loans/SalesStockSalePanel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { listLoanCases, updateLoanExpectedReturn, type LoanCaseSummary } from '@/lib/loanService';
-import { loanDerivedTimingStatus } from '@/lib/loanDomain';
+import { loanDerivedTimingStatus, loanStatusTranslationKey } from '@/lib/loanDomain';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
 import { t } from '@/lib/i18n/translations';
@@ -107,7 +107,7 @@ function LoanOverview({ cases, label, onEditReturn }: { cases: LoanCaseSummary[]
     </tr></thead><tbody>{cases.map((item) => {
       const timing = loanDerivedTimingStatus(item.status, item.expected_return_date);
       return <tr key={item.id} className={`border-t border-slate-200 ${timing === 'OVERDUE' ? 'bg-red-50' : timing === 'DUE_SOON' ? 'bg-amber-50' : ''}`}>
-        <td className="px-3 py-3 font-semibold text-slate-950">{item.loan_number}</td><td className="px-3 py-3">{item.partner_name}</td><td className="px-3 py-3">{item.responsible_name}</td><td className="px-3 py-3 tabular-nums">{item.asset_count}</td><td className="px-3 py-3 whitespace-nowrap">{item.loan_date ?? '—'}</td><td className="px-3 py-3 whitespace-nowrap"><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></td><td className="px-3 py-3">{item.status}</td><td className="px-3 py-3"><div className="flex items-center gap-3">{item.can_edit_expected_return && <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300" title={label('loansEditReturn')}><Pencil className="h-4 w-4" /></button>}<Link className="font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link></div></td>
+        <td className="px-3 py-3 font-semibold text-slate-950">{item.loan_number}</td><td className="px-3 py-3">{item.partner_name}</td><td className="px-3 py-3">{item.responsible_name}</td><td className="px-3 py-3 tabular-nums">{item.asset_count}</td><td className="px-3 py-3 whitespace-nowrap">{item.loan_date ?? '—'}</td><td className="px-3 py-3 whitespace-nowrap"><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></td><td className="px-3 py-3">{label(loanStatusTranslationKey(item.return_state?.presentation_state ?? item.status))}</td><td className="px-3 py-3"><div className="flex flex-wrap items-center gap-3">{item.can_edit_expected_return && <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300" title={label('loansEditReturn')}><Pencil className="h-4 w-4" /></button>}{item.return_state?.can_receive && <Link className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white" to={`/portal/loans/${item.id}/return`}><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}<Link className="font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link></div></td>
       </tr>;
     })}</tbody></table></div>
   </>;
@@ -116,9 +116,9 @@ function LoanOverview({ cases, label, onEditReturn }: { cases: LoanCaseSummary[]
 function LoanMobileCard({ item, label, onEditReturn }: { item: LoanCaseSummary; label: (key: string) => string; onEditReturn: (item: LoanCaseSummary) => void }) {
   const timing = loanDerivedTimingStatus(item.status, item.expected_return_date);
   return <article className={`border p-4 ${timing === 'OVERDUE' ? 'border-red-300 bg-red-50' : timing === 'DUE_SOON' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
-    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-950">{item.loan_number}</p><p className="mt-1 text-sm text-slate-700">{item.partner_name}</p></div><span className="text-xs font-medium text-slate-600">{item.status}</span></div>
+    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-950">{item.loan_number}</p><p className="mt-1 text-sm text-slate-700">{item.partner_name}</p></div><span className="text-right text-xs font-medium text-slate-600">{label(loanStatusTranslationKey(item.return_state?.presentation_state ?? item.status))}</span></div>
     <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-slate-500">{label('loansResponsible')}</dt><dd>{item.responsible_name}</dd></div><div><dt className="text-xs text-slate-500">{label('loansAssetCount')}</dt><dd>{item.asset_count}</dd></div><div><dt className="text-xs text-slate-500">{label('loansLoanDate')}</dt><dd>{item.loan_date ?? '—'}</dd></div><div><dt className="text-xs text-slate-500">{label('loansExpectedReturn')}</dt><dd><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></dd></div></dl>
-    <div className="mt-4 flex items-center justify-between gap-3">{item.can_edit_expected_return ? <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm"><CalendarClock className="h-4 w-4" />{label('loansEditReturn')}</button> : <span />}<Link className="text-sm font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link></div>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{item.can_edit_expected_return && <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm"><CalendarClock className="h-4 w-4" />{label('loansEditReturn')}</button>}{item.return_state?.can_receive && <Link className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white" to={`/portal/loans/${item.id}/return`}><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}</div><Link className="text-sm font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link></div>
   </article>;
 }
 

@@ -250,6 +250,65 @@ Object.assign(LOAN_TRANSLATIONS.cs, {
   loansRequiredHourPhoto: 'Chybí fotografie počítadla motohodin.', loansRequiredConfirmation: 'Potvrďte sériová čísla.',
 });
 
+const RETURN_EN: Record<string, string> = {
+  loansReceive: 'Receive', loansReceiveTitle: 'Receive loan', loansReceiveDescription: 'Select the physical assets received by Timan now.',
+  loansSelectAsset: 'Select asset', loansSelectAllOutstanding: 'Select all outstanding assets', loansNoOutstandingAssets: 'No outstanding assets remain.',
+  loansRegisteredSerial: 'Registered serial no.', loansConfirmSerial: 'I have checked that the serial number matches', loansReturnSerialRequired: 'Confirm the serial number or mark the asset for review.',
+  loansRegisteredBrik: 'Registered Brik no.', loansObservedBrik: 'Brik no. at receipt', loansReturnBrikRequired: 'Enter the observed Brik number.',
+  loansReturnBrikMismatch: 'The Brik number does not match. Mark the asset for review to record the discrepancy.', loansReturnBrikMismatchWarning: 'The observed Brik number differs from the registered number.',
+  loansSharedBrikGroup: 'Shared Brik group: {count} component rows belong to the same physical implement.',
+  loansCheckoutReading: 'Reading at checkout', loansReturnReading: 'Reading at receipt', loansCalculatedUse: 'Use during the loan period',
+  loansReturnReadingRequired: 'Enter the return reading.', loansLowerReadingWarning: 'The reading is lower than at checkout.',
+  loansLowerReadingExplanation: 'Explanation for lower reading', loansLowerReadingExplanationRequired: 'An explanation is required.',
+  loansReturnMeterPhoto: 'Meter photo at receipt', loansReturnMeterPhotoRequired: 'A meter photo is required.', loansReturnConditionPhoto: 'Asset condition at receipt',
+  loansRequiresReview: 'Requires review', loansRequiresReviewHelp: 'The asset remains allocated and unavailable until the discrepancy is resolved.',
+  loansDiscrepancyNote: 'Discrepancy note', loansDiscrepancyNoteRequired: 'Describe what requires review.', loansReceiptNote: 'Receipt note', loansReceiptBatchNote: 'Note for this receipt',
+  loansReturnSelectAsset: 'Select at least one asset.', loansReturnValidationError: 'Complete the marked fields before receipt.', loansCompleteReceipt: 'Complete receipt', loansSavingReceipt: 'Saving receipt…',
+  loansReceiptSummary: 'Receipt', loansReturnedAt: 'Returned at', loansReturnedBy: 'Returned by', loansSerialConfirmationShort: 'Serial confirmed', loansBrikConfirmationShort: 'Brik confirmed', loansYes: 'Yes', loansNo: 'No',
+  loansStatusDraft: 'Draft', loansStatusReadyForReview: 'Ready for review', loansStatusAwaitingAcceptance: 'Awaiting acceptance', loansStatusOnLoan: 'On loan',
+  loansStatusPartiallyReturned: 'Partially received', loansStatusReviewRequired: 'Requires review', loansStatusReceived: 'Received', loansStatusReceivedWithDeviation: 'Received with deviation', loansStatusCancelled: 'Cancelled',
+};
+
+const RETURN_DA: Record<string, string> = {
+  ...RETURN_EN,
+  loansReceive: 'Modtag', loansReceiveTitle: 'Modtag udlån', loansReceiveDescription: 'Vælg de fysiske aktiver, som Timan modtager nu.',
+  loansSelectAsset: 'Vælg aktiv', loansSelectAllOutstanding: 'Vælg alle udestående aktiver', loansNoOutstandingAssets: 'Der er ingen udestående aktiver.',
+  loansRegisteredSerial: 'Registreret serienr.', loansConfirmSerial: 'Jeg har kontrolleret, at serienummeret stemmer', loansReturnSerialRequired: 'Bekræft serienummeret, eller markér aktivet til afklaring.',
+  loansRegisteredBrik: 'Registreret Brik nr.', loansObservedBrik: 'Brik nr. ved modtagelse', loansReturnBrikRequired: 'Indtast det aflæste Brik nr.',
+  loansReturnBrikMismatch: 'Brik nr. stemmer ikke. Markér aktivet til afklaring for at registrere afvigelsen.', loansReturnBrikMismatchWarning: 'Det aflæste Brik nr. afviger fra det registrerede.',
+  loansSharedBrikGroup: 'Delt Brik-gruppe: {count} komponentlinjer tilhører samme fysiske redskab.',
+  loansCheckoutReading: 'Tællerstand ved udlån', loansReturnReading: 'Tællerstand ved modtagelse', loansCalculatedUse: 'Forbrug i udlånsperioden',
+  loansReturnReadingRequired: 'Indtast tællerstanden ved retur.', loansLowerReadingWarning: 'Tællerstanden er lavere end registreret ved udlån.',
+  loansLowerReadingExplanation: 'Forklaring på lavere tællerstand', loansLowerReadingExplanationRequired: 'En forklaring er påkrævet.',
+  loansReturnMeterPhoto: 'Foto af tællerstand ved modtagelse', loansReturnMeterPhotoRequired: 'Foto af tællerstand er påkrævet.', loansReturnConditionPhoto: 'Foto af aktivets stand ved retur',
+  loansRequiresReview: 'Kræver afklaring', loansRequiresReviewHelp: 'Aktivet forbliver reserveret og utilgængeligt, indtil afvigelsen er løst.',
+  loansDiscrepancyNote: 'Bemærkning til afvigelse', loansDiscrepancyNoteRequired: 'Beskriv hvad der kræver afklaring.', loansReceiptNote: 'Bemærkning ved modtagelse', loansReceiptBatchNote: 'Note til denne modtagelse',
+  loansReturnSelectAsset: 'Vælg mindst ét aktiv.', loansReturnValidationError: 'Udfyld de markerede felter før modtagelse.', loansCompleteReceipt: 'Gennemfør modtagelse', loansSavingReceipt: 'Gemmer modtagelse…',
+  loansReceiptSummary: 'Modtagelse', loansReturnedAt: 'Modtaget', loansReturnedBy: 'Modtaget af', loansSerialConfirmationShort: 'Serienr. bekræftet', loansBrikConfirmationShort: 'Brik bekræftet', loansYes: 'Ja', loansNo: 'Nej',
+  loansStatusDraft: 'Kladde', loansStatusReadyForReview: 'Klar til kontrol', loansStatusAwaitingAcceptance: 'Afventer accept', loansStatusOnLoan: 'Udlånt',
+  loansStatusPartiallyReturned: 'Delvist modtaget', loansStatusReviewRequired: 'Kræver afklaring', loansStatusReceived: 'Modtaget', loansStatusReceivedWithDeviation: 'Modtaget med afvigelse', loansStatusCancelled: 'Annulleret',
+};
+
+const RETURN_DE: Record<string, string> = {
+  ...RETURN_EN,
+  loansReceive: 'Zurücknehmen', loansReceiveTitle: 'Leihe zurücknehmen', loansReceiveDescription: 'Wählen Sie die jetzt bei Timan eingegangenen Einheiten.',
+  loansCompleteReceipt: 'Rücknahme abschließen', loansReceiptSummary: 'Rücknahme', loansStatusOnLoan: 'Ausgeliehen', loansStatusPartiallyReturned: 'Teilweise zurückgenommen',
+  loansStatusReviewRequired: 'Klärung erforderlich', loansStatusReceived: 'Zurückgenommen', loansStatusReceivedWithDeviation: 'Mit Abweichung zurückgenommen', loansStatusCancelled: 'Storniert',
+};
+
+for (const language of Object.keys(LOAN_TRANSLATIONS) as PortalUiLanguage[]) {
+  const localizedStatus: Partial<Record<string, string>> = language === 'it' ? { loansReceive: 'Ricevi', loansStatusOnLoan: 'In prestito', loansStatusPartiallyReturned: 'Ricevuto parzialmente', loansStatusReviewRequired: 'Richiede verifica', loansStatusReceived: 'Ricevuto', loansStatusCancelled: 'Annullato' }
+    : language === 'hu' ? { loansReceive: 'Átvétel', loansStatusOnLoan: 'Kölcsönben', loansStatusPartiallyReturned: 'Részben visszavéve', loansStatusReviewRequired: 'Ellenőrzést igényel', loansStatusReceived: 'Visszavéve', loansStatusCancelled: 'Törölve' }
+      : language === 'sv' ? { loansReceive: 'Ta emot', loansStatusOnLoan: 'Utlånad', loansStatusPartiallyReturned: 'Delvis mottagen', loansStatusReviewRequired: 'Kräver kontroll', loansStatusReceived: 'Mottagen', loansStatusCancelled: 'Avbruten' }
+        : language === 'fr' ? { loansReceive: 'Réceptionner', loansStatusOnLoan: 'En prêt', loansStatusPartiallyReturned: 'Réception partielle', loansStatusReviewRequired: 'Contrôle requis', loansStatusReceived: 'Réceptionné', loansStatusCancelled: 'Annulé' }
+          : language === 'pl' ? { loansReceive: 'Przyjmij', loansStatusOnLoan: 'Wypożyczone', loansStatusPartiallyReturned: 'Częściowo przyjęte', loansStatusReviewRequired: 'Wymaga wyjaśnienia', loansStatusReceived: 'Przyjęte', loansStatusCancelled: 'Anulowane' }
+            : language === 'cs' ? { loansReceive: 'Přijmout', loansStatusOnLoan: 'Zapůjčeno', loansStatusPartiallyReturned: 'Částečně přijato', loansStatusReviewRequired: 'Vyžaduje kontrolu', loansStatusReceived: 'Přijato', loansStatusCancelled: 'Zrušeno' }
+              : {};
+  Object.assign(LOAN_TRANSLATIONS[language], RETURN_EN, localizedStatus);
+}
+Object.assign(LOAN_TRANSLATIONS.da, RETURN_DA);
+Object.assign(LOAN_TRANSLATIONS.de, RETURN_DE);
+
 for (const language of Object.keys(LOAN_STOCK_TRANSLATIONS) as PortalUiLanguage[]) {
   Object.assign(LOAN_TRANSLATIONS[language], LOAN_STOCK_TRANSLATIONS[language]);
 }

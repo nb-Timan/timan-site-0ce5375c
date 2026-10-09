@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { LoanStatus } from '@/lib/loanDomain';
+import type { LoanReturnPresentationState, LoanStatus } from '@/lib/loanDomain';
 
 export interface LoanSeller { id: string; display_name: string; initials: string; }
 export interface LoanPartner { id: string; account_number: string; company_name: string; customer_type: string | null; }
@@ -55,6 +55,15 @@ export interface LoanCaseSummary {
   can_edit_expected_return: boolean;
   created_at: string;
   updated_at: string;
+  return_state?: LoanCaseReturnState;
+}
+export interface LoanCaseReturnState {
+  case_id: string;
+  outstanding_asset_count: number;
+  received_asset_count: number;
+  review_required_count: number;
+  can_receive: boolean;
+  presentation_state: LoanReturnPresentationState;
 }
 export interface LoanCaseEvent {
   id: string;
@@ -88,7 +97,7 @@ export interface LoanCaseItem {
   fabric_account_number_snapshot: string | null;
   fabric_order_number_snapshot: string | null;
 }
-export type LoanPhotoKind = 'serial_plate' | 'overview';
+export type LoanPhotoKind = 'serial_plate' | 'overview' | 'hour_meter' | 'return_meter' | 'return_condition';
 export interface LoanItemPhoto {
   id: string;
   case_id: string;
@@ -98,6 +107,29 @@ export interface LoanItemPhoto {
   file_name: string;
   content_type: string | null;
   preview_url: string | null;
+  return_item_inspection_id?: string | null;
+}
+export interface LoanReturnSummary {
+  case_item_id: string;
+  item_type: 'machine' | 'equipment';
+  product_sku: string;
+  product_name: string | null;
+  serial_number: string | null;
+  brik_number: number | null;
+  checkout_usage_reading: number | null;
+  usage_reading_unit: 'km' | 'hours' | null;
+  return_usage_reading: number | null;
+  calculated_usage: number | null;
+  serial_confirmed: boolean;
+  brik_confirmed: boolean;
+  receipt_status: 'RECEIVED' | 'REVIEW_REQUIRED' | null;
+  returned_at: string | null;
+  returned_by_name: string | null;
+  notes: string | null;
+  lower_reading_explanation: string | null;
+  is_outstanding: boolean;
+  has_return_meter_photo: boolean;
+  has_return_condition_photo: boolean;
 }
 
 const LOAN_MEDIA_BUCKET = 'loan-case-media';
@@ -107,31 +139,52 @@ const LOAN_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 function rows<T>(data: unknown): T[] { return Array.isArray(data) ? data as T[] : []; }
 
 export async function listLoanCases(partnerId?: string | null): Promise<LoanCaseSummary[]> {
-  const { data, error } = await supabase.rpc('loan_list_case_overview', { p_partner_id: partnerId || null });
-  if (error) throw error;
-  return rows<LoanCaseSummary>(data);
+  const [casesResult, stateResult] = await Promise.all([
+    supabase.rpc('loan_list_case_overview', { p_partner_id: partnerId || null }),
+    supabase.rpc('loan_list_case_return_states'),
+  ]);
+  if (casesResult.error) throw casesResult.error;
+  if (stateResult.error) throw stateResult.error;
+  const stateByCase = new Map(rows<LoanCaseReturnState>(stateResult.data).map((state) => [state.case_id, state]));
+  return rows<LoanCaseSummary>(casesResult.data).map((loanCase) => ({
+    ...loanCase,
+    return_state: stateByCase.get(loanCase.id),
+  }));
 }
 
 export async function getLoanCase(caseId: string): Promise<{
   loanCase: LoanCase;
   items: LoanCaseItem[];
   photos: LoanItemPhoto[];
+  returnSummary: LoanReturnSummary[];
+  returnState: LoanCaseReturnState | null;
 }> {
-  const [caseResult, itemResult, photoResult] = await Promise.all([
+  const [caseResult, itemResult, photoResult, summaryResult, stateResult] = await Promise.all([
     supabase.from('loan_cases').select('*').eq('id', caseId).single(),
     supabase.from('loan_case_items').select('*').eq('case_id', caseId).order('created_at'),
     supabase.from('loan_case_item_photos').select('*').eq('case_id', caseId).order('created_at'),
+    supabase.rpc('loan_list_return_summary', { p_case_id: caseId }),
+    supabase.rpc('loan_list_case_return_states'),
   ]);
   if (caseResult.error) throw caseResult.error;
   if (itemResult.error) throw itemResult.error;
   if (photoResult.error) throw photoResult.error;
+  if (summaryResult.error) throw summaryResult.error;
+  if (stateResult.error) throw stateResult.error;
 
   const rawPhotos = rows<Omit<LoanItemPhoto, 'preview_url'>>(photoResult.data);
   const photos = await Promise.all(rawPhotos.map(async (photo) => {
     const { data } = await supabase.storage.from(LOAN_MEDIA_BUCKET).createSignedUrl(photo.storage_path, 15 * 60);
     return { ...photo, preview_url: data?.signedUrl ?? null };
   }));
-  return { loanCase: caseResult.data as LoanCase, items: rows<LoanCaseItem>(itemResult.data), photos };
+  const returnState = rows<LoanCaseReturnState>(stateResult.data).find((state) => state.case_id === caseId) ?? null;
+  return {
+    loanCase: caseResult.data as LoanCase,
+    items: rows<LoanCaseItem>(itemResult.data),
+    photos,
+    returnSummary: rows<LoanReturnSummary>(summaryResult.data),
+    returnState,
+  };
 }
 
 export async function listLoanSellers(): Promise<LoanSeller[]> {
@@ -340,4 +393,83 @@ export async function removeLoanItemPhoto(caseId: string, photo: LoanItemPhoto):
   const path = typeof data === 'string' ? data : photo.storage_path;
   const removal = await supabase.storage.from(LOAN_MEDIA_BUCKET).remove([path]);
   if (removal.error) throw removal.error;
+}
+
+export async function uploadLoanReturnPhoto(
+  caseId: string,
+  itemId: string,
+  file: File,
+  kind: 'return_meter' | 'return_condition',
+  onProgress?: (value: number) => void,
+): Promise<void> {
+  validateLoanImage(file);
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+  const path = `${caseId}/${itemId}/return-${kind === 'return_meter' ? 'meter' : 'condition'}-${crypto.randomUUID()}-${safeName}`;
+  onProgress?.(10);
+  const upload = await supabase.storage.from(LOAN_MEDIA_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (upload.error) throw upload.error;
+  onProgress?.(75);
+  const registered = await supabase.rpc('loan_register_return_photo', {
+    p_case_id: caseId,
+    p_case_item_id: itemId,
+    p_storage_path: path,
+    p_photo_kind: kind,
+    p_file_name: file.name,
+    p_content_type: file.type || null,
+  });
+  if (registered.error) {
+    await supabase.storage.from(LOAN_MEDIA_BUCKET).remove([path]);
+    throw registered.error;
+  }
+  onProgress?.(100);
+}
+
+export async function removeLoanReturnPhoto(caseId: string, photo: LoanItemPhoto): Promise<void> {
+  const { data, error } = await supabase.rpc('loan_remove_return_photo', {
+    p_case_id: caseId,
+    p_photo_id: photo.id,
+  });
+  if (error) throw error;
+  const path = typeof data === 'string' ? data : photo.storage_path;
+  const removal = await supabase.storage.from(LOAN_MEDIA_BUCKET).remove([path]);
+  if (removal.error) throw removal.error;
+}
+
+export interface ReceiveLoanAssetInput {
+  caseItemId: string;
+  serialConfirmed: boolean;
+  brikNumber: string;
+  returnReading: string;
+  lowerReadingExplanation: string;
+  requiresReview: boolean;
+  discrepancyNote: string;
+  note: string;
+}
+
+export async function receiveLoanAssets(
+  caseId: string,
+  requestKey: string,
+  items: ReceiveLoanAssetInput[],
+  notes?: string | null,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('loan_receive_assets', {
+    p_case_id: caseId,
+    p_request_key: requestKey,
+    p_items: items.map((item) => ({
+      case_item_id: item.caseItemId,
+      serial_confirmed: item.serialConfirmed,
+      brik_number: item.brikNumber.trim() || null,
+      return_reading: item.returnReading.trim() || null,
+      lower_reading_explanation: item.lowerReadingExplanation.trim() || null,
+      requires_review: item.requiresReview,
+      discrepancy_note: item.discrepancyNote.trim() || null,
+      note: item.note.trim() || null,
+    })),
+    p_notes: notes?.trim() || null,
+  });
+  if (error) throw error;
+  return String(data);
 }

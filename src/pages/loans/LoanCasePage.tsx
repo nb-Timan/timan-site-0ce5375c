@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Camera, CheckCircle2, History, Plus, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
+import { Camera, CheckCircle2, History, PackageCheck, Plus, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
@@ -35,6 +35,8 @@ import {
   type LoanItemPhoto,
   type LoanPartner,
   type LoanPhotoKind,
+  type LoanCaseReturnState,
+  type LoanReturnSummary,
   type LoanSeller,
 } from '@/lib/loanService';
 
@@ -62,6 +64,8 @@ export default function LoanCasePage() {
   const [items, setItems] = useState<LoanCaseItem[]>([]);
   const [photos, setPhotos] = useState<LoanItemPhoto[]>([]);
   const [history, setHistory] = useState<LoanCaseEvent[]>([]);
+  const [returnSummary, setReturnSummary] = useState<LoanReturnSummary[]>([]);
+  const [returnState, setReturnState] = useState<LoanCaseReturnState | null>(null);
   const [sellerId, setSellerId] = useState('');
   const [partnerId, setPartnerId] = useState('');
   const [contactId, setContactId] = useState('');
@@ -95,6 +99,8 @@ export default function LoanCasePage() {
     setItems(detail.items);
     setPhotos(detail.photos);
     setHistory(events);
+    setReturnSummary(detail.returnSummary ?? []);
+    setReturnState(detail.returnState ?? null);
     setReadingDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.usage_reading_value?.toString() ?? ''])));
     setUnitDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.usage_reading_unit ?? ''])));
     setLimitDrafts(Object.fromEntries(detail.items.map((item) => [item.id, item.driving_use_limit ?? ''])));
@@ -301,7 +307,10 @@ export default function LoanCasePage() {
   return <LoanShell>
     <div className="mb-4"><Link to="/portal/loans" className="text-sm font-medium text-emerald-800 underline">{label('loansCases')}</Link></div>
     <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-semibold text-slate-900">{isNew ? label('loansNewCase') : loanCase?.loan_number ?? label('loansLoading')}</h1>
-      {canAdministerCase && loanCase && ['READY_FOR_REVIEW','AWAITING_ACCEPTANCE','ACCEPTED'].includes(loanCase.status) && <button type="button" disabled={busy} onClick={() => void reopen()} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800"><RotateCcw className="h-4 w-4" />{label('loansReopen')}</button>}
+      <div className="flex flex-wrap gap-2">
+        {canManageCase && caseId && returnState?.can_receive && <Link to={`/portal/loans/${caseId}/return`} className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white"><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}
+        {canAdministerCase && loanCase && ['READY_FOR_REVIEW','AWAITING_ACCEPTANCE','ACCEPTED'].includes(loanCase.status) && <button type="button" disabled={busy} onClick={() => void reopen()} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800"><RotateCcw className="h-4 w-4" />{label('loansReopen')}</button>}
+      </div>
     </div>
     {error && <p role="alert" className="mt-4 border-l-4 border-red-500 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {notice && <p role="status" className="mt-4 border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
@@ -368,9 +377,37 @@ export default function LoanCasePage() {
         <button type="button" disabled={busy} onClick={() => void saveDraft()} className="h-10 rounded-md border border-emerald-700 bg-white px-4 text-sm font-medium text-emerald-800 disabled:opacity-50">{label('loansSaveDraft')}</button>
         {caseId && <button type="button" disabled={busy} onClick={() => void continueToReview()} className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white disabled:opacity-50">{label('loansContinueReview')}</button>}
       </div>}
+      {caseId && returnSummary.some((item) => item.receipt_status) && <ReturnSummarySection summary={returnSummary} photos={photos} label={label} language={uiLanguage} />}
       {caseId && history.length > 0 && <section className="border border-slate-200 bg-white p-4" aria-label={label('loansHistory')}><h2 className="flex items-center gap-2 font-semibold text-slate-900"><History className="h-4 w-4" />{label('loansHistory')}</h2><ol className="mt-3 divide-y divide-slate-200">{history.slice(0, 20).map((event) => <li key={event.id} className="py-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium text-slate-800">{historyLabel(event, label)}</span><time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString(uiLanguage)}</time></div><p className="mt-1 text-xs text-slate-600">{event.actor_name}</p></li>)}</ol></section>}
     </div>
   </LoanShell>;
+}
+
+function ReturnSummarySection({ summary, photos, label, language }: {
+  summary: LoanReturnSummary[];
+  photos: LoanItemPhoto[];
+  label: (key: string) => string;
+  language: string;
+}) {
+  return <section className="border border-slate-200 bg-white p-4" aria-label={label('loansReceiptSummary')}>
+    <h2 className="flex items-center gap-2 font-semibold text-slate-900"><PackageCheck className="h-4 w-4" />{label('loansReceiptSummary')}</h2>
+    <div className="mt-3 space-y-3">{summary.filter((item) => item.receipt_status).map((item) => {
+      const returnPhotos = photos.filter((photo) => photo.case_item_id === item.case_item_id && photo.photo_kind.startsWith('return_'));
+      return <article key={item.case_item_id} className="border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium text-slate-900">{item.product_name ?? item.product_sku}</p><p className="text-xs text-slate-600">{item.product_sku} · {item.serial_number ?? `${label('loansStockBrikNumber')} ${item.brik_number ?? '—'}`}</p></div><span className={`text-xs font-semibold ${item.receipt_status === 'REVIEW_REQUIRED' ? 'text-amber-800' : 'text-emerald-800'}`}>{label(item.receipt_status === 'REVIEW_REQUIRED' ? 'loansStatusReviewRequired' : 'loansStatusReceived')}</span></div>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <Info label={label('loansReturnedAt')} value={item.returned_at ? new Date(item.returned_at).toLocaleString(language) : '—'} />
+          <Info label={label('loansReturnedBy')} value={item.returned_by_name ?? '—'} />
+          <Info label={label('loansSerialConfirmationShort')} value={item.serial_number ? (item.serial_confirmed ? label('loansYes') : label('loansNo')) : '—'} />
+          <Info label={label('loansBrikConfirmationShort')} value={item.brik_number ? (item.brik_confirmed ? label('loansYes') : label('loansNo')) : '—'} />
+          {item.usage_reading_unit && <><Info label={label('loansCheckoutReading')} value={`${item.checkout_usage_reading ?? '—'} ${item.usage_reading_unit === 'hours' ? 'h' : 'km'}`} /><Info label={label('loansReturnReading')} value={`${item.return_usage_reading ?? '—'} ${item.usage_reading_unit === 'hours' ? 'h' : 'km'}`} /><Info label={label('loansCalculatedUse')} value={`${item.calculated_usage ?? '—'} ${item.usage_reading_unit === 'hours' ? 'h' : 'km'}`} /></>}
+          {item.notes && <Info label={label('loansReceiptNote')} value={item.notes} />}
+          {item.lower_reading_explanation && <Info label={label('loansLowerReadingExplanation')} value={item.lower_reading_explanation} />}
+        </dl>
+        {returnPhotos.length > 0 && <div className="mt-3 grid grid-cols-2 gap-2 sm:max-w-md">{returnPhotos.map((photo) => photo.preview_url && <img key={photo.id} src={photo.preview_url} alt={label(photo.photo_kind === 'return_meter' ? 'loansReturnMeterPhoto' : 'loansReturnConditionPhoto')} className="aspect-video w-full rounded-sm object-cover" />)}</div>}
+      </article>;
+    })}</div>
+  </section>;
 }
 
 function LoanItemCard({ item, photos, editable, busy, reading, setReading, unit, setUnit, limit, setLimit, onSaveUsage, onUpload, onRemovePhoto, onRemoveAsset, uploadProgress, validationIssues, label }: {
