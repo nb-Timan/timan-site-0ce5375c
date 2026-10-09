@@ -4,7 +4,7 @@ import type { LooseToolCategory } from '@/data/looseToolAssortment';
 
 interface Props {
   category: LooseToolCategory;
-  machine: LooseToolMachineFilter;
+  machine: LooseToolMachineFilter | null;
   search: string;
   onCategory: (value: LooseToolCategory) => void;
   onMachine: (value: LooseToolMachineFilter) => void;

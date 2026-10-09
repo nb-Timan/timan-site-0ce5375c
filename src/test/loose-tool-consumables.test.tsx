@@ -21,11 +21,11 @@ describe('canonical loose consumable assortment', () => {
     for (const sku of CONSUMABLE_ASSORTMENT[group]) expect(available, sku).toContain(sku);
   });
 
-  it('groups six RC-751 products in approved manual order without a machine-filter button', () => {
+  it('groups six RC-751 products in approved manual order with an explicit machine filter', () => {
     const rows = resolve();
     expect(rows[0].name).toBe('RC-751');
     expect(rows.slice(1, 7).map(row => row.varenr)).toEqual(CONSUMABLE_ASSORTMENT['RC-751']);
-    expect(LOOSE_TOOL_MACHINE_FILTERS).not.toContain('RC-751');
+    expect(LOOSE_TOOL_MACHINE_FILTERS).toContain('RC-751');
     expect(rows.filter(row => row.isHeader).map(row => row.name)).toEqual(['RC-751', 'RC-1000s', 'Timan 3330', 'Timan 2620', 'Loader-Line / CS-200']);
   });
 
@@ -107,11 +107,11 @@ describe('canonical loose consumable assortment', () => {
 describe('loose-tool filter controls', () => {
   it('renders separate categories, established machine filters and responsive wrapping', () => {
     const changes: string[] = [];
-    const { container } = render(<LooseToolFilters category="consumables" machine="all" search=""
+    const { container } = render(<LooseToolFilters category="consumables" machine={null} search=""
       onCategory={value => changes.push(value)} onMachine={value => changes.push(value)}
       onSearch={value => changes.push(value)} translate={t} />);
     expect(screen.getByRole('button', { name: 'Forbrugsvarer' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('button', { name: 'RC-751' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'RC-751' })).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(screen.getByRole('button', { name: 'RC-1000s' }));
     fireEvent.click(screen.getByRole('button', { name: 'Redskaber' }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '411866' } });

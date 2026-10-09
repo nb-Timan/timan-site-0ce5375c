@@ -2,8 +2,21 @@ import type { Accessory, ConfiguratorLocale, SubItem } from '@/types/configurato
 import { CONSUMABLE_ASSORTMENT, CONSUMABLE_GROUPS, consumableGroups, isLooseConsumable, type LooseToolCategory } from '@/data/looseToolAssortment';
 import { getLocalizedName } from '@/data/machines';
 
-export const LOOSE_TOOL_MACHINE_FILTERS = ['all', 'RC-1000S', 'Timan 3330', 'Timan 2620'] as const;
-export type LooseToolMachineFilter = typeof LOOSE_TOOL_MACHINE_FILTERS[number] | 'RC-751';
+export const LOOSE_TOOL_MACHINE_FILTERS = ['all', 'RC-751', 'RC-1000S', 'Timan 3330', 'Timan 2620'] as const;
+export type LooseToolMachineFilter = typeof LOOSE_TOOL_MACHINE_FILTERS[number];
+
+export interface LooseToolNavigation {
+  category: LooseToolCategory;
+  machine: LooseToolMachineFilter | null;
+}
+
+export function selectLooseToolCategory(state: LooseToolNavigation, category: LooseToolCategory): LooseToolNavigation {
+  return { category, machine: category === 'attachments' && state.machine === 'RC-751' ? null : state.machine };
+}
+
+export function selectLooseToolMachine(state: LooseToolNavigation, machine: LooseToolMachineFilter): LooseToolNavigation {
+  return { category: machine === 'RC-751' ? 'consumables' : state.category, machine };
+}
 
 /** Deduplicate presentation only; the full catalog retains every selection/parent ID. */
 export function filterLooseToolAccessories(
@@ -43,12 +56,13 @@ export function filterLooseToolAccessories(
 
 export function resolveLooseToolPresentation(
   catalog: Accessory[],
-  filter: LooseToolMachineFilter,
+  filter: LooseToolMachineFilter | null,
   category: LooseToolCategory,
   selectedIds: readonly string[],
   search = '',
   language: ConfiguratorLocale = 'da',
 ): Accessory[] {
+  if (filter === null) return [];
   const query = search.trim().toLocaleLowerCase();
   const matches = (item: Accessory) => !query || [
     item.varenr, getLocalizedName(item.name, language),

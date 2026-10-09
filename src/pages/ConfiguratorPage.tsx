@@ -109,8 +109,8 @@ import { ACADEMY_SALES_BONUS_CUSTOMER, isAcademySalesBonusCustomer, withAcademyS
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
-import { resolveLooseToolPresentation, type LooseToolMachineFilter } from '@/lib/looseToolPresentation';
-import { isLooseConsumable, type LooseToolCategory } from '@/data/looseToolAssortment';
+import { resolveLooseToolPresentation, selectLooseToolCategory, selectLooseToolMachine, type LooseToolNavigation } from '@/lib/looseToolPresentation';
+import { isLooseConsumable } from '@/data/looseToolAssortment';
 import { LooseToolFilters } from '@/components/configurator/LooseToolFilters';
 import { validateConfiguratorLead, type ConfiguratorLeadField } from '@/lib/configuratorLeadValidation';
 import { buildStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
@@ -289,8 +289,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
-  const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<LooseToolMachineFilter>('all');
-  const [looseToolCategory, setLooseToolCategory] = useState<LooseToolCategory>('all');
+  const [looseToolNavigation, setLooseToolNavigation] = useState<LooseToolNavigation>({ category: 'all', machine: null });
   const [looseToolSearch, setLooseToolSearch] = useState('');
   const { appUser: sessionAppUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
@@ -4110,7 +4109,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               }
 
               const accs = machineType === LOOSE_TOOL_KEY
-                ? resolveLooseToolPresentation(looseToolAccessories, looseToolMachineFilter, looseToolCategory, [
+                ? resolveLooseToolPresentation(looseToolAccessories, looseToolNavigation.machine, looseToolNavigation.category, [
                   ...selectedIds,
                   ...getAccessoriesFlat(machineType)
                     .filter(item => item.isQtyInput && (state.accQty[`${currentUnit.configKey}_${item.id}`] ?? 0) > 0)
@@ -4372,8 +4371,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     }[planningConfigurationStatus], uiLanguage)}
                   </p>}
                   {machineType === LOOSE_TOOL_KEY && (
-                    <LooseToolFilters category={looseToolCategory} machine={looseToolMachineFilter} search={looseToolSearch}
-                      onCategory={setLooseToolCategory} onMachine={setLooseToolMachineFilter}
+                    <LooseToolFilters category={looseToolNavigation.category} machine={looseToolNavigation.machine} search={looseToolSearch}
+                      onCategory={category => setLooseToolNavigation(current => selectLooseToolCategory(current, category))}
+                      onMachine={machine => setLooseToolNavigation(current => selectLooseToolMachine(current, machine))}
                       onSearch={setLooseToolSearch} translate={T} />
                   )}
                   {displayUnits.length > 1 && (
