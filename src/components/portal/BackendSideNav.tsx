@@ -1,11 +1,22 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { backendDashboardNav, backendSections, getBackendSectionForPath } from "@/lib/backendNavigation";
+import { getSupportAdminCopy } from "@/lib/i18n/supportAdminTranslations";
+import { canAccessSupport } from "@/lib/supportAccess";
 import { cn } from "@/lib/utils";
+import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 
 export default function BackendSideNav() {
+  const { appUser } = useAppUser();
+  const { uiLanguage } = useLanguage();
+  const { effectiveUser } = useEffectivePortalUserState(appUser);
   const location = useLocation();
   const active = getBackendSectionForPath(location.pathname, location.search);
-  const items = [backendDashboardNav, ...backendSections];
+  const supportCopy = getSupportAdminCopy(uiLanguage);
+  const items = [backendDashboardNav, ...backendSections].filter((item) =>
+    item.id !== "ai-support" || canAccessSupport(effectiveUser)
+  );
 
   return (
     <aside
@@ -32,7 +43,7 @@ export default function BackendSideNav() {
               )}
             >
               <Icon className="h-4 w-4" />
-              <span>{item.navLabel}</span>
+              <span>{item.id === "ai-support" ? supportCopy.title : item.navLabel}</span>
             </Link>
           );
         })}

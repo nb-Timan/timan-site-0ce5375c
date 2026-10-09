@@ -3,7 +3,6 @@
 -- policy still reflected an older external-role bucket without dealer_customer.
 
 drop policy if exists site_change_public_role_read on public.site_change_public_entries;
-
 create policy site_change_public_role_read
 on public.site_change_public_entries
 for select

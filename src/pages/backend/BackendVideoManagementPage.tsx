@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Archive, Check, ChevronsUpDown, FilePenLine, Plus, Upload, X } from "lucide-react";
+import { Check, ChevronsUpDown, FilePenLine, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
@@ -25,11 +25,14 @@ import {
 import {
   extractYouTubeVideoId,
   exactMarketingVideoContent,
+  archiveMarketingVideo,
   findPrimaryProductConflict,
   listMarketingVideos,
   localizeMarketingVideo,
   resolveVideoThumbnail,
+  restoreMarketingVideo,
   saveMarketingVideo,
+  permanentlyDeleteArchivedMarketingVideo,
   setMarketingVideoMessePortalVisibility,
   uploadVideoThumbnail,
   youtubeThumbnailFromId,
@@ -113,6 +116,9 @@ export default function BackendVideoManagementPage() {
   const [editing, setEditing] = useState<DraftState | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingMessePortalIds, setSavingMessePortalIds] = useState<Set<string>>(new Set());
+  const [actioningVideoId, setActioningVideoId] = useState<string | null>(null);
+  const [archiveCandidate, setArchiveCandidate] = useState<MarketingVideo | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<MarketingVideo | null>(null);
   const [conflict, setConflict] = useState<Record<string, unknown> | null>(null);
 
   const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
@@ -298,6 +304,46 @@ export default function BackendVideoManagementPage() {
     setMessage(tv(checked ? "videoMgmtMessePortalEnabled" : "videoMgmtMessePortalDisabled", uiLanguage));
   };
 
+  const archiveVideo = async () => {
+    if (!archiveCandidate) return;
+    setActioningVideoId(archiveCandidate.id);
+    const result = await archiveMarketingVideo(archiveCandidate.id);
+    setActioningVideoId(null);
+    setArchiveCandidate(null);
+    if (result.error) {
+      setError(tv("videoMgmtActionFailed", uiLanguage));
+      return;
+    }
+    setMessage(tv("videoMgmtTrashed", uiLanguage));
+    await reload();
+  };
+
+  const restoreVideo = async (row: MarketingVideo) => {
+    setActioningVideoId(row.id);
+    const result = await restoreMarketingVideo(row.id);
+    setActioningVideoId(null);
+    if (result.error) {
+      setError(tv("videoMgmtActionFailed", uiLanguage));
+      return;
+    }
+    setMessage(tv("videoMgmtRestored", uiLanguage));
+    await reload();
+  };
+
+  const permanentlyDeleteVideo = async () => {
+    if (!deleteCandidate) return;
+    setActioningVideoId(deleteCandidate.id);
+    const result = await permanentlyDeleteArchivedMarketingVideo(deleteCandidate.id);
+    setActioningVideoId(null);
+    setDeleteCandidate(null);
+    if (result.error) {
+      setError(tv("videoMgmtActionFailed", uiLanguage));
+      return;
+    }
+    setMessage(tv("videoMgmtDeleted", uiLanguage));
+    await reload();
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
@@ -357,19 +403,39 @@ export default function BackendVideoManagementPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600" title={tv("videoMgmtShowOnMessePortal", uiLanguage)}>
-                      <Switch
-                        checked={row.show_on_messe_portal}
-                        disabled={savingMessePortalIds.has(row.id)}
-                        onCheckedChange={(checked) => void toggleMessePortal(row, checked)}
-                        aria-label={tv("videoMgmtShowOnMessePortal", uiLanguage)}
-                      />
-                      <span>{tv("videoMgmtMessePortal", uiLanguage)}</span>
-                    </label>
-                    <Button type="button" variant="outline" onClick={() => startEdit(row)} className="gap-2">
-                      <FilePenLine className="h-4 w-4" />
-                      {tv("edit", uiLanguage)}
-                    </Button>
+                    {row.status === "archived" ? (
+                      <>
+                        <span className="text-xs font-medium text-slate-500">{formatDeletionDeadline(row.delete_after, uiLanguage)}</span>
+                        <Button type="button" variant="outline" onClick={() => void restoreVideo(row)} disabled={actioningVideoId === row.id} className="gap-2">
+                          <RotateCcw className="h-4 w-4" />
+                          {tv("videoMgmtRestore", uiLanguage)}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => setDeleteCandidate(row)} disabled={actioningVideoId === row.id} className="gap-2 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800">
+                          <Trash2 className="h-4 w-4" />
+                          {tv("videoMgmtDeleteNow", uiLanguage)}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600" title={tv("videoMgmtShowOnMessePortal", uiLanguage)}>
+                          <Switch
+                            checked={row.show_on_messe_portal}
+                            disabled={savingMessePortalIds.has(row.id)}
+                            onCheckedChange={(checked) => void toggleMessePortal(row, checked)}
+                            aria-label={tv("videoMgmtShowOnMessePortal", uiLanguage)}
+                          />
+                          <span>{tv("videoMgmtMessePortal", uiLanguage)}</span>
+                        </label>
+                        <Button type="button" variant="outline" onClick={() => startEdit(row)} className="gap-2">
+                          <FilePenLine className="h-4 w-4" />
+                          {tv("edit", uiLanguage)}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => setArchiveCandidate(row)} className="gap-2 text-rose-700 hover:bg-rose-50 hover:text-rose-800" title={tv("videoMgmtMoveToTrash", uiLanguage)}>
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">{tv("videoMgmtMoveToTrash", uiLanguage)}</span>
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -407,6 +473,28 @@ export default function BackendVideoManagementPage() {
             <Button type="button" onClick={() => void persist(true)} disabled={saving}>
               {tv("videoMgmtReplacePrimary", uiLanguage)}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!archiveCandidate} onOpenChange={(open) => { if (!open) setArchiveCandidate(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{tv("videoMgmtTrashConfirmTitle", uiLanguage)}</DialogTitle></DialogHeader>
+          <p className="text-sm text-slate-600">{tv("videoMgmtTrashConfirmDescription", uiLanguage)}</p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setArchiveCandidate(null)} disabled={!!actioningVideoId}>{tv("cancel", uiLanguage)}</Button>
+            <Button type="button" onClick={() => void archiveVideo()} disabled={!!actioningVideoId} className="bg-rose-700 hover:bg-rose-800">{tv("videoMgmtMoveToTrash", uiLanguage)}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{tv("videoMgmtDeleteConfirmTitle", uiLanguage)}</DialogTitle></DialogHeader>
+          <p className="text-sm text-slate-600">{tv("videoMgmtDeleteConfirmDescription", uiLanguage)}</p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteCandidate(null)} disabled={!!actioningVideoId}>{tv("cancel", uiLanguage)}</Button>
+            <Button type="button" onClick={() => void permanentlyDeleteVideo()} disabled={!!actioningVideoId} className="bg-rose-700 hover:bg-rose-800">{tv("videoMgmtDeleteNow", uiLanguage)}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -539,13 +627,22 @@ function VideoEditorDialog(props: {
           <Button type="button" variant="outline" onClick={onCancel}>{tv("cancel", lang)}</Button>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => onSave("draft")} disabled={saving}>{tv("videoMgmtSaveDraft", lang)}</Button>
-            <Button type="button" variant="outline" onClick={() => onSave("archived")} disabled={saving} className="gap-2"><Archive className="h-4 w-4" />{tv("videoMgmtArchive", lang)}</Button>
             <Button type="button" onClick={() => onSave("published")} disabled={saving}>{tv("videoMgmtPublish", lang)}</Button>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatDeletionDeadline(value: string | null, lang: PortalUiLanguage): string {
+  if (!value) return tv("videoMgmtDeleteScheduled", lang);
+  const remaining = new Date(value).getTime() - Date.now();
+  if (remaining <= 0) return tv("videoMgmtDeleteDue", lang);
+  const totalMinutes = Math.ceil(remaining / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${tv("videoMgmtDeleteIn", lang)} ${hours} t. ${minutes} min.`;
 }
 
 function ProductCombobox(props: {

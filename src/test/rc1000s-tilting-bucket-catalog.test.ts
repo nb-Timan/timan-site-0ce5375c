@@ -7,7 +7,7 @@ describe('RC-1000s tilting bucket catalog entry', () => {
   it('is listed after the weed brush block and before other equipment', () => {
     const weedBrushIndex = accessories.findIndex(item => item.id === '730600');
     const bucketIndex = accessories.findIndex(item => item.id === '412050');
-    const otherEquipmentIndex = accessories.findIndex(item => item.sectionStart === 'Øvrigt Udstyr');
+    const otherEquipmentIndex = accessories.findIndex(item => item.sectionStart === 'otherEquipmentSection');
 
     expect(bucketIndex).toBeGreaterThan(weedBrushIndex);
     expect(bucketIndex).toBeLessThan(otherEquipmentIndex);

@@ -2,6 +2,7 @@ import type { PortalArea } from '@/lib/portalAreas';
 
 export const PORTAL_HOME_AREA_ORDER = [
   'salg_marketing',
+  'planning',
   'dealer_data',
   'timan_crm',
   'marketing',
@@ -19,6 +20,6 @@ export type PortalHomeCard =
   | { kind: 'messe'; id: 'messe' };
 
 export function sortPortalHomeCards<T extends PortalHomeCard>(cards: T[]): T[] {
-  const priority = new Map(PORTAL_HOME_AREA_ORDER.map((id, index) => [id, index]));
+  const priority = new Map<string, number>(PORTAL_HOME_AREA_ORDER.map((id, index) => [id, index]));
   return [...cards].sort((a, b) => (priority.get(a.id) ?? 999) - (priority.get(b.id) ?? 999));
 }

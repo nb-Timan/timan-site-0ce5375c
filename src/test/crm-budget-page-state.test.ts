@@ -68,10 +68,12 @@ vi.mock("@/lib/supabase", () => {
 import * as supabaseModule from "@/lib/supabase";
 import { ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import {
-  listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
+  listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct, orderDetailsForBudgetCell,
+  resolveBudgetOrderCurrency,
   BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR, canonicalBudgetProductKey,
   type BudgetLine, type SalesActual,
 } from "@/lib/crmBudgetService";
+import { formatLocalizedConvertedMoney, toDkk } from "@/lib/currency";
 
 const YEAR = 2025;
 const MAY_FISCAL_YEAR = YEAR - 1;
@@ -121,6 +123,17 @@ async function persistBudgetLine(productKey: string): Promise<BudgetLine> {
   });
 }
 
+describe("CRM Budget product metadata", () => {
+  it("renders Timan 2620 as an active machine with its canonical identity", () => {
+    expect(BUDGET_PRODUCTS.find(product => product.key === "Timan 2620")).toMatchObject({
+      name: "Timan 2620",
+      varenr: "563219",
+      category: "machine",
+      status: "available",
+    });
+  });
+});
+
 describe("CrmBudgetPage — order display is independent from budget_line_id", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -134,6 +147,42 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
     expect(rowOrderInMay(seedLineFor("RC-751"), actuals)).toBe(1);
     expect(rowOrderInMay(seedLineFor("RC-1000s"), actuals)).toBe(3);
+  });
+
+  it("normalizes mixed submitted-order currencies to DKK before Budget aggregation", async () => {
+    const da = makeOrder("ord-da", "RC-1000S", 1);
+    const de = makeOrder("ord-de", "RC-1000S", 1);
+    da.view.order_number = "O-DKK";
+    de.view.order_number = "O-EUR";
+    da.details.state_json.language = "da";
+    de.details.state_json.language = "de";
+    (da.view as Record<string, unknown>).currency = "DKK";
+    // Mirrors O-7019: the old column default says DKK while the frozen
+    // Configurator snapshot that owns its prices is German/EUR.
+    (de.view as Record<string, unknown>).currency = "DKK";
+    setOrders([da.view, de.view], [da.details, de.details]);
+
+    const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
+    const actual = actuals.find((row) => row.product_key === "RC-1000s")!;
+    const details = orderDetailsForBudgetCell(actuals, MAY_FISCAL_YEAR, "RC-1000s", MAY_IDX, null);
+    const dkk = details.find((detail) => detail.order_number === "O-DKK")!;
+    const eur = details.find((detail) => detail.order_number === "O-EUR")!;
+
+    expect(dkk.currency).toBe("DKK");
+    expect(eur.currency).toBe("EUR");
+    expect(actual.value_sold).toBeCloseTo(toDkk(dkk.order_total, dkk.currency) + toDkk(eur.order_total, eur.currency));
+    expect(actual.qty_sold).toBe(2);
+  });
+
+  it("uses the snapshot language for display conversion without changing the raw amount", () => {
+    const rawTotal = 247_476;
+    const sourceCurrency = resolveBudgetOrderCurrency("DKK", "de");
+
+    expect(sourceCurrency).toBe("EUR");
+    expect(formatLocalizedConvertedMoney(rawTotal, sourceCurrency, "EUR", "de")).toBe("247.476 €");
+    expect(formatLocalizedConvertedMoney(rawTotal, sourceCurrency, "EUR", "en")).toBe("€247,476");
+    expect(formatLocalizedConvertedMoney(rawTotal, sourceCurrency, "DKK", "da")).toBe("1.846.171 kr.");
+    expect(rawTotal).toBe(247_476);
   });
 
   it("after Budget + persists a new b_ id, order counts stay visible without rebinding", async () => {
@@ -189,6 +238,64 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", new Set([JTN.email]))[SEPTEMBER_IDX]).toBe(0);
   });
 
+  it("places O-7006 and every selected product in its requested delivery month", async () => {
+    const deliveryYear = 2026;
+    const augustIdx = 7;
+    const septemberIdx = 8;
+    const view = {
+      id: "o-7006", title: "Teichert - RC-1000S", order_number: "O-7006",
+      seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Teichert GmbH & Co. KG",
+      delivery_date: "2026-08-11",
+      order_sent_at: "2026-09-14T08:52:59.044Z", submitted_at: "2026-09-14T08:52:59.044Z",
+      created_at: "2026-09-14T08:52:56.477682Z",
+    };
+    const details = {
+      id: "o-7006", total_price: 235000,
+      state_json: {
+        language: "da", flowType: "order",
+        // O-7006 persists the display-cased model identifier. The budget
+        // reader must still resolve its selected equipment from the canonical
+        // Configurator catalog.
+        machineConfigs: [{ id: "rc", type: "RC-1000s", qty: 1, configMode: "shared", acc: ["410910"] }],
+        accQty: {},
+      },
+    };
+    setOrders([view], [details]);
+
+    const actuals = await listSalesActuals(deliveryYear);
+    const byKey = buildOrderActualsByKey(actuals);
+    const qty = (monthIdx: number, productKey: string) =>
+      byKey[orderActualKey(AKR.email, deliveryYear, monthIdx, productKey)] || 0;
+
+    expect(qty(augustIdx, "RC-1000s")).toBe(1);
+    expect(qty(augustIdx, "RC1000_410910")).toBe(1);
+    expect(qty(septemberIdx, "RC-1000s")).toBe(0);
+    expect(qty(septemberIdx, "RC1000_410910")).toBe(0);
+    expect(orderDetailsForBudgetCell(actuals, deliveryYear, "RC-1000s", augustIdx, null)
+      .map((detail) => detail.order_number)).toEqual(["O-7006"]);
+    expect(orderDetailsForBudgetCell(actuals, deliveryYear, "RC-1000s", septemberIdx, null)).toEqual([]);
+  });
+
+  it("uses the established sent/submitted/created fallback only when delivery is missing", async () => {
+    const view = {
+      id: "legacy-order", title: "RC-1000S", order_number: "O-legacy",
+      seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Legacy Dealer",
+      delivery_date: null, order_sent_at: `${YEAR}-09-14T08:52:59.044Z`,
+      submitted_at: `${YEAR}-09-14T08:52:59.044Z`, created_at: `${YEAR}-08-11T08:52:56.477682Z`,
+    };
+    const details = {
+      id: "legacy-order", total_price: 1,
+      state_json: { language: "da", flowType: "order", machineConfigs: [{ type: "RC-1000S", qty: 1 }] },
+    };
+    setOrders([view], [details]);
+
+    const actuals = await listSalesActuals(YEAR);
+    const byKey = buildOrderActualsByKey(actuals);
+    expect(byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, "RC-1000s")]).toBe(1);
+  });
+
   it("derives current canonical equipment rows for all three budget machines", () => {
     const itemNumbers = (machine: string) => new Set(EQUIPMENT_BY_MACHINE[machine].map((item) => item.varenr));
 
@@ -200,7 +307,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
 
     const allItemNumbers = new Set(Object.values(EQUIPMENT_BY_MACHINE).flat().map((item) => item.varenr));
     expect(BUDGET_EXCLUDED_EQUIPMENT_VARENR).toEqual(new Set([
-      "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "721059",
+      "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "795018", "721059",
       "712903", "725126", "712902", "725120", "725121", "712901",
       "50101017", "50101018", "50101019", "50101020",
       "411701", "412585", "411594", "412603", "712900",
@@ -297,8 +404,9 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
         .filter((item) => BUDGET_EXCLUDED_EQUIPMENT_VARENR.has(item.varenr))
         .map((item) => ({ machineType, itemNumber: item.varenr, itemId: item.id })),
     );
+    // 795002 is a generated per-machine demo surcharge, not a selectable accessory.
     expect(new Set(excludedSelections.map((selection) => selection.itemNumber)))
-      .toEqual(BUDGET_EXCLUDED_EQUIPMENT_VARENR);
+      .toEqual(new Set([...BUDGET_EXCLUDED_EQUIPMENT_VARENR].filter((itemNumber) => itemNumber !== "795002")));
 
     const view = {
       id: "excluded-equipment-order", order_number: "O-7997", seller_email: AKR.email, seller_initials: AKR.initials,

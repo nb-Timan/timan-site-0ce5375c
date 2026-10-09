@@ -1,7 +1,12 @@
-import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
+import { DEMO_FEE_ITEM_NUMBER, getAccessoriesFlat, getLocalizedName, getPriceForCurrency, PRODUCTS } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
-import type { ConfiguratorState, Language } from '@/types/configurator';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { convertCurrency } from '@/lib/currency';
+import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
+import { machinePurchaseReference } from '@/lib/orderPurchaseReferences';
+import { t as portalT } from '@/lib/i18n/translations';
+import type { ConfiguratorPricingSnapshot, ConfiguratorState, DiscountDetail, Language } from '@/types/configurator';
 
 export type AccountCaseStatusFilter = 'all' | 'active' | 'sent' | 'paused';
 
@@ -39,7 +44,7 @@ export interface AccountCaseSummary {
   sellerEmail: string;
   status: string;
   statusGroup: AccountCaseStatusFilter;
-  typeLabel: 'quote' | 'order';
+  typeLabel: 'case' | 'quote' | 'order';
   totalPrice: number;
   currencyLanguage: Language;
   deliveryDate: string | null;
@@ -48,12 +53,75 @@ export interface AccountCaseSummary {
 }
 
 export interface AccountCaseLine {
+  unitNumber?: number;
   itemNo: string;
   description: string;
   note: string;
+  purchaseReferences?: string[];
   unitPrice: number;
   quantity: number;
   total: number;
+}
+
+export interface AccountOrderDiscountRow {
+  label: string;
+  amount: number;
+}
+
+function completeHistoricalDiscountDetails(
+  snapshot: ConfiguratorPricingSnapshot | undefined,
+  totalDiscount: number,
+): DiscountDetail[] | null {
+  if (!Number.isFinite(totalDiscount) || totalDiscount < 0) return null;
+  const details = snapshot?.discountDetails?.filter(detail => Number.isFinite(detail.amount) && detail.amount >= 0);
+  if (!details?.length) return totalDiscount === 0 ? [] : null;
+  const detailSum = details.reduce((sum, detail) => sum + Math.round(detail.amount * 100), 0);
+  return Math.abs(detailSum - Math.round(totalDiscount * 100)) <= 2 ? details : null;
+}
+
+/** True only when the persisted components reconcile to the persisted total. */
+export function hasCompleteHistoricalDiscountBreakdown(
+  snapshot: ConfiguratorPricingSnapshot | undefined,
+  totalDiscount: number,
+): boolean {
+  return completeHistoricalDiscountDetails(snapshot, totalDiscount) !== null;
+}
+
+/** Present the submitted order's captured discounts; never infer historical discounts from today's rules. */
+export function buildAccountOrderDiscountRows(
+  snapshot: ConfiguratorPricingSnapshot | undefined,
+  totalDiscount: number,
+  language: string,
+): AccountOrderDiscountRow[] {
+  if (!Number.isFinite(totalDiscount) || totalDiscount < 0) return [];
+  const fallback = [{ label: portalT('accountOrderDiscount', language), amount: totalDiscount }];
+  const details = completeHistoricalDiscountDetails(snapshot, totalDiscount);
+  if (details === null) return totalDiscount > 0 ? fallback : [];
+  if (!details.length) return [];
+
+  const labelKeys: Record<NonNullable<DiscountDetail['kind']>, string> = {
+    demo: 'accountOrderDemoDiscount',
+    base: 'accountOrderBaseDiscount',
+    delivery: 'accountOrderDeliveryDiscount',
+    quantity: 'accountOrderQuantityDiscount',
+    dealer: 'accountOrderDealerDiscount',
+    campaign: 'accountOrderCampaignDiscount',
+    direct: 'accountOrderDirectDiscount',
+  };
+  const percent = (value: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(value);
+  const grouped = new Map<string, number>();
+  for (const detail of details) {
+    if (detail.amount === 0 && detail.kind !== 'base') continue;
+    const label = portalT(detail.kind ? labelKeys[detail.kind] : 'accountOrderDiscount', language);
+    const campaignCode = detail.kind === 'campaign'
+      ? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId && line.itemNumber === detail.varenr)?.campaignCode
+        ?? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId)?.campaignCode
+        ?? detail.txt.match(/\bK-[A-Za-z0-9-]+\b/)?.[0]
+      : undefined;
+    const display = `${label}${campaignCode ? `: ${campaignCode}` : ''}${Number.isFinite(detail.percent) ? ` (${percent(detail.percent!)} %)` : ''}`;
+    grouped.set(display, (grouped.get(display) ?? 0) + Math.round(detail.amount * 100));
+  }
+  return Array.from(grouped, ([label, cents]) => ({ label, amount: cents / 100 }));
 }
 
 function normalizeLang(language: string): Language {
@@ -66,19 +134,6 @@ function configurationModeLabel(mode: string, language: string): string {
     individual: { da: 'Individuelle valg', en: 'Individual choices', de: 'Individuelle Auswahl', it: 'Scelte individuali', hu: 'Egyedi választások', sv: 'Individuella val', fr: 'Choix individuels', pl: 'Wybory indywidualne', cs: 'Individuální volby' },
   };
   return labels[mode]?.[language] || labels[mode]?.[normalizeLang(language)] || mode;
-}
-
-function getSelectedAccessoryIds(state: ConfiguratorState, machineId: string): string[] {
-  const machine = state.machineConfigs.find((config) => config.id === machineId);
-  if (!machine) return [];
-  if (machine.configMode === 'shared') return machine.acc || [];
-
-  const ids = new Set<string>();
-  Object.entries(state.individualUnitConfigs || {}).forEach(([key, value]) => {
-    if (!key.startsWith(`${machineId}_`)) return;
-    (value?.acc || []).forEach((id) => ids.add(id));
-  });
-  return Array.from(ids);
 }
 
 function isAccountCaseSent(item: Pick<AccountCaseLike, 'case_status' | 'submitted_at' | 'order_sent_at'>): boolean {
@@ -116,7 +171,11 @@ export function buildAccountCaseSummary(item: AccountCaseLike, language: string)
     sellerEmail: item.seller_email || '-',
     status: isAccountCaseSent(item) ? 'ordre_afgivet' : item.case_status,
     statusGroup: getAccountCaseStatusGroup(item),
-    typeLabel: isAccountCaseSent(item) ? 'order' : item.case_type,
+    typeLabel: isAccountCaseSent(item)
+      ? 'order'
+      : item.quote_number
+        ? 'quote'
+        : 'case',
     totalPrice: totals.finalPrice,
     // Saved configurations retain their own commercial currency when the portal UI changes language.
     currencyLanguage: item.state_json.language || legacyLang,
@@ -152,41 +211,88 @@ export function buildAccountCaseLines(
   language: string,
   sourceLanguage: Language = state.language,
 ): AccountCaseLine[] {
+  if (hasFrozenConfiguratorPricing(state) && state.pricingSnapshot?.lines) {
+    return state.pricingSnapshot.lines.map(line => {
+      const reference = line.unitNumber ? machinePurchaseReference(state, line.unitNumber) : null;
+      return { ...line, purchaseReferences: reference ? [reference] : [] };
+    });
+  }
   const legacyLang = normalizeLang(language);
+  const frozen = hasFrozenConfiguratorPricing(state);
+  const currency = configuratorCurrency(state);
   const lines: AccountCaseLine[] = [];
+  let machineUnitNumber = 0;
 
   state.machineConfigs.forEach((machine) => {
     const product = PRODUCTS[machine.type];
-    const quantity = Math.max(1, machine.qty || 1);
-    const unitPrice = product ? getPrice(product, sourceLanguage) : 0;
+    const quantity = Math.max(0, machine.qty || 0);
+    const unitPrice = product
+      ? snapshotMachinePrice(state, machine.type, frozen ? Number.NaN : getPriceForCurrency(product, currency))
+      : Number.NaN;
+    for (let unit = 1; unit <= quantity; unit += 1) {
+      machineUnitNumber += 1;
+      const reference = machinePurchaseReference(state, machineUnitNumber);
+      const purchaseReferences = reference ? [reference] : [];
+      const configKey = machine.configMode === 'shared' ? machine.id : `${machine.id}_${unit}`;
 
-    lines.push({
-      itemNo: product?.varenr || machine.type,
-      description: product ? getLocalizedName(product.name, legacyLang) : machine.type,
-      note: configurationModeLabel(machine.configMode, language),
-      unitPrice,
-      quantity,
-      total: unitPrice * quantity,
-    });
-
-    const selectedIds = getSelectedAccessoryIds(state, machine.id);
-    const accessories = getAccessoriesFlat(machine.type)
-      .filter((accessory) => selectedIds.includes(accessory.id) && !accessory.isHeader);
-
-    accessories.forEach((accessory) => {
-      const qtyKey = `${machine.id}_${accessory.id}`;
-      const qty = Math.max(1, state.accQty?.[qtyKey] || 1);
-      const accessoryPrice = getPrice(accessory, sourceLanguage);
       lines.push({
-        itemNo: String(accessory.varenr || accessory.id),
-        description: getLocalizedName(accessory.name, legacyLang),
-        note: machine.type,
-        unitPrice: accessoryPrice,
-        quantity: qty,
-        total: accessoryPrice * qty,
+        unitNumber: machineUnitNumber,
+        itemNo: product?.varenr || machine.type,
+        description: product ? snapshotProductName(state, product.varenr, getLocalizedName(product.name, legacyLang)) : machine.type,
+        note: configurationModeLabel(machine.configMode, language),
+        purchaseReferences,
+        unitPrice,
+        quantity: 1,
+        total: unitPrice,
       });
-    });
+
+      // Ignore stale unit drafts beyond the saved machine quantity (e.g. m0_2).
+      const selectedIds = machine.configMode === 'shared'
+        ? machine.acc ?? []
+        : state.individualUnitConfigs?.[configKey]?.acc ?? [];
+      const accessories = getAccessoriesFlat(machine.type)
+        .filter((accessory) => !accessory.isHeader && (selectedIds.includes(accessory.id)
+          || shouldIncludeQuantityAccessory(machine.type, accessory, selectedIds, state.accQty?.[`${configKey}_${accessory.id}`] ?? 0)));
+
+      accessories.forEach((accessory) => {
+        const qtyKey = `${configKey}_${accessory.id}`;
+        const qty = Math.max(1, state.accQty?.[qtyKey] || 1);
+        const accessoryPrice = snapshotAccessoryPrice(
+          state,
+          machine.type,
+          accessory,
+          frozen ? Number.NaN : getPriceForCurrency(accessory, currency),
+        );
+        lines.push({
+          unitNumber: machineUnitNumber,
+          itemNo: String(accessory.varenr || accessory.id),
+          description: snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, legacyLang)),
+          note: machine.type,
+          purchaseReferences,
+          unitPrice: accessoryPrice,
+          quantity: qty,
+          total: accessoryPrice * qty,
+        });
+      });
+      if (state.demoMachines?.[`${product?.varenr}_${machineUnitNumber}`]) {
+        const fee = snapshotDemoFee(state, currency);
+        const itemNo = frozen ? 'DEMO' : DEMO_FEE_ITEM_NUMBER;
+        const fallbackDescription = sourceLanguage === 'da' ? 'Demo maskine' : sourceLanguage === 'de' ? 'Demo-Maschine' : 'Demo machine';
+        const description = frozen ? 'Demo' : snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, fallbackDescription);
+        lines.push({ unitNumber: machineUnitNumber, itemNo, description, note: machine.type, purchaseReferences, unitPrice: fee, quantity: 1, total: fee });
+      }
+    }
   });
+
+  if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
+    const option = state.deliveryDeliverStartup;
+    const dkkFallback = option === 'no_bridge' ? 1500 : option === 'with_bridge' ? 2500 : 0;
+    const fallback = currency === 'DKK' ? dkkFallback
+      : currency === 'EUR' ? (option === 'no_bridge' ? 200 : option === 'with_bridge' ? 335 : 0)
+        : convertCurrency(dkkFallback, 'DKK', 'SEK');
+    const price = snapshotStartupPrice(state, currency, option, frozen ? Number.NaN : fallback);
+    lines.push({ itemNo: '795050', description: 'Levering / opstart', note: option, unitPrice: price, quantity: 1, total: price });
+  }
 
   return lines;
 }

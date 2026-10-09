@@ -1,6 +1,12 @@
-import type { CalcResult, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
-import { formatMoney } from "@/data/machines";
-import { getPaymentTermsLabel, resolvePaymentTerms } from "@/lib/paymentTerms";
+import type { CalcResult, ConfiguratorLocale, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
+import { formatMoney } from "@/lib/currency";
+import { configuratorCurrency } from "@/lib/configuratorPricing";
+import { formatDiscountDetailLabel } from "@/lib/calcConfiguration";
+import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
+import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
+import { commonMachineDeliveryDate, machineDeliveryDate, productDeliveryUnits, productDeliveryDate, deliveryDestinationSections } from "@/lib/configuratorDelivery";
+import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from "@/lib/configuratorLinePresentation";
+import { timanCompanyLegalLine } from "../../supabase/functions/_shared/timanCompanyProfile";
 
 type ConfiguratorPdfFlowType = "quote" | "order";
 
@@ -17,8 +23,9 @@ type BuildConfiguratorPdfInput = {
   quoteNumber?: string | null;
   orderNumber?: string | null;
   sourceQuoteNumber?: string | null;
+  revisionNumber?: number;
   showPrices: boolean;
-  uiLanguage: Language;
+  uiLanguage: ConfiguratorLocale;
   contentLanguage: Language;
   T: (key: string) => string;
   TC: (key: string) => string;
@@ -32,6 +39,8 @@ type MachinePdfSection = {
   title: string;
   rows: LineItem[];
   subtotal?: LineItem;
+  purchaseReference?: string | null;
+  deliveryDate?: string | null;
 };
 
 const PAGE = {
@@ -70,8 +79,8 @@ function setColor(pdf: any, kind: "text" | "draw" | "fill", color: readonly numb
   if (kind === "fill") pdf.setFillColor(color[0], color[1], color[2]);
 }
 
-function money(value: number, language: Language, showPrices: boolean): string {
-  return showPrices ? formatMoney(value, language) : "-";
+function money(value: number, state: ConfiguratorState, showPrices: boolean): string {
+  return showPrices ? formatMoney(value, configuratorCurrency(state)) : "-";
 }
 
 function formatDate(value: string | undefined, language: Language): string {
@@ -99,6 +108,17 @@ function today(language: Language): string {
   return new Date().toLocaleDateString(localeByLang[language] ?? "en-GB");
 }
 
+function purchaseOrderLabel(language: Language): string {
+  const labels: Partial<Record<Language, string>> = {
+    da: 'Rekvisitionsnr. / PO nr.',
+    en: 'Requisition / PO no.',
+    de: 'Bestellreferenz / PO-Nr.',
+    it: 'Riferimento ordine / n. PO',
+    hu: 'Beszerzési / PO-szám',
+  };
+  return labels[language] ?? labels.en!;
+}
+
 function cleanMachineTitle(text: string): string {
   const match = text.match(/\(([^)]+)\)\s*$/);
   return match?.[1]?.trim() || text.replace(/^[-\s]+/, "").trim();
@@ -112,15 +132,18 @@ function plainText(text: string): string {
     .trim();
 }
 
-function groupMachineSections(lineItems: LineItem[]): MachinePdfSection[] {
+function groupMachineSections(lineItems: LineItem[], state: ConfiguratorState): MachinePdfSection[] {
   const sections: MachinePdfSection[] = [];
   let current: MachinePdfSection | null = null;
+  const commonDelivery = commonMachineDeliveryDate(state);
 
   for (const item of lineItems) {
     if (item.bold && item.isMachine) {
       current = {
         title: `${item.txt.replace(/\s*\([^)]*\)\s*$/, "")} - ${cleanMachineTitle(item.txt)}`,
         rows: [{ ...item, txt: cleanMachineTitle(item.txt) }],
+        purchaseReference: item.index ? machinePurchaseReference(state, item.index) : null,
+        deliveryDate: !commonDelivery && item.index ? machineDeliveryDate(state, item.index) : null,
       };
       sections.push(current);
       continue;
@@ -171,7 +194,7 @@ function addFooters(pdf: any) {
     setColor(pdf, "text", COLORS.muted);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
-    pdf.text("Timan A/S · Fabriksvej 13 · 6980 Tim · Danmark", PAGE.marginX, 287);
+    pdf.text(timanCompanyLegalLine(), PAGE.marginX, 287);
     pdf.text(`Side ${page} af ${pageCount}`, PAGE.width - PAGE.marginX, 287, { align: "right" });
   }
 }
@@ -183,7 +206,7 @@ function ensureSpace(pdf: any, y: number, needed: number, onNewPage?: () => numb
   return typeof nextY === "number" ? nextY : 34;
 }
 
-function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, string | null | undefined]>, y: number): number {
+function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, string | null | undefined]>, y: number, wrapValues = false): number {
   const visible = items.filter(([, value]) => String(value ?? "").trim());
   if (visible.length === 0) return y;
 
@@ -195,6 +218,39 @@ function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, strin
   y += 5;
 
   const colW = (PAGE.width - PAGE.marginX * 2 - 6) / 2;
+  if (wrapValues) {
+    // New delivery snapshots retain all address/note lines, including page continuations.
+    for (let index = 0; index < visible.length; index += 2) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.8);
+      const cells = visible.slice(index, index + 2).map(([label, value]) => ({
+        label, lines: pdf.splitTextToSize(String(value), colW - 4) as string[],
+      }));
+      const lineCount = Math.max(...cells.map(cell => cell.lines.length));
+      for (let offset = 0; offset < lineCount; offset += 62) {
+        const chunks = cells.map(cell => ({ ...cell, lines: cell.lines.slice(offset, offset + 62) }));
+        const height = 4.5 + Math.max(...chunks.map(cell => cell.lines.length)) * 3.5;
+        y = ensureSpace(pdf, y, height + 2);
+        chunks.forEach(({ label, lines }, col) => {
+          if (!lines.length) return;
+          const x = PAGE.marginX + col * (colW + 6);
+          setColor(pdf, "fill", COLORS.softGray);
+          setColor(pdf, "draw", COLORS.border);
+          pdf.roundedRect(x, y, colW, height, 1.5, 1.5, "FD");
+          setColor(pdf, "text", COLORS.muted);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(6.8);
+          pdf.text(label.toUpperCase(), x + 2, y + 3);
+          setColor(pdf, "text", COLORS.text);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(7.8);
+          lines.forEach((line, lineIndex) => pdf.text(line, x + 2, y + 6.5 + lineIndex * 3.5));
+        });
+        y += height + 2;
+      }
+    }
+    return y + 6;
+  }
   const rowH = 10;
   visible.forEach(([label, value], index) => {
     const col = index % 2;
@@ -218,9 +274,15 @@ function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, strin
   return y + Math.ceil(visible.length / 2) * rowH + 6;
 }
 
-function drawTableHeader(pdf: any, y: number, labels: { itemNo: string; description: string; price: string }) {
+type LineTableLabels = { itemNo: string; description: string; quantity: string; unitPrice: string; total: string };
+
+function drawTableHeader(pdf: any, y: number, labels: LineTableLabels) {
   const left = PAGE.marginX;
   const width = PAGE.width - PAGE.marginX * 2;
+  const itemNoW = 23;
+  const descriptionW = 83;
+  const quantityW = 14;
+  const unitPriceW = 28;
   setColor(pdf, "fill", COLORS.greenPale);
   setColor(pdf, "draw", COLORS.green);
   pdf.roundedRect(left, y, width, 8, 1.5, 1.5, "FD");
@@ -228,8 +290,10 @@ function drawTableHeader(pdf: any, y: number, labels: { itemNo: string; descript
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(7.5);
   pdf.text(labels.itemNo, left + 2, y + 5.2);
-  pdf.text(labels.description, left + 28, y + 5.2);
-  pdf.text(labels.price, left + width - 2, y + 5.2, { align: "right" });
+  pdf.text(labels.description, left + itemNoW + 2, y + 5.2);
+  pdf.text(labels.quantity, left + itemNoW + descriptionW + quantityW - 2, y + 5.2, { align: "right" });
+  pdf.text(labels.unitPrice, left + itemNoW + descriptionW + quantityW + unitPriceW - 2, y + 5.2, { align: "right" });
+  pdf.text(labels.total, left + width - 2, y + 5.2, { align: "right" });
 }
 
 function drawLineRow(
@@ -240,10 +304,12 @@ function drawLineRow(
 ): number {
   const left = PAGE.marginX;
   const width = PAGE.width - PAGE.marginX * 2;
-  const itemNoW = 24;
-  const priceW = 34;
-  const descW = width - itemNoW - priceW - 6;
-  const description = `${plainText(item.txt)}${item.isAutoAdded ? ` (${input.TC("autoAdded")})` : ""}`;
+  const itemNoW = 23;
+  const descriptionW = 83;
+  const quantityW = 14;
+  const unitPriceW = 28;
+  const descW = descriptionW - 4;
+  const description = `${plainText(configuratorLineDescription(item))}${item.isAutoAdded ? ` (${input.TC("autoAdded")})` : ""}`;
   const descLines = pdf.splitTextToSize(description, descW);
   const rowH = Math.max(7, descLines.length * 4.2 + 3);
 
@@ -251,7 +317,9 @@ function drawLineRow(
     drawTableHeader(pdf, 34, {
       itemNo: input.TC("pdfItemNo"),
       description: input.TC("confirmDescription"),
-      price: input.TC("pdfPrice"),
+      quantity: input.TC("pdfQuantity"),
+      unitPrice: input.TC("pdfUnitPrice"),
+      total: input.TC("pdfLineTotal"),
     });
     return 44;
   });
@@ -264,7 +332,9 @@ function drawLineRow(
   pdf.setFontSize(item.bold ? 8 : 7.5);
   pdf.text(item.varenr || "-", left + 2, y + 5);
   pdf.text(descLines, left + itemNoW + 3, y + 5);
-  pdf.text(money(item.price, input.uiLanguage, input.showPrices), left + width - 2, y + 5, { align: "right" });
+  pdf.text(String(configuratorLineQuantity(item)), left + itemNoW + descriptionW + quantityW - 2, y + 5, { align: "right" });
+  pdf.text(money(configuratorLineUnitPrice(item), input.state, input.showPrices), left + itemNoW + descriptionW + quantityW + unitPriceW - 2, y + 5, { align: "right" });
+  pdf.text(money(item.price, input.state, input.showPrices), left + width - 2, y + 5, { align: "right" });
   return y + rowH;
 }
 
@@ -272,16 +342,34 @@ function drawMachineSection(
   pdf: any,
   section: MachinePdfSection,
   y: number,
-  input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "showPrices" | "TC">,
+  input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "contentLanguage" | "showPrices" | "TC">,
 ): number {
-  y = ensureSpace(pdf, y, 24);
+  y = ensureSpace(pdf, y, section.purchaseReference || section.deliveryDate ? 34 : 24);
   setColor(pdf, "text", COLORS.text);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
   pdf.text(section.title, PAGE.marginX, y);
   y += 5;
+  if (section.purchaseReference) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.text(`${purchaseOrderLabel(input.contentLanguage)}: ${section.purchaseReference}`, PAGE.marginX, y);
+    y += 4.5;
+  }
+  if (section.deliveryDate) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.text(`${input.TC("confirmDelivery").replace(":", "")}: ${formatDate(section.deliveryDate, input.contentLanguage)}`, PAGE.marginX, y);
+    y += 4.5;
+  }
 
-  const labels = { itemNo: input.TC("pdfItemNo"), description: input.TC("confirmDescription"), price: input.TC("pdfPrice") };
+  const labels = {
+    itemNo: input.TC("pdfItemNo"),
+    description: input.TC("confirmDescription"),
+    quantity: input.TC("pdfQuantity"),
+    unitPrice: input.TC("pdfUnitPrice"),
+    total: input.TC("pdfLineTotal"),
+  };
   drawTableHeader(pdf, y, labels);
   y += 9;
   section.rows.forEach((row) => {
@@ -297,7 +385,7 @@ function drawMachineSection(
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
     pdf.text(subtotalLabelLines, subtotalColumns.labelRightX, y + 5, { align: "right" });
-    pdf.text(money(section.subtotal.price, input.uiLanguage, input.showPrices), subtotalColumns.amountRightX, y + 5, { align: "right" });
+    pdf.text(money(section.subtotal.price, input.state, input.showPrices), subtotalColumns.amountRightX, y + 5, { align: "right" });
     y += subtotalHeight + 2;
   }
 
@@ -309,25 +397,26 @@ function drawPriceSummary(
   calc: CalcResult,
   discounts: DiscountDetail[],
   y: number,
-  input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "showPrices" | "TC">,
+  input: Pick<BuildConfiguratorPdfInput, "state" | "uiLanguage" | "showPrices" | "TC">,
 ): number {
   const lines: Array<{ label: string; value: string; red?: boolean; bold?: boolean; large?: boolean }> = [
-    { label: input.TC("confirmSubtotal"), value: money(calc.subtotal, input.uiLanguage, input.showPrices) },
+    { label: input.TC(input.state.pricingMode === 'direct' ? "directNetPrice" : "confirmSubtotal"), value: money(calc.subtotal - (calc.nettoTotal ?? 0), input.state, input.showPrices) },
     ...discounts.filter((d) => d.amount > 0).map((d) => ({
-      label: d.varenr ? `${d.txt} (${d.varenr})` : d.txt,
-      value: `-${money(d.amount, input.uiLanguage, input.showPrices)}`,
+      label: formatDiscountDetailLabel(d, true, input.uiLanguage),
+      value: `-${money(d.amount, input.state, input.showPrices)}`,
       red: true,
     })),
   ];
   if (calc.totalDiscount > 0) {
     lines.push({
       label: `${input.TC("confirmTotalDiscount")} (${calc.totalPct.toFixed(2).replace(".", ",")}%)`,
-      value: `-${money(calc.totalDiscount, input.uiLanguage, input.showPrices)}`,
+      value: `-${money(calc.totalDiscount, input.state, input.showPrices)}`,
       red: true,
       bold: true,
     });
   }
-  lines.push({ label: input.TC("confirmTotal"), value: money(calc.currentPrice, input.uiLanguage, input.showPrices), bold: true, large: true });
+  if (calc.nettoTotal) lines.push({ label: input.TC("nettoProducts"), value: money(calc.nettoTotal, input.state, input.showPrices) });
+  lines.push({ label: input.TC("confirmTotal"), value: money(calc.currentPrice, input.state, input.showPrices), bold: true, large: true });
 
   y = ensureSpace(pdf, y, 16 + lines.length * 7);
   const boxW = 92;
@@ -372,23 +461,31 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
   const pdf = new input.jsPDF("p", "mm", "a4");
   const title = input.flowType === "quote" ? input.TC("quoteRequestTitle") : input.TC("orderRequestTitle");
   const ref = input.flowType === "order" ? input.orderNumber || "" : input.quoteNumber || "";
-  addHeader(pdf, title, ref);
+  addHeader(pdf, title, `${ref}${input.revisionNumber ? ` / Revision ${input.revisionNumber}` : ''}`);
 
   let y = 36;
   const deliveryMethodText = input.state.deliveryMethod ? input.TC(input.state.deliveryMethod) : "-";
+  const commonDeliveryDate = commonMachineDeliveryDate(input.state);
+  const deliveryDateText = commonDeliveryDate
+    ? formatDate(commonDeliveryDate, input.contentLanguage)
+    : input.TC("multipleDeliveryDates");
+  const purchaseReferences = orderPurchaseReferenceSummary(input.state);
   const metadata: Array<[string, string | null | undefined]> = input.flowType === "quote"
     ? [
         [input.TC("pdfQuoteNo"), input.quoteNumber || "-"],
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
         [input.TC("pdfValidUntil"), "-"],
         [input.TC("deliveryMethod"), deliveryMethodText],
-        [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
+        [input.TC("confirmDelivery").replace(":", ""), deliveryDateText],
       ]
     : [
         input.orderNumber ? [input.TC("pdfOrderNo"), input.orderNumber] : ["", ""],
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
-        [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
+        [input.TC("confirmDelivery").replace(":", ""), deliveryDateText],
         [input.TC("deliveryMethod"), deliveryMethodText],
+        purchaseReferences.headerValue
+          ? [purchaseOrderLabel(input.contentLanguage), purchaseReferences.headerValue]
+          : ["", ""],
         input.sourceQuoteNumber ? [input.TC("pdfQuoteNo"), input.sourceQuoteNumber] : ["", ""],
       ];
 
@@ -399,19 +496,71 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     [input.TC("confirmPhone").replace(":", ""), input.state.telefon || "-"],
     [input.TC("confirmEmailSender").replace(":", ""), input.state.email || "-"],
     [input.TC("confirmEmailRecipient").replace(":", ""), (input.state.emailRecipient || "").split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean).join(", ") || "-"],
+    [input.TC("deliveryAddressLine"), [input.state.address, [input.state.postalCode, input.state.city].filter(Boolean).join(" "), input.state.country].filter(Boolean).join(", ")],
     input.state.comment ? [input.TC("confirmComment").replace(":", ""), input.state.comment] : ["", ""],
   ], y);
 
-  const sections = groupMachineSections(input.calcResult.lineItems);
+  if (input.state.salesChannel === 'sales_stock_demo' && input.state.salesStockAssets?.length) {
+    const sourceLabels: Record<Language, string> = {
+      da: 'Salgslager / Demo',
+      en: 'Sales stock / Demo',
+      de: 'Verkaufslager / Demo',
+      it: 'Stock vendita / Demo',
+      hu: 'Értékesítési készlet / Demo',
+    };
+    for (const [index, asset] of input.state.salesStockAssets.entries()) {
+      const pricingValue = asset.pricingMethod === 'adjusted_base'
+        ? `Nedskrevet grundpris: ${formatMoney(asset.adjustedBasePrice ?? asset.originalListPrice, asset.pricingCurrency)}`
+        : `Salgslager-/demo-rabat: ${asset.salesStockDiscountPct ?? 0}%`;
+      y = drawLabelValueGrid(pdf, `${sourceLabels[input.contentLanguage]} ${index + 1}`, [
+        ['Varenr.', asset.itemNumber],
+        ['Beskrivelse', asset.itemText],
+        ['Serienr.', asset.serialNumber || '-'],
+        ['Brik nr.', asset.brikNumber == null ? '-' : String(asset.brikNumber)],
+        ['Lager / konto', `${asset.warehouseLocationCode} / ${asset.accountNumber || '-'}`],
+        ['Kildeordre', asset.sourceOrderNumber || '-'],
+        ['Canonical list price', formatMoney(asset.originalListPrice, asset.pricingCurrency)],
+        ['Prisgrundlag', pricingValue],
+        ['Årsag / note', asset.pricingReason || '-'],
+      ], y, index > 0);
+    }
+  }
+
+  for (const { unit, destination: deliveryDestination } of deliveryDestinationSections(input.state)) {
+    const deliveryAddressText = [deliveryDestination.address, [deliveryDestination.postalCode, deliveryDestination.city].filter(Boolean).join(" "), deliveryDestination.country].filter(Boolean).join(", ");
+    if (deliveryAddressText || (deliveryDestination.source === "alternative" && (deliveryDestination.contactPerson || deliveryDestination.phone || deliveryDestination.note))) {
+      const title = unit ? `${input.TC("deliveryAddressSection")} – ${input.TC("machineLabel")} ${unit.unitNumber} – ${unit.machineType}` : input.TC("deliveryAddressSection");
+      y = drawLabelValueGrid(pdf, title, [
+        [input.TC("deliveryAddressSource"), input.TC(deliveryDestination.source === "customer" ? "sameAsCustomerAddress" : deliveryDestination.source === "dealer" ? "useDealerDeliveryAddress" : "enterDeliveryAddress")],
+        [input.TC("deliveryAddressLine"), deliveryAddressText],
+        deliveryDestination.contactPerson ? [input.TC("deliveryContactPerson"), deliveryDestination.contactPerson] : ["", ""],
+        deliveryDestination.phone ? [input.TC("deliveryPhone"), deliveryDestination.phone] : ["", ""],
+        deliveryDestination.note ? [input.TC("deliveryNote"), deliveryDestination.note] : ["", ""],
+      ], y, unit !== null);
+    }
+  }
+
+  const sections = groupMachineSections(input.calcResult.lineItems.filter(line => !line.isNetto), input.state);
   sections.forEach((section) => {
     y = drawMachineSection(pdf, section, y, input);
   });
+  const nettoLines = input.calcResult.lineItems.filter(line => line.isNetto);
+  if (nettoLines.length) y = drawMachineSection(pdf, { title: input.TC('nettoProducts'), rows: nettoLines }, y, input);
+
+  const productDates = productDeliveryUnits(input.state);
+  const splitGroups = new Map<string, typeof productDates>();
+  for (const unit of productDates) splitGroups.set(unit.groupKey, [...(splitGroups.get(unit.groupKey) ?? []), unit]);
+  for (const units of splitGroups.values()) {
+    if (!units.some(unit => input.state.machineDeliveryDates?.[unit.key])) continue;
+    y = drawLabelValueGrid(pdf, `${input.TC('deliveryDate')} - ${units[0].name} (${units[0].itemNumber})`,
+      units.map(unit => [`${input.TC('pdfQuantity')} ${unit.ordinal}`, formatDate(productDeliveryDate(input.state, unit), input.contentLanguage)]), y);
+  }
 
   y = drawPriceSummary(pdf, input.calcResult, input.calcResult.discountDetails, y, input);
 
   const terms = [
-    `${getPaymentTermsLabel(input.contentLanguage)}: ${resolvePaymentTerms(input.state.paymentTerms)}`,
-    `${input.TC("confirmDelivery")} ${formatDate(input.state.date, input.contentLanguage)}`,
+    `${getPaymentTermsLabel(input.contentLanguage)}: ${getPaymentTermsDocumentValue(input.state.paymentTerms)}`,
+    `${input.TC("confirmDelivery")} ${deliveryDateText}`,
     `${input.TC("deliveryMethod")}: ${deliveryMethodText}`,
     input.TC("confirmExVat"),
   ].join("\n");
@@ -431,11 +580,12 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
 export function buildConfiguratorPdfFilename(input: {
   flowType: ConfiguratorPdfFlowType;
   refNumber?: string | null;
+  revisionNumber?: number;
   date?: Date;
   T: (key: string) => string;
 }): string {
   const pdfTitle = input.flowType === "quote" ? input.T("quote") : input.T("order");
-  const refSuffix = input.refNumber ? `_${input.refNumber}` : "";
+  const refSuffix = (input.refNumber ? `_${input.refNumber}` : "") + (input.revisionNumber ? `_Revision_${input.revisionNumber}` : '');
   const date = (input.date ?? new Date()).toISOString().slice(0, 10);
   return `Timan_${pdfTitle}${refSuffix}_${date}.pdf`;
 }

@@ -5,6 +5,7 @@ import {
   addCalendarMonths,
   getDemoLifecycle,
   getDemoOverviewMachines,
+  mapRegistryMachineToDealerRow,
   reconcileDealerMachineRows,
 } from "@/lib/dealerMachineRegisterService";
 
@@ -90,6 +91,28 @@ describe("dealer machine register", () => {
     });
     expect(status.lifecycle).toBe("sold_early");
     expect(status.daysSoldEarly).toBe(61);
+  });
+
+  it("preserves canonical demo lifecycle when paged registry rows are mapped", () => {
+    const row = mapRegistryMachineToDealerRow({
+      serial: "RC-DEMO-1",
+      normalizedSerial: "RCDEMO1",
+      machineModel: "RC-1000s",
+      dealerName: "Foras GmbH Zeven",
+      dealerNumber: "1000",
+      customerName: null,
+      deliveryDate: "2026-01-01",
+      latestActivityDate: "2026-08-01T00:00:00.000Z",
+      warrantyId: "SP-101",
+      warrantyType: "normal",
+      isDemo: true,
+      hasExtendedWarranty: true,
+    } as Parameters<typeof mapRegistryMachineToDealerRow>[0]);
+
+    expect(row.machineKind).toBe("demo");
+    expect(row.lifecycle).toBe("sold_early");
+    expect(row.daysSoldEarly).toBe(61);
+    expect(row.hasExtendedWarranty).toBe(true);
   });
 
   it("dedupes machines and warranties by serial number", () => {

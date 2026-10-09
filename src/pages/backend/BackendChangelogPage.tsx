@@ -3,7 +3,7 @@
  *
  * Internal product changelog editor. This is separate from News CMS.
  */
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Archive, CheckCircle2, FilePenLine, Layers, RotateCcw, Send, Sparkles, Undo2 } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
@@ -22,6 +22,8 @@ import {
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
   getPublishedFeatureContent,
+  isCoherentSiteFeatureGroup,
+  localizedContentFromDraft,
   missingSiteChangeLanguages,
   recommendPublication,
   syncSiteChangesFromGitHub,
@@ -34,11 +36,11 @@ import {
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from "@/lib/portalLanguages";
 
 const MODULES = [
-  "all", "crm", "leads", "dealer_portal", "dealer_data", "service",
+  "all", "sales", "crm", "leads", "dealer_portal", "dealer_data", "service", "ai_support", "academy",
   "messe", "marketing", "map", "warranty", "claims", "tsb",
-  "users", "budget", "quotes", "orders", "backend",
+  "users", "budget", "quotes", "orders", "backend", "general",
 ] as const;
-const TYPES = ["all", "feature", "improvement", "bugfix", "security", "performance", "backend", "data", "ui_ux", "integration"] as const;
+const TYPES = ["all", "feature", "improvement", "campaign", "bugfix", "technical", "security", "performance", "backend", "data", "ui_ux", "integration"] as const;
 const ROLES = [
   "all",
   "timan_backend",
@@ -88,7 +90,7 @@ const REC_LABEL_KEY: Record<SiteChangeRecommendation | "all", SiteFeatureI18nKey
   internal: "siteFeaturesRecInternal",
 };
 
-const MODULE_LABEL_KEY: Record<(typeof MODULES)[number], SiteFeatureI18nKey> = {
+const MODULE_LABEL_KEY: Partial<Record<(typeof MODULES)[number], SiteFeatureI18nKey>> = {
   all: "siteFeaturesAllModules",
   crm: "siteFeaturesModuleCrm",
   leads: "siteFeaturesModuleLeads",
@@ -119,6 +121,15 @@ const TYPE_LABEL_KEY: Record<(typeof TYPES)[number], SiteFeatureI18nKey> = {
   data: "siteFeaturesTypeData",
   ui_ux: "siteFeaturesTypeUiUx",
   integration: "siteFeaturesTypeIntegration",
+  campaign: "siteFeaturesTypeCampaign",
+  technical: "siteFeaturesTypeTechnical",
+};
+
+const CANONICAL_AREA_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> = {
+  sales: { da: "Salg", en: "Sales", de: "Vertrieb", it: "Vendite", hu: "Értékesítés", sv: "Försäljning", fr: "Ventes", pl: "Sprzedaż", cs: "Prodej" },
+  ai_support: { da: "AI Support", en: "AI Support", de: "AI Support", it: "AI Support", hu: "AI Support", sv: "AI Support", fr: "AI Support", pl: "AI Support", cs: "AI Support" },
+  academy: { da: "Academy", en: "Academy", de: "Academy", it: "Academy", hu: "Academy", sv: "Academy", fr: "Academy", pl: "Academy", cs: "Academy" },
+  general: { da: "Generelt", en: "General", de: "Allgemein", it: "Generale", hu: "Általános", sv: "Allmänt", fr: "Général", pl: "Ogólne", cs: "Obecné" },
 };
 
 const DATE_LOCALE: Record<PortalUiLanguage, string> = {
@@ -167,7 +178,7 @@ function recommendationLabel(recommendation: SiteChangeRecommendation | "all", l
 
 function moduleLabel(module: string, lang: PortalUiLanguage): string {
   const key = MODULE_LABEL_KEY[module as (typeof MODULES)[number]];
-  return key ? t(key, lang) : module;
+  return key ? t(key, lang) : CANONICAL_AREA_LABELS[module]?.[lang] || CANONICAL_AREA_LABELS[module]?.en || module;
 }
 
 function changeTypeLabel(changeType: string, lang: PortalUiLanguage): string {
@@ -186,12 +197,6 @@ function statusClass(status: SiteChangeStatus) {
   if (status === "published") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   if (status === "archived") return "bg-slate-100 text-slate-500 ring-slate-200";
   if (status === "new") return "bg-sky-50 text-sky-700 ring-sky-200";
-  return "bg-amber-50 text-amber-700 ring-amber-200";
-}
-
-function recommendationClass(rec: SiteChangeRecommendation) {
-  if (rec === "publish") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  if (rec === "internal") return "bg-slate-100 text-slate-600 ring-slate-200";
   return "bg-amber-50 text-amber-700 ring-amber-200";
 }
 
@@ -225,7 +230,7 @@ function emptyDraft(): ChangelogDraft {
 }
 
 function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
-  return {
+  const draft: ChangelogDraft = {
     source: row.source,
     source_ref: row.source_ref || "",
     implemented_at: row.implemented_at,
@@ -251,6 +256,39 @@ function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
     group_suggestion_status: row.group_suggestion_status,
     grouped_at: row.grouped_at,
   };
+  // Editing starts from the exact public copy currently shown in the preview,
+  // including generated copy for GitHub-imported changes.
+  return { ...draft, localized_content: localizedContentFromDraft(draft) };
+}
+
+function publicationPreview(description: string): { summary: string; bullets: string[] } {
+  const lines = description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const bullets = lines
+    .filter((line) => /^(?:[•*-])\s+/.test(line))
+    .map((line) => line.replace(/^(?:[•*-])\s+/, ''))
+    .filter(Boolean)
+    .slice(0, 5);
+  const summary = lines
+    .filter((line) => !/^(?:[•*-])\s+/.test(line))
+    .filter((line) => !/^hvad er ændret\??$/i.test(line))
+    .filter((line) => !/^område\s*:/i.test(line))
+    .join(' ');
+
+  return { summary, bullets: bullets.length > 0 ? bullets : summary ? [summary] : [] };
+}
+
+function featureCardDescription(description: string): string {
+  const lines = description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^hvad er ændret\??$/i.test(line))
+    .filter((line) => !/^(?:område|area|bereich|terület|omr\u00e5de|zone|obszar|oblast)\s*:/i.test(line));
+  const line = lines.find((value) => /^(?:[•*-])\s+/.test(value)) || lines[0] || "";
+  return line.replace(/^(?:[•*-])\s+/, "");
 }
 
 function languageFlag(code: PortalUiLanguage) {
@@ -307,9 +345,11 @@ export default function BackendChangelogPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [minImpact, setMinImpact] = useState(0);
   const [search, setSearch] = useState("");
+  const [showTechnical, setShowTechnical] = useState(false);
   const [editing, setEditing] = useState<SiteChangeEntryRow | null>(null);
   const [draft, setDraft] = useState<ChangelogDraft>(emptyDraft());
   const [contentLanguage, setContentLanguage] = useState<PortalUiLanguage>(uiLanguage);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
 
@@ -326,6 +366,7 @@ export default function BackendChangelogPage() {
       changeType: typeFilter,
       minUserImpact: minImpact || undefined,
       search,
+      includeTechnical: showTechnical,
     });
     setRows(result.rows);
     setCount(result.count);
@@ -336,7 +377,7 @@ export default function BackendChangelogPage() {
   useEffect(() => {
     if (!loading && appUser && canManage) void reload(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, appUser?.email, canManage, statusFilter, recFilter, moduleFilter, roleFilter, typeFilter, minImpact]);
+  }, [loading, appUser?.email, canManage, statusFilter, recFilter, moduleFilter, roleFilter, typeFilter, minImpact, showTechnical]);
 
   const applySearch = () => {
     setPage(0);
@@ -344,6 +385,7 @@ export default function BackendChangelogPage() {
   };
 
   const startEdit = (row: SiteChangeEntryRow) => {
+    setSelectedRowId(row.id);
     setEditing(row);
     setDraft(rowToDraft(row));
     setContentLanguage(uiLanguage);
@@ -352,6 +394,11 @@ export default function BackendChangelogPage() {
   const cancelEdit = () => {
     setEditing(null);
     setDraft(emptyDraft());
+  };
+
+  const selectRow = (row: SiteChangeEntryRow) => {
+    setSelectedRowId(row.id);
+    if (editing?.id !== row.id) cancelEdit();
   };
 
   const toggleSelected = (id: string) => {
@@ -435,6 +482,8 @@ export default function BackendChangelogPage() {
       imported: result.imported ?? 0,
       skipped: result.skipped ?? 0,
       groups: result.groupsSuggested ?? 0,
+      reprocessed: result.reprocessed ?? 0,
+      technical: result.technicalInternal ?? 0,
     }));
     await reload(0);
   };
@@ -489,6 +538,22 @@ export default function BackendChangelogPage() {
     acc[row.group_parent_id] = [...(acc[row.group_parent_id] || []), row];
     return acc;
   }, {} as Record<string, SiteChangeEntryRow[]>);
+  const coherentGroupIds = new Set(
+    rows
+      .filter((row) => row.is_group && isCoherentSiteFeatureGroup(groupChildren[row.id] || []))
+      .map((row) => row.id),
+  );
+  const visibleRows = rows.filter((row) => {
+    if (!showTechnical && (row.publish_recommendation === "internal" || row.change_type === "technical")) return false;
+    if (row.is_group) return coherentGroupIds.has(row.id);
+    if (row.group_parent_id) return !coherentGroupIds.has(row.group_parent_id);
+    return true;
+  });
+  const selectedRow = rows.find((row) => row.id === selectedRowId) ?? null;
+  const selectedPublished = selectedRow ? getPublishedFeatureContent(selectedRow, uiLanguage) : null;
+  const selectedPreview = selectedPublished ? publicationPreview(selectedPublished.description) : null;
+  const selectedChildren = selectedRow ? groupChildren[selectedRow.id] || [] : [];
+  const selectedCanPublish = Boolean(selectedPublished?.title.trim() && selectedPublished?.description.trim());
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -576,46 +641,43 @@ export default function BackendChangelogPage() {
               {[0, 1, 3, 5, 7, 9].map((n) => <option key={n} value={n}>{n === 0 ? st("siteFeaturesAll") : `${n}+`}</option>)}
             </Select>
           </div>
-          <button
-            type="button"
-            onClick={applySearch}
-            className="mt-3 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            {st("siteFeaturesApplySearch")}
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={applySearch}
+              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              {st("siteFeaturesApplySearch")}
+            </button>
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+              <input type="checkbox" checked={showTechnical} onChange={(event) => setShowTechnical(event.target.checked)} />
+              {st("siteFeaturesShowTechnicalChanges")}
+            </label>
+          </div>
         </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesGroup")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesDate")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesFeature")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesArea")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesType")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesAudience")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesImpact")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesRecommendation")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesStatus")}</th>
-                    <th className="px-4 py-3 text-right font-semibold">{st("siteFeaturesAction")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const published = getPublishedFeatureContent(row, uiLanguage);
-                    const children = groupChildren[row.id] || [];
-                    const isExpanded = expandedGroupIds.includes(row.id);
-                    return (
-                    <Fragment key={row.id}>
-                    <tr key={row.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/70 ${editing?.id === row.id ? "bg-emerald-50/40" : ""}`}>
-                      <td className="px-4 py-4">
+            <div className="divide-y divide-slate-100">
+              {visibleRows.map((row) => {
+                const published = getPublishedFeatureContent(row, uiLanguage);
+                const description = featureCardDescription(published.description);
+                const children = groupChildren[row.id] || [];
+                const isExpanded = expandedGroupIds.includes(row.id);
+                return (
+                  <article
+                    key={row.id}
+                    data-testid="site-feature-card"
+                    aria-selected={selectedRowId === row.id}
+                    className={`transition-colors ${selectedRowId === row.id ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : "hover:bg-slate-50/70"}`}
+                  >
+                    <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+                      <div className="pt-1">
                         {!row.is_group && !row.group_parent_id && (
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(row.id)}
+                            onClick={(event) => event.stopPropagation()}
                             onChange={() => toggleSelected(row.id)}
                             aria-label={st("siteFeaturesGroupSelect")}
                           />
@@ -625,109 +687,79 @@ export default function BackendChangelogPage() {
                             {st("siteFeaturesGroupedChild")}
                           </span>
                         )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{formatDate(row.implemented_at, uiLanguage)}</td>
-                      <td className="min-w-[260px] px-4 py-4">
-                        <div className="font-semibold text-slate-900">{published.title}</div>
-                        {row.is_group && (
-                          <button type="button" onClick={() => toggleExpandedGroup(row.id)} className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">
-                            {interpolateLabel(st("siteFeaturesGroupedCount"), { count: children.length })} · {st("siteFeaturesShowTechnicalHistory")}
-                          </button>
-                        )}
-                        {published.description && <div className="mt-1 line-clamp-3 text-xs leading-snug text-slate-600">{published.description}</div>}
-                        <div className="mt-2 text-[11px] text-slate-400">
-                          {st("siteFeaturesInternalTitle")}: {row.title_internal}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => selectRow(row)}
+                        aria-selected={selectedRowId === row.id}
+                        className="min-w-0 flex-1 text-left outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
+                          <time dateTime={row.implemented_at}>{formatDate(row.implemented_at, uiLanguage)}</time>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600 ring-1 ring-slate-200">
+                            {published.moduleLabel || moduleLabel(row.module, uiLanguage)}
+                          </span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-slate-500 ring-1 ring-slate-200">
+                            {changeTypeLabel(row.change_type, uiLanguage)}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 ring-1 ${statusClass(row.status)}`}>
+                            {statusLabel(row.status, uiLanguage)}
+                          </span>
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
+                            {row.is_group && row.group_suggestion_status === "suggested"
+                              ? st("siteFeaturesRecMerge")
+                              : recommendationLabel(row.publish_recommendation, uiLanguage)}
+                          </span>
                         </div>
-                        {row.source_ref && <div className="mt-1 font-mono text-[11px] text-slate-400">{row.source_ref}</div>}
+                        <h3 className="mt-2 text-sm font-bold leading-snug text-slate-900 sm:text-base">{published.title}</h3>
+                        {description && (
+                          <p data-testid="site-feature-card-description" className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-600">
+                            {description}
+                          </p>
+                        )}
                         {missingSiteChangeLanguages(row).length > 0 && (
-                          <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
+                          <span className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
                             {st("siteFeaturesMissing")} {missingSiteChangeLanguages(row).map(languageFlag).join(", ")}
-                          </div>
+                          </span>
                         )}
-                      </td>
-                      <td className="px-4 py-4 text-slate-600">{published.moduleLabel || moduleLabel(row.module, uiLanguage)}</td>
-                      <td className="px-4 py-4 text-slate-600">{changeTypeLabel(row.change_type, uiLanguage)}</td>
-                      <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</td>
-                      <td className="px-4 py-4 text-xs text-slate-600">
-                        <div>{st("siteFeaturesUser")}: <strong>{row.user_impact_score}/10</strong></div>
-                        <div>{st("siteFeaturesTechnical")}: <strong>{row.technical_impact_score}/10</strong></div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recommendationClass(row.publish_recommendation)}`}>
-                          {recommendationLabel(row.publish_recommendation, uiLanguage)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${statusClass(row.status)}`}>
-                          {statusLabel(row.status, uiLanguage)}
-                        </span>
-                      </td>
-                      <td className="min-w-[230px] px-4 py-4">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <button type="button" onClick={() => startEdit(row)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                            <FilePenLine className="h-3.5 w-3.5" /> {st("siteFeaturesEdit")}
-                          </button>
-                          {row.is_group && (
-                            <button type="button" disabled={saving} onClick={() => void splitGroup(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesSplitGroup")}
-                            </button>
-                          )}
-                          {row.group_parent_id && (
-                            <button type="button" disabled={saving} onClick={() => void removeFromGroup(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesRemoveFromGroup")}
-                            </button>
-                          )}
-                          {row.status !== "published" && row.status !== "archived" && (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "published")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
-                              <Send className="h-3.5 w-3.5" /> {st("siteFeaturesPublish")}
-                            </button>
-                          )}
-                          {row.status === "published" && (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "draft")} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesUnpublish")}
-                            </button>
-                          )}
-                          {row.status !== "archived" ? (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "archived")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-                              <Archive className="h-3.5 w-3.5" /> {st("siteFeaturesArchive")}
-                            </button>
-                          ) : (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "draft")} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesRestore")}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {row.is_group && isExpanded && children.length > 0 && (
-                      <tr className="border-t border-emerald-100 bg-emerald-50/30">
-                        <td colSpan={10} className="px-4 py-3">
-                          <div className="rounded-xl border border-emerald-100 bg-white p-3">
-                            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">{st("siteFeaturesTechnicalHistory")}</div>
-                            <div className="space-y-2">
-                              {children.map((child) => (
-                                <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                                  <div className="font-semibold text-slate-900">{child.title_internal}</div>
-                                  <div className="mt-1 font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div>
-                                  <div className="mt-1">{formatDate(child.implemented_at, uiLanguage)}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                      </button>
+                    </div>
+                    {row.is_group && (
+                      <div className="border-t border-slate-100 px-4 py-2 sm:px-5">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandedGroup(row.id)}
+                          className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200"
+                        >
+                          {interpolateLabel(st("siteFeaturesGroupedCount"), { count: children.length })} · {st("siteFeaturesShowTechnicalHistory")}
+                        </button>
+                      </div>
                     )}
-                    </Fragment>
-                    );
-                  })}
-                  {!loadingRows && rows.length === 0 && (
-                    <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
-                  )}
-                  {loadingRows && (
-                    <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
-                  )}
-                </tbody>
-              </table>
+                    {row.is_group && isExpanded && children.length > 0 && (
+                      <div className="border-t border-emerald-100 bg-emerald-50/30 px-4 py-3 sm:px-5">
+                        <div className="rounded-xl border border-emerald-100 bg-white p-3">
+                          <div className="mb-2 text-xs font-bold uppercase text-emerald-700">{st("siteFeaturesTechnicalHistory")}</div>
+                          <div className="space-y-2">
+                            {children.map((child) => (
+                              <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                <div className="font-semibold text-slate-900">{child.title_internal}</div>
+                                <div className="mt-1 break-all font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div>
+                                <div className="mt-1">{formatDate(child.implemented_at, uiLanguage)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+              {!loadingRows && visibleRows.length === 0 && (
+                <div className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</div>
+              )}
+              {loadingRows && (
+                <div className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</div>
+              )}
             </div>
             <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
               <span>{count} {st("siteFeaturesTotalChanges")}</span>
@@ -740,9 +772,11 @@ export default function BackendChangelogPage() {
           </section>
 
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">{editing ? st("siteFeaturesEditPublishing") : st("siteFeaturesSelectChange")}</h2>
+            <h2 className="text-base font-bold text-slate-900">
+              {editing ? st("siteFeaturesEditPublishing") : selectedRow ? st("siteFeaturesPublicationPreview") : st("siteFeaturesSelectChange")}
+            </h2>
             <p className="mt-1 text-xs text-slate-500">
-              {st("siteFeaturesSidePanelHelp")}
+              {editing ? st("siteFeaturesSidePanelHelp") : selectedRow ? st("siteFeaturesPreviewHelp") : st("siteFeaturesSelectChangeHelp")}
             </p>
 
             {editing ? (
@@ -757,7 +791,9 @@ export default function BackendChangelogPage() {
                   <textarea rows={3} value={draft.description_internal || ""} onChange={(event) => setDraft({ ...draft, description_internal: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
                 <Field label={st("siteFeaturesTechnicalDescription")}>
-                  <textarea rows={3} value={draft.technical_description || ""} onChange={(event) => setDraft({ ...draft, technical_description: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                    {draft.technical_description || "—"}
+                  </pre>
                 </Field>
                 <Field label={st("siteFeaturesPublishedLanguage")}>
                   <select value={contentLanguage} onChange={(event) => setContentLanguage(event.target.value as PortalUiLanguage)} className="w-full rounded-lg border border-slate-200 px-3 py-2">
@@ -833,6 +869,81 @@ export default function BackendChangelogPage() {
                   <button type="button" disabled={saving} onClick={() => void saveDraft("published")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{st("siteFeaturesSaveAndPublish")}</button>
                   <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{st("siteFeaturesCancel")}</button>
                 </div>
+              </div>
+            ) : selectedRow && selectedPublished && selectedPreview ? (
+              <div className="mt-4 space-y-5 text-sm">
+                <div>
+                  <div className="text-lg font-bold text-slate-900">{selectedPublished.title}</div>
+                  {selectedPreview.summary && <p className="mt-2 leading-relaxed text-slate-600">{selectedPreview.summary}</p>}
+                </div>
+
+                <section className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                  <h3 className="text-sm font-bold text-emerald-950">{st("siteFeaturesWhatChanged")}</h3>
+                  {selectedPreview.bullets.length > 0 ? (
+                    <ul className="mt-2 space-y-2 text-sm leading-relaxed text-emerald-950">
+                      {selectedPreview.bullets.map((bullet) => <li key={bullet} className="flex gap-2"><span aria-hidden="true">•</span><span>{bullet}</span></li>)}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-emerald-900">{st("siteFeaturesPublicCopyIncomplete")}</p>
+                  )}
+                </section>
+
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesArea")}</dt><dd className="mt-1 text-sm text-slate-800">{selectedPublished.moduleLabel || moduleLabel(selectedRow.module, uiLanguage)}</dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesType")}</dt><dd className="mt-1 text-sm text-slate-800">{changeTypeLabel(selectedRow.change_type, uiLanguage)}</dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesAudience")}</dt><dd className="mt-1 text-sm text-slate-800">{selectedRow.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesStatus")}</dt><dd className="mt-1"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ring-1 ${statusClass(selectedRow.status)}`}>{statusLabel(selectedRow.status, uiLanguage)}</span></dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesImportant")}</dt><dd className="mt-1 text-sm text-slate-800">{selectedRow.is_important ? st("siteFeaturesImportant") : st("siteFeaturesNormal")}</dd></div>
+                </dl>
+
+                {!selectedCanPublish && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{st("siteFeaturesPublicCopyIncomplete")}</p>}
+
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => startEdit(selectedRow)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <FilePenLine className="h-4 w-4" /> {st("siteFeaturesEdit")}
+                  </button>
+                  {selectedRow.status !== "published" && selectedRow.status !== "archived" && (
+                    <button type="button" disabled={saving || !selectedCanPublish} onClick={() => void quickStatus(selectedRow, "published")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      <Send className="h-4 w-4" /> {st("siteFeaturesPublish")}
+                    </button>
+                  )}
+                  {selectedRow.status === "published" && (
+                    <button type="button" disabled={saving} onClick={() => void quickStatus(selectedRow, "draft")} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesUnpublish")}
+                    </button>
+                  )}
+                  {selectedRow.is_group && (
+                    <button type="button" disabled={saving} onClick={() => void splitGroup(selectedRow.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesSplitGroup")}
+                    </button>
+                  )}
+                  {selectedRow.group_parent_id && (
+                    <button type="button" disabled={saving} onClick={() => void removeFromGroup(selectedRow.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesRemoveFromGroup")}
+                    </button>
+                  )}
+                  {selectedRow.status !== "archived" ? (
+                    <button type="button" disabled={saving} onClick={() => void quickStatus(selectedRow, "archived")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                      <Archive className="h-4 w-4" /> {st("siteFeaturesArchive")}
+                    </button>
+                  ) : (
+                    <button type="button" disabled={saving} onClick={() => void quickStatus(selectedRow, "draft")} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesRestore")}
+                    </button>
+                  )}
+                </div>
+
+                {(selectedRow.is_group || selectedRow.technical_description || selectedRow.source_ref) && (
+                  <details className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+                    <summary className="cursor-pointer font-semibold text-slate-700">{st("siteFeaturesShowTechnicalHistory")}</summary>
+                    <div className="mt-3 space-y-2">
+                      <div className="font-semibold text-slate-900">{selectedRow.title_internal}</div>
+                      {selectedRow.source_ref && <div className="font-mono text-[11px] text-slate-400">{selectedRow.source_ref}</div>}
+                      {selectedRow.technical_description && <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">{selectedRow.technical_description}</pre>}
+                      {selectedChildren.map((child) => <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 p-2"><div className="font-semibold text-slate-800">{child.title_internal}</div><div className="mt-1 font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div></div>)}
+                    </div>
+                  </details>
+                )}
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">

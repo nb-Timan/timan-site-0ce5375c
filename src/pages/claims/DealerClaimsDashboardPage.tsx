@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  CheckCircle2, ClipboardList, Eye, Loader2, Pencil, PlusCircle, Wrench, XCircle,
+  CheckCircle2, ClipboardList, Eye, Loader2, Pencil, Wrench, XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { ClaimsAdminSidebarLayout } from "@/components/claims/ClaimsAdminSidebarLayout";
@@ -42,13 +42,13 @@ interface Props {
 
 export default function DealerClaimsDashboardPage({ readOnly = false, dealerName }: Props) {
   return (
-    <ClaimsAdminSidebarLayout intro={<DashboardIntro readOnly={readOnly} />}>
+    <ClaimsAdminSidebarLayout canCreateClaim={!readOnly} intro={<DashboardIntro />}>
       <DashboardBody dealerName={dealerName} readOnly={readOnly} />
     </ClaimsAdminSidebarLayout>
   );
 }
 
-function DashboardIntro({ readOnly }: { readOnly: boolean }) {
+function DashboardIntro() {
   const { uiLanguage } = useLanguage();
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -59,14 +59,6 @@ function DashboardIntro({ readOnly }: { readOnly: boolean }) {
         </p>
         <LastChangedLine moduleKey="claims" className="mt-2" />
       </div>
-      {!readOnly && (
-        <Link
-          to="/portal/service/claims/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
-        >
-          <PlusCircle className="h-4 w-4" /> {t('claimsNew', uiLanguage)}
-        </Link>
-      )}
     </div>
   );
 }

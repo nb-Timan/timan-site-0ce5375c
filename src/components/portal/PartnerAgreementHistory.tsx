@@ -1,13 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react';
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { Clock, FileCheck2, FileSignature, History, Link as LinkIcon, LockKeyhole, Plus, UnlockKeyhole, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  createPartnerAgreementHistoryEvent,
-  fetchPartnerAgreementHistory,
-  fetchPartnerAgreementHistoryDocumentUrl,
   type PartnerAgreementHistoryEvent,
   type PartnerAgreementHistoryEventType,
 } from '@/lib/dealerContractsService';
@@ -99,6 +98,11 @@ function eventIcon(event: PartnerAgreementHistoryEvent) {
   return <Clock className="h-4 w-4" />;
 }
 
+function academyEventText(event: PartnerAgreementHistoryEvent, key: 'academy_title_key' | 'academy_description_key', language: AgreementLanguage) {
+  const translationKey = event.metadata?.[key];
+  return typeof translationKey === 'string' ? t(translationKey, language as PortalUiLanguage) : null;
+}
+
 export default function PartnerAgreementHistory({
   dealerAccountId,
   dealerAccountNumber,
@@ -112,7 +116,9 @@ export default function PartnerAgreementHistory({
   canManage?: boolean;
   compact?: boolean;
 }) {
+  const { fetchPartnerAgreementHistory, createPartnerAgreementHistoryEvent, fetchPartnerAgreementHistoryDocumentUrl } = getPartnerDataRepository();
   const [events, setEvents] = useState<PartnerAgreementHistoryEvent[]>([]);
+  const [expandedAcademyEventId, setExpandedAcademyEventId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -136,7 +142,7 @@ export default function PartnerAgreementHistory({
     });
 
     return () => { cancelled = true; };
-  }, [dealerAccountNumber]);
+  }, [dealerAccountNumber, fetchPartnerAgreementHistory]);
 
   async function reloadHistory() {
     setLoading(true);
@@ -217,7 +223,12 @@ export default function PartnerAgreementHistory({
         )}
         {!loading && !error && events.length > 0 && (
           <ol className="divide-y divide-slate-100 border-y border-slate-100">
-            {events.map((event) => (
+            {events.map((event) => {
+              const academyRelationReview = academyPartnerDataSandbox.isActive() && academyPartnerDataSandbox.isAcademyRelationReviewEvent(event);
+              const expanded = expandedAcademyEventId === event.id;
+              const eventTitle = academyEventText(event, 'academy_title_key', language) ?? event.event_title;
+              const eventDescription = academyEventText(event, 'academy_description_key', language) ?? event.event_description;
+              return (
               <li key={event.id} className={compact ? "py-3" : "grid grid-cols-1 gap-3 py-3 sm:grid-cols-[120px_minmax(0,1fr)]"}>
                 <time className="text-sm font-semibold text-slate-500">{formatDate(event.occurred_at || event.created_at, language)}</time>
                 <div className={compact ? "mt-2 min-w-0" : "min-w-0 border-l border-slate-200 pl-4"}>
@@ -226,10 +237,19 @@ export default function PartnerAgreementHistory({
                       {eventIcon(event)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-950">{event.event_title}</p>
-                      {event.event_description && (
-                        <p className={compact ? "mt-1 text-sm leading-5 text-slate-600" : "mt-1 text-sm leading-6 text-slate-600"}>{event.event_description}</p>
+                      {academyRelationReview ? (
+                        <button type="button" className="text-left font-semibold text-slate-950 hover:text-emerald-800 hover:underline" aria-expanded={expanded} onClick={() => {
+                          setExpandedAcademyEventId(expanded ? null : event.id);
+                          academyPartnerDataSandbox.reviewPartnerRelation(dealerAccountNumber, event.id);
+                        }}>{eventTitle}</button>
+                      ) : <p className="font-semibold text-slate-950">{eventTitle}</p>}
+                      {eventDescription && (!academyRelationReview || expanded) && (
+                        <p className={compact ? "mt-1 text-sm leading-5 text-slate-600" : "mt-1 text-sm leading-6 text-slate-600"}>{eventDescription}</p>
                       )}
+                      {academyRelationReview && <button type="button" className="mt-1 text-xs font-semibold text-emerald-700 hover:underline" onClick={() => {
+                        setExpandedAcademyEventId(expanded ? null : event.id);
+                        academyPartnerDataSandbox.reviewPartnerRelation(dealerAccountNumber, event.id);
+                      }}>{expanded ? t('academyPartnerDataHideHistoryEvent', language as PortalUiLanguage) : t('academyPartnerDataReadHistoryEvent', language as PortalUiLanguage)}</button>}
                       {(event.created_by_name || event.created_by_email) && (
                         <p className="mt-1 text-xs text-slate-400">
                           {event.created_by_name || event.created_by_email}
@@ -250,7 +270,7 @@ export default function PartnerAgreementHistory({
                   </div>
                 </div>
               </li>
-            ))}
+            ); })}
           </ol>
         )}
       </div>

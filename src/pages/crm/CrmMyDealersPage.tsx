@@ -25,11 +25,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Navigate, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, ChevronDown, ChevronRight, GitBranch, Search, Star } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter } from "@/lib/formatCountry";
 import { t as i18n } from "@/lib/i18n/translations";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { canMaintainPartnerdata, listPartnerDataDealers } from "@/lib/partnerDataScope";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
@@ -37,6 +40,7 @@ import {
   DealerAccount,
   DealerAccountStats,
   fetchDealerAccountStats,
+  fetchDealerAccountStatsByNumbers,
   fetchDealerAccounts,
   fetchDealerAccountsByNumbers,
   fetchDealerAccountsForSeller,
@@ -47,7 +51,7 @@ import {
   dealerLifecycleStatus,
   isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
-import { fetchBackendUsers } from "@/lib/backendUsersService";
+import { fetchBackendUsers, fetchBackendUsersByDealerNumbers } from "@/lib/backendUsersService";
 import { listDealerContactsForAccounts, type DealerContact } from "@/lib/dealerContactsService";
 import { BackendUser } from "@/lib/backend-users-store";
 import {
@@ -79,6 +83,11 @@ import { listPortalFormSubmissions, submissionBelongsToSeller, type PortalFormSu
 import PendingPartnerSubmissions, { getPendingPartnerSubmissionDetails } from "@/components/crm/PendingPartnerSubmissions";
 import DealerSalesDashboardPrototype from "@/components/crm/DealerSalesDashboardPrototype";
 import { prototypeScopeForSeller, type PrototypeScopeMode } from "@/lib/crmDealerDashboardPrototype";
+import {
+  listPartnerAccountRelationsForAccounts,
+  mainPartnerAccountNumbersByChild,
+  type PartnerAccountRelation,
+} from "@/lib/partnerRelationsService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
@@ -206,7 +215,9 @@ type CrmMyDealersPageProps = {
 };
 
 export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersPageProps) {
-  const { appUser, loading } = useAppUser();
+  const { appUser: sessionUser, loading } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
@@ -215,6 +226,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const partnerDataPresentation = presentation === "partnerdata";
   const partnerListRequested = partnerDataPresentation || searchParams.get("view") === "partner-list";
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [partnerRelations, setPartnerRelations] = useState<PartnerAccountRelation[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
   const [contactsByDealerId, setContactsByDealerId] = useState<Record<string, DealerContact[]>>({});
@@ -247,12 +259,14 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
-  // View-as resolves an equivalent user object on each render. Depend on a
-  // stable identity instead, otherwise the list effect cancels its contact
-  // request before canonical completion can be calculated.
-  const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;
+  const canMaintainPartnerData = partnerDataPresentation
+    && canMaintainPartnerdata(effectiveUser, portalRole);
+  // View-as resolves an equivalent user object on each render. Depend on the
+  // selected user's stable canonical id instead of the object reference.
+  const effectiveUserId = effectiveUser?.id ?? null;
 
   const reloadPendingPartnerSubmissions = async () => {
+    if (academyMode) { setPendingPartnerSubmissions([]); return; }
     if (!admin && !seller) {
       setPendingPartnerSubmissions([]);
       return;
@@ -306,6 +320,14 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     if (!appUser) return;
     let cancelled = false;
     (async () => {
+      if (academyMode) {
+        const rows = academyPartnerDataSandbox.listDealers();
+        setDealers(rows);
+        setPartnerRelations([]);
+        setContactsByDealerId(Object.fromEntries(rows.map((row) => [row.id, academyPartnerDataSandbox.listContacts(row.id)])));
+        setAllUsers([]); setStatsMap({}); setBudgetIndex(null); setError(null); setLoadingRows(false);
+        return;
+      }
       if (resolvingEffectiveUser) {
         setLoadingRows(true);
         return;
@@ -316,7 +338,23 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
         const effEmail = getEffectiveSellerEmail(appUser);
 
         let loadedDealers: DealerAccount[] = [];
-        if (admin && !activeSellerView) {
+        if (canMaintainPartnerData) {
+          const scopeRes = await listPartnerDataDealers(effectiveUser, portalRole);
+          if (cancelled) return;
+          loadedDealers = scopeRes.rows;
+          const scopedNumbers = loadedDealers.map((dealer) => dealer.account_number);
+          const [sRes, uRes] = await Promise.all([
+            fetchDealerAccountStatsByNumbers(scopedNumbers),
+            fetchBackendUsersByDealerNumbers(scopedNumbers),
+          ]);
+          if (cancelled) return;
+          setDealers(loadedDealers);
+          const map: Record<string, DealerAccountStats> = {};
+          for (const stat of sRes.rows) map[stat.id] = stat;
+          setStatsMap(map);
+          setAllUsers(uRes.users);
+          setError(scopeRes.error ?? sRes.error ?? null);
+        } else if (admin && !activeSellerView) {
           // Pure backend view → show everything, with grouping.
           const [dRes, sRes, uRes] = await Promise.all([
             fetchDealerAccounts({ includeDeleted: true }),
@@ -333,12 +371,11 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
           setError(dRes.error ?? sRes.error ?? null);
         } else if (seller) {
           // Seller view (real seller OR backend in "view-as <seller>" mode).
-          const [scopeRes, uRes] = await Promise.all([
-            fetchDealerAccountsForSeller({ initials, email: effEmail }),
-            fetchBackendUsers(),
-          ]);
+          const scopeRes = await fetchDealerAccountsForSeller({ sellerId: effectiveUserId, initials, email: effEmail });
           if (cancelled) return;
           loadedDealers = scopeRes.dealers;
+          const uRes = await fetchBackendUsersByDealerNumbers(loadedDealers.map((dealer) => dealer.account_number));
+          if (cancelled) return;
           setDealers(loadedDealers);
           setStatsMap(scopeRes.stats);
           setAllUsers(uRes.users);
@@ -346,13 +383,14 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
         } else if (externalCrm) {
           const scopeRes = await buildJournalScope(effectiveUser, portalRole);
           const scopedDealerNumbers = Array.from(scopeRes.dealerNumbers);
-          const [dRes, sRes, uRes] = await Promise.all([
+          const [dRes, sRes] = await Promise.all([
             fetchDealerAccountsByNumbers(scopedDealerNumbers),
-            fetchDealerAccountStats(),
-            fetchBackendUsers(),
+            fetchDealerAccountStatsByNumbers(scopedDealerNumbers),
           ]);
           if (cancelled) return;
           loadedDealers = dRes.rows;
+          const uRes = await fetchBackendUsersByDealerNumbers(scopedDealerNumbers);
+          if (cancelled) return;
           setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const s of sRes.rows) map[s.id] = s;
@@ -370,8 +408,16 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
           setError(missingOwnAccountError ?? dRes.error ?? sRes.error ?? null);
         }
 
-        // Render the scoped list as soon as it is ready. Completion and budget
-        // enrichment continue below without blocking the usable table.
+        // The current list needs the same canonical relation source as the
+        // partner detail before it can place service partners under a main.
+        const relations = await listPartnerAccountRelationsForAccounts(
+          loadedDealers.map((dealer) => dealer.id),
+        );
+        if (cancelled) return;
+        setPartnerRelations(relations);
+
+        // Render the scoped list as soon as hierarchy data is ready. Completion
+        // and budget enrichment continue below without blocking the table.
         if (!cancelled) setLoadingRows(false);
 
         const contacts = await listDealerContactsForAccounts(loadedDealers.map((dealer) => dealer.id));
@@ -406,9 +452,9 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     })();
     return () => { cancelled = true; };
     // `effectiveUser` is intentionally represented by its stable identity;
-    // see `effectiveUserKey` above.
+    // see `effectiveUserId` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, effectiveUserKey, resolvingEffectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
+  }, [appUser, effectiveUserId, resolvingEffectiveUser, admin, seller, externalCrm, canMaintainPartnerData, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.
@@ -470,11 +516,15 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers ?? []) dealersByAcct.set(d.account_number, d);
+  const mainPartnerByChildAccount = mainPartnerAccountNumbersByChild(dealers ?? [], partnerRelations);
+  const parentAccountNumberFor = (dealer: DealerAccount) =>
+    mainPartnerByChildAccount.get(dealer.account_number) ?? dealer.parent_account_number;
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
   if (q || countryFilter !== "all" || typeFilter !== "all" || profileFilter !== "all" || statusFilter !== "all") {
     for (const d of filteredDealers) {
-      if (d.parent_account_number) {
-        const parent = dealersByAcct.get(d.parent_account_number);
+      const parentAccountNumber = parentAccountNumberFor(d);
+      if (parentAccountNumber) {
+        const parent = dealersByAcct.get(parentAccountNumber);
         if (parent) visibleIds.add(parent.id);
       }
     }
@@ -486,7 +536,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const visibleDealers = (dealers ?? []).filter((d) =>
     visibleIds.has(d.id) && !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)
   );
-  const groups = groupDealersByParent(visibleDealers);
+  const groups = groupDealersByParent(visibleDealers, mainPartnerByChildAccount);
   const dealerCustomersByParent = new Map<string, DealerAccount[]>();
   for (const d of visibleDealerCustomers) {
     const parent = d.parent_account_number || "";
@@ -507,8 +557,12 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     if (!appUser?.email) return;
     setStoredActiveMode(appUser.email, sellerKey);
   };
-  const pageTitle = externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
-  const pageSubtitle = externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
+  const pageTitle = partnerDataPresentation
+    ? i18n("area_dealer_data_title", uiLanguage)
+    : externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
+  const pageSubtitle = partnerDataPresentation
+    ? i18n("area_dealer_data_desc", uiLanguage)
+    : externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
   const detailPath = (dealer: DealerAccount) => partnerDataPresentation
     ? `/portal/dealer-data/${encodeURIComponent(dealer.account_number)}`
     : `/portal/crm/my-dealers/${dealer.account_number}`;
@@ -516,7 +570,8 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const scopeNote = externalCrm ? i18n("crmMyDealersPartnerScopeNote", uiLanguage) : i18n("crmMyDealersScopeNote", uiLanguage);
 
   return (
-    <CrmLayout pageTitle={pageTitle}>
+    <CrmLayout pageTitle={pageTitle} partnerDataPresentation={partnerDataPresentation}>
+      <AcademyPartnerDataGuidance />
       <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center">
@@ -550,7 +605,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
               {i18n("crmMyDealersViewAs", uiLanguage)}: {activeSellerView.label}
             </span>
           )}
-          {!admin && (
+          {!admin && !canMaintainPartnerData && (
             <span className="text-xs px-3 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200">
               {scopeNote}
             </span>
@@ -561,8 +616,8 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "dashboard" | "partner-list")} className="w-full">
         {!partnerDataPresentation && (
           <TabsList className="mb-4 h-auto rounded-lg bg-slate-100 p-1">
-            <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />Dashboard</TabsTrigger>
-            <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />Partnerliste</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />{i18n("crmDealerDashDashboard", uiLanguage)}</TabsTrigger>
+            <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />{i18n("crmDealerDashPartnerList", uiLanguage)}</TabsTrigger>
           </TabsList>
         )}
         {!partnerDataPresentation && (

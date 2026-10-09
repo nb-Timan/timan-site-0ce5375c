@@ -1,16 +1,25 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  EMPTY_CONTENT,
+  canonicalLocalizedProductTitles,
+  findMarketingConfiguratorContentRecord,
   listMarketingConfiguratorCatalog,
+  localizedDraftDescriptions,
+  localizedDraftTitles,
   mergeMarketingConfiguratorContent,
+  marketingPresentationActions,
   productContentKey,
+  resolveMarketingConfiguratorEditorItem,
+  resolveMarketingProductIdentity,
 } from '@/lib/marketingConfiguratorContentService';
+import { replaceProductMaster } from '@/lib/publishedProductMaster';
 import { canManageMarketingConfiguratorContent } from '@/lib/portalAccess';
 import { resolveMarketingBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { t } from '@/lib/i18n/translations';
 import { addMarketingBadgeDuration, formatMarketingBadgeCountdown, isMarketingBadgeActive, marketingBadgeScheduleState } from '@/lib/marketingBadgeSchedule';
 
-const seller: any = {
+const seller: NonNullable<Parameters<typeof canManageMarketingConfiguratorContent>[0]> = {
   email: 'seller@timan.dk',
   role: 'timan_saelger',
   partner_type: null,
@@ -25,7 +34,51 @@ describe('Marketing configurator content', () => {
 
     expect(catalog.some((item) => item.kind === 'machine' && item.machineKey === 'RC-1000S')).toBe(true);
     expect(scraper?.productKey).toBe(productContentKey('RC-1000S', scraper?.item.id || ''));
-    expect(workLight?.defaults.title).toContain('Arbejdslamper');
+    expect(workLight?.defaults.title).toBe('Arbejdslys 2 stk.');
+  });
+
+  it.each(['412050', '412051'])('opens %s in stable create mode from RC-1000s and loose-equipment contexts', (itemNumber) => {
+    const catalog = listMarketingConfiguratorCatalog('da');
+    const rcItem = catalog.find((item) => item.machineKey === 'RC-1000S' && item.itemNumber === itemNumber)!;
+    const looseItem = catalog.find((item) => item.machineKey === 'LOOSE_TOOL' && item.itemNumber === itemNumber)!;
+
+    expect(rcItem).toBeDefined();
+    expect(looseItem).toBeDefined();
+    expect(resolveMarketingConfiguratorEditorItem(catalog, [], 'RC-1000S', rcItem.item.id)).toMatchObject({
+      productKey: rcItem.productKey,
+      itemNumber,
+    });
+    expect(resolveMarketingConfiguratorEditorItem(catalog, [], 'LOOSE_TOOL', looseItem.item.id)).toMatchObject({
+      productKey: rcItem.productKey,
+      itemNumber,
+    });
+
+    const published = {
+      id: `${itemNumber}-published`,
+      product_key: rcItem.productKey,
+      machine_key: rcItem.machineKey,
+      item_number: itemNumber,
+      content: { ...rcItem.defaults, video_url: 'https://example.test/video' },
+      status: 'published' as const,
+      published_at: '2026-10-06T12:00:00.000Z',
+      updated_at: '2026-10-06T12:00:00.000Z',
+    };
+    expect(findMarketingConfiguratorContentRecord([published], looseItem, 'published')?.id).toBe(published.id);
+    expect(resolveMarketingConfiguratorEditorItem(catalog, [published], 'LOOSE_TOOL', looseItem.item.id)?.productKey).toBe(rcItem.productKey);
+  });
+
+  it('shows only presentation actions backed by usable content', () => {
+    expect(marketingPresentationActions({ ...EMPTY_CONTENT, image_url: 'https://example.test/image.jpg' })).toEqual({
+      video: false,
+      image: true,
+      information: false,
+    });
+    expect(marketingPresentationActions({ ...EMPTY_CONTENT, video_url: '  ', image_url: '  ' })).toEqual({
+      video: false,
+      image: false,
+      information: false,
+    });
+    expect(marketingPresentationActions({ ...EMPTY_CONTENT, specs: [{ label: 'Bredde', value: '120 cm' }] }).information).toBe(true);
   });
 
   it('uses a published override only for presentation fields and preserves canonical defaults as fallback', () => {
@@ -36,9 +89,55 @@ describe('Marketing configurator content', () => {
       title: 'RC-1000s', description: '', key_features: ['Marketing feature'], image_url: '', video_url: 'new-video', specification_url: '', specs: [], badge: 'Ny',
     });
     expect(merged.title).toBe('RC-1000s');
-    expect(merged.description).toBe('Canonical description');
+    expect(merged.description).toBe('');
     expect(merged.key_features).toEqual(['Marketing feature']);
     expect(merged.video_url).toBe('new-video');
+  });
+
+  it('keeps localized short descriptions exact, including intentional empty values', () => {
+    const descriptions = localizedDraftDescriptions({
+      ...EMPTY_CONTENT,
+      description: 'Dansk kort tekst',
+      localized_descriptions: { da: 'Dansk kort tekst', de: '', en: 'English short copy' },
+    });
+    expect(descriptions).toEqual({ da: 'Dansk kort tekst', de: '', en: 'English short copy' });
+
+    const defaults = { ...EMPTY_CONTENT, title: 'Default title', description: 'Legacy generated copy' };
+    const explicitEmpty = { ...EMPTY_CONTENT, title: 'Draft title', description: '', localized_descriptions: { da: '', de: '', en: '' } };
+    expect(mergeMarketingConfiguratorContent(defaults, explicitEmpty).description).toBe('');
+  });
+
+  it('uses Product Master as the only live localized identity while preserving a Marketing draft', () => {
+    replaceProductMaster([{
+      item_number: '725132', item_text_da: 'Dansk canonical', item_text_de: 'Deutsch canonical', item_text_en: 'English canonical',
+      price_dkk: 10, price_eur: 2,
+    }]);
+    const canonical = canonicalLocalizedProductTitles('725132', 'fallback');
+    expect(canonical).toEqual({
+      da: 'Dansk canonical', en: 'English canonical', de: 'Deutsch canonical',
+      it: '', hu: '', sv: '', fr: '', pl: '', cs: '',
+    });
+    const draft = localizedDraftTitles({
+      ...EMPTY_CONTENT,
+      title: 'Draft dansk',
+      localized_titles: { da: 'Draft dansk', de: 'Draft deutsch', en: 'Draft English' },
+    }, canonical);
+    expect(draft).toEqual({
+      da: 'Draft dansk', en: 'Draft English', de: 'Draft deutsch',
+      it: '', hu: '', sv: '', fr: '', pl: '', cs: '',
+    });
+    expect(mergeMarketingConfiguratorContent({ ...EMPTY_CONTENT, title: 'static' }, { ...EMPTY_CONTENT, title: 'stale Marketing' }, '725132', 'de').title).toBe('Deutsch canonical');
+    replaceProductMaster([]);
+  });
+
+  it('uses the reviewed German catalog title when Product Master has no German text', () => {
+    replaceProductMaster([{
+      item_number: '725132', item_text_da: 'Dansk canonical', item_text_de: null, item_text_en: 'English canonical',
+      price_dkk: 10, price_eur: 2,
+    }]);
+    expect(resolveMarketingProductIdentity('725132', { ...EMPTY_CONTENT, title: 'Stale dansk' }, 'de', 'Gepruefter deutscher Titel').title)
+      .toBe('Gepruefter deutscher Titel');
+    replaceProductMaster([]);
   });
 
   it('maps legacy badge values to the premium badge types and translates labels for every portal language', () => {
@@ -75,16 +174,17 @@ describe('Marketing configurator content', () => {
     expect(addMarketingBadgeDuration(new Date('2026-01-01T10:00:00.000Z'), 1, 'years').toISOString()).toBe('2027-01-01T10:00:00.000Z');
   });
 
-  it('keeps the editor out of Timan Seller sessions, even with a Marketing permission', () => {
+  it('uses the explicit Marketing area and capability for internal seller/service access', () => {
     expect(canManageMarketingConfiguratorContent({ ...seller, allowed_areas: ['marketing'], permissions: {} })).toBe(false);
-    expect(canManageMarketingConfiguratorContent({ ...seller, allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(false);
+    expect(canManageMarketingConfiguratorContent({ ...seller, allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(true);
     expect(canManageMarketingConfiguratorContent({ ...seller, permissions: { marketing_configurator_manage: true } })).toBe(false);
     expect(canManageMarketingConfiguratorContent({ ...seller, portal_role: 'timan_backend', allowed_areas: [], permissions: {} })).toBe(true);
     expect(canManageMarketingConfiguratorContent({ ...seller, portal_role: 'timan_service', allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(true);
+    expect(canManageMarketingConfiguratorContent({ ...seller, portal_role: 'timan_dealer', allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(false);
   });
 
   it('keeps draft and published content separated by RLS and uses the existing Configurator sales page', () => {
-    const migration = readFileSync('supabase/migrations/20260909140017_marketing_configurator_content.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260910201157_20260909140017_marketing_configurator_content.sql', 'utf8');
     const page = readFileSync('src/pages/MarketingConfiguratorPage.tsx', 'utf8');
     const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
     const editor = readFileSync('src/components/configurator/MarketingConfiguratorContentEditor.tsx', 'utf8');
@@ -108,10 +208,15 @@ describe('Marketing configurator content', () => {
     expect(configurator).toContain('marketingContent?.description');
     expect(editor).toContain("save('draft')");
     expect(editor).toContain("save('published')");
+    expect(editor).toContain('PORTAL_LANGUAGES.map');
+    expect(editor).toContain('setContentLanguage(code)');
+    expect(editor).toContain('Kort beskrivelse');
+    expect(editor).toContain('localized_descriptions');
+    expect(editor).not.toContain('Field label="Hovedinformation"');
     expect(editor).toContain('deleteMarketingConfiguratorDraftContent');
     expect(editor).toContain('Slet kladde');
     expect(editor).toContain('Den publicerede produktvisning ændres ikke.');
-    expect(editor).toMatch(/onSaved\(result\.row\);\s+onClose\(\);/);
+    expect(editor).toMatch(/onSaved\(result\.row\);[\s\S]*productPublishedSuccess[\s\S]*onClose\(\);/);
     expect(editor).toContain('MARKETING_BADGE_OPTIONS');
     expect(editor).toContain('MarketingConfiguratorProductCard');
     expect(editor).not.toContain('Specifikationslink');
@@ -136,8 +241,9 @@ describe('Marketing configurator content', () => {
       configurator.indexOf('const marketingContentState'),
       configurator.indexOf('const marketingEditButton'),
     );
-    expect(contentState.indexOf("record.status === 'published'")).toBeLessThan(contentState.indexOf("record.status === 'draft'"));
-    expect(configurator).toContain("renderMarketingBadge(marketingContent, 'compact')");
+    expect(contentState.indexOf("findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'published')"))
+      .toBeLessThan(contentState.indexOf("findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'draft')"));
+    expect(configurator).toContain("renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo)");
     expect(configurator).toContain('badgeSchedule={marketingContent}');
     expect(editor).toContain('marketingBadgeDisplayPeriod');
     expect(editor).toContain('badge_show_countdown');
@@ -146,6 +252,14 @@ describe('Marketing configurator content', () => {
     expect(card).toContain('badgeSchedule');
     expect(badge).toContain('isMarketingBadgeActive');
     const service = readFileSync('src/lib/marketingConfiguratorContentService.ts', 'utf8');
+    const localizedPublishMigration = readFileSync('supabase/migrations/20260922124349_canonical_marketing_product_titles.sql', 'utf8');
+    expect(service).toContain("supabase.rpc('publish_marketing_configurator_product_content'");
+    expect(localizedPublishMigration).toContain('if not public.can_manage_marketing_configurator_content() then');
+    expect(localizedPublishMigration).toContain('item_text_da = v_title_da');
+    expect(localizedPublishMigration).toContain('item_text_de = v_title_de');
+    expect(localizedPublishMigration).toContain('item_text_en = v_title_en');
+    expect(localizedPublishMigration).not.toContain('price_dkk =');
+    expect(localizedPublishMigration).not.toContain('is_dirty =');
     const deleteDraft = service.slice(service.indexOf('export async function deleteMarketingConfiguratorDraftContent'), service.indexOf('export async function uploadMarketingConfiguratorImage'));
     expect(deleteDraft).toContain(".eq('product_key', item.productKey)");
     expect(deleteDraft).toContain(".eq('status', 'draft')");
@@ -155,7 +269,11 @@ describe('Marketing configurator content', () => {
     expect(bulkTools).toContain('Tilføj videolinks');
     expect(bulkTools).toContain('Batch redigér');
     expect(bulkTools).toContain("saveMarketingConfiguratorContent(item, content, 'draft')");
+    expect(bulkTools).toContain('canonicalLocalizedProductTitles(item.itemNumber');
+    expect(bulkTools).toContain('localizedDraftTitles(source, canonicalTitles)');
     expect(app).toContain('/portal/marketing/configurator');
     expect(marketingArea).toContain('canManageMarketingConfiguratorContent');
+    expect(marketingArea).toContain('label="Configurator & kampagner"');
+    expect(marketingArea).toContain('Redigér produktindhold, billeder, video og specifikationer – og opret, redigér og publicér kampagner til Configurator.');
   });
 });

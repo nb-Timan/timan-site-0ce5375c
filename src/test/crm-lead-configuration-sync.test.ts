@@ -102,6 +102,7 @@ const state: ConfiguratorState = {
   emailRecipient: '',
   comment: '',
   internalNote: '',
+  purchaseOrderNumber: '',
   paymentTerms: 'net_30',
   customerNeeds: { tasks: [], focus: [] },
 };
@@ -122,11 +123,14 @@ describe('CRM lead configurator sync', () => {
     expect(patch.estimated_value).toBe(32584);
     expect(patch.machine_types).toContain('RC-1000s');
     expect(patch.machine_types).toContain('Equipment: RC-1000s - Slagleklipper inkl. Y-slagle sæt');
-    expect(patch.contact_information).toContain('Roman Guichen');
+    expect(patch.contact_information).toBe(baseLead().contact_information);
+    expect(patch.contact_person_name).toBe('Roman Guichen');
+    expect(patch.phone).toBe('+420 123 456');
+    expect(patch.email).toBe('roman@example.com');
     expect(patch.notes).toContain('Manual CRM note');
     expect(patch.notes).toContain('Konfiguration: T-4001');
     expect(patch.notes).not.toContain('Old sync');
-    expect(patch.incomplete_from_configurator).toBe(false);
+    expect(patch.incomplete_from_configurator).toBe(true);
     expect(patch).not.toHaveProperty('pipeline_stage');
     expect(patch).not.toHaveProperty('next_followup_date');
     expect(patch).not.toHaveProperty('next_activity');
@@ -234,5 +238,18 @@ describe('CRM lead configurator sync', () => {
       itemNumber: '411701',
       itemName: 'Stativ til afsætning af slagleklipper',
     })).toBe('Equipment: RC-1000s - Stativ til afsætning af slagleklipper (411701)');
+  });
+
+  it('keeps legacy configurations without REK/PO snapshots reopenable', () => {
+    const legacyState = { ...state } as Record<string, unknown>;
+    delete legacyState.purchaseOrderNumber;
+
+    expect(() => buildLeadPatchFromConfigurationState(
+      baseLead(),
+      linkedQuoteRow,
+      legacyState as ConfiguratorState,
+      '2026-09-02T12:00:00.000Z',
+      linkedQuoteRow.assigned_seller_id,
+    )).not.toThrow();
   });
 });

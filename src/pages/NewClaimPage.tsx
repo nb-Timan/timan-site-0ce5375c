@@ -20,6 +20,7 @@ import {
   hasModuleAccess,
   getClaimsViewVariant,
 } from '@/lib/portalAccess';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import {
   saveClaim,
   ClaimPartLine,
@@ -174,6 +175,7 @@ const BRAND = '#2d5a27';
 
 export default function NewClaimPage() {
   const { appUser, loading: authLoading, logout } = useAppUser();
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const uiLang: PortalUiLanguage = uiLanguage;
   const navigate = useNavigate();
@@ -222,27 +224,27 @@ export default function NewClaimPage() {
 
   // Toast for read-only / no-access roles when they hit the route
   useEffect(() => {
-    if (authLoading || !appUser) return;
-    const role = derivePortalRole(appUser);
+    if (authLoading || resolving || !effectiveUser) return;
+    const role = derivePortalRole(effectiveUser);
     const perms = role ? getPortalPermissions(role) : null;
     if (perms && !perms.canCreateClaim) {
       toast.error(role === 'dealer_user' ? pickT(T.readOnlyMsg, uiLang) : pickT(T.noAccess, uiLang));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, appUser?.email]);
+  }, [authLoading, resolving, effectiveUser?.email]);
 
-  if (authLoading) {
+  if (authLoading || resolving) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">…</div>
       </div>
     );
   }
-  if (!appUser) return <Navigate to="/portal" replace />;
-  if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
+  if (!appUser || !effectiveUser) return <Navigate to="/portal" replace />;
+  if (effectiveUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
-  const portalRole = derivePortalRole(appUser);
-  const allowed = hasModuleAccess(portalRole, 'claims', getUserModuleAccessOverride(appUser));
+  const portalRole = derivePortalRole(effectiveUser);
+  const allowed = hasModuleAccess(portalRole, 'claims', getUserModuleAccessOverride(effectiveUser));
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateClaim;
   const viewVariant = getClaimsViewVariant(portalRole);

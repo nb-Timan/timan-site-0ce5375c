@@ -17,28 +17,38 @@
  * Pricing, calculations, PDFs, n8n flows are NOT touched.
  */
 import { supabase } from '@/lib/supabase';
+import { deleteCrmRecordPermanently } from '@/lib/crmPermanentDelete';
 import { PortalRole } from '@/lib/portalAccess';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { ConfiguratorState } from '@/types/configurator';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { currencyFromLanguage, toDkk, type Currency } from '@/lib/currency';
 import { isExternalCrmRole } from '@/lib/crmScope';
+import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { resolveHistoricalOrderTotal } from '@/lib/crmClosedOrderValue';
 
 export type CrmDocumentType = 'quote' | 'order';
 
 export interface CrmConfigurationRow {
   id: string;
+  sales_source_type: 'STANDARD' | 'SALES_STOCK_DEMO';
   document_type: CrmDocumentType;
   /** Raw case_type from configurations when exposed by the source. */
   case_type: string | null;
   case_status: string | null;
   status: string | null;
   created_at: string;
+  delivery_date: string | null;
   last_saved_at: string | null;
   title: string | null;
   quote_number: string | null;
   order_number: string | null;
+  /** Canonical customer reference stored inside the Configurator snapshot. */
+  purchase_order_number: string | null;
+  /** Ordered unique references from the frozen order snapshot. */
+  purchase_order_numbers: string[];
   total_price: number | null;
   note: unknown | null;
 
@@ -120,8 +130,27 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   const status = (row.status as string | null) ?? null;
   const orderSentAt = (row.order_sent_at as string | null) ?? null;
   const submittedAt = (row.submitted_at as string | null) ?? null;
+  let purchaseOrderNumber: string | null = null;
+  let purchaseOrderNumbers: string[] = [];
+  let snapshotSalesSourceType: 'STANDARD' | 'SALES_STOCK_DEMO' = 'STANDARD';
+  try {
+    const rawState = typeof row.state_json === 'string'
+      ? JSON.parse(row.state_json)
+      : row.state_json;
+    if (rawState && typeof rawState === 'object') {
+      snapshotSalesSourceType = (rawState as { salesChannel?: unknown }).salesChannel === 'sales_stock_demo'
+        ? 'SALES_STOCK_DEMO'
+        : 'STANDARD';
+      const summary = orderPurchaseReferenceSummary(rawState as Pick<ConfiguratorState, 'reqNumbers' | 'purchaseOrderNumber'>);
+      purchaseOrderNumber = summary.headerValue;
+      purchaseOrderNumbers = summary.values;
+    }
+  } catch {
+    // A legacy or malformed snapshot simply has no customer reference.
+  }
   return {
     id: String(row.id),
+    sales_source_type: row.sales_source_type === 'SALES_STOCK_DEMO' ? 'SALES_STOCK_DEMO' : snapshotSalesSourceType,
     // Legacy flow-switches could leave document_type/case_type='order' on a
     // non-submitted quote. CRM lists are lifecycle read-models, so only the
     // canonical sent/submitted state decides which list owns the row.
@@ -134,10 +163,13 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
     lead_id: (row.lead_id as string | null) ?? null,
     status,
     created_at: (row.created_at as string) || new Date().toISOString(),
+    delivery_date: (row.delivery_date as string | null) ?? null,
     last_saved_at: (row.last_saved_at as string | null) ?? null,
     title: (row.title as string | null) ?? null,
     quote_number: (row.quote_number as string | null) ?? null,
     order_number: (row.order_number as string | null) ?? null,
+    purchase_order_number: purchaseOrderNumber,
+    purchase_order_numbers: purchaseOrderNumbers,
     total_price: row.total_price == null ? null : Number(row.total_price),
     note: row.note ?? null,
     seller_initials: (row.seller_initials as string | null) ?? null,
@@ -213,6 +245,67 @@ function dealerNumberOrFilter(numbers: string[]): string {
   return `dealer_number.in.(${list})`;
 }
 
+type DealerCountryLookupRow = {
+  id: string;
+  account_number: string | null;
+  company_name: string | null;
+  country: string | null;
+};
+
+function normalizedDealerLookupValue(value: string | null | undefined): string {
+  return (value ?? '').trim().toLocaleLowerCase();
+}
+
+/** Fill missing view countries from the same canonical dealer account records. */
+export function applyDealerCountryLookup(
+  rows: CrmConfigurationRow[],
+  dealers: DealerCountryLookupRow[],
+): CrmConfigurationRow[] {
+  const byId = new Map(dealers.map((dealer) => [dealer.id, dealer.country]));
+  const byNumber = new Map(dealers
+    .map((dealer) => [normalizedDealerLookupValue(dealer.account_number), dealer.country] as const)
+    .filter(([key]) => Boolean(key)));
+  const byName = new Map(dealers
+    .map((dealer) => [normalizedDealerLookupValue(dealer.company_name), dealer.country] as const)
+    .filter(([key]) => Boolean(key)));
+
+  return rows.map((row) => {
+    if (row.dealer_country) return row;
+    const country = (row.dealer_account_id ? byId.get(row.dealer_account_id) : null)
+      ?? byNumber.get(normalizedDealerLookupValue(row.dealer_account_number || row.dealer_number))
+      ?? byName.get(normalizedDealerLookupValue(row.dealer_company_name || row.dealer_name))
+      ?? null;
+    return country ? { ...row, dealer_country: country } : row;
+  });
+}
+
+async function enrichDealerCountries(rows: CrmConfigurationRow[]): Promise<CrmConfigurationRow[]> {
+  const unresolved = rows.filter((row) => !row.dealer_country);
+  if (unresolved.length === 0) return rows;
+
+  const ids = [...new Set(unresolved.map((row) => row.dealer_account_id).filter((value): value is string => Boolean(value)))];
+  const numbers = [...new Set(unresolved
+    .map((row) => row.dealer_account_number || row.dealer_number)
+    .filter((value): value is string => Boolean(value)))];
+  const names = [...new Set(unresolved
+    .map((row) => row.dealer_company_name || row.dealer_name)
+    .filter((value): value is string => Boolean(value)))];
+  const clauses = [
+    ids.length > 0 ? `id.in.(${ids.map(quotePostgrestValue).join(',')})` : null,
+    numbers.length > 0 ? `account_number.in.(${numbers.map(quotePostgrestValue).join(',')})` : null,
+    names.length > 0 ? `company_name.in.(${names.map(quotePostgrestValue).join(',')})` : null,
+  ].filter((value): value is string => Boolean(value));
+  if (clauses.length === 0) return rows;
+
+  const { data, error } = await supabase
+    .from('dealer_accounts')
+    .select('id, account_number, company_name, country')
+    .or(clauses.join(','))
+    .limit(500);
+  if (error || !data) return rows;
+  return applyDealerCountryLookup(rows, data as DealerCountryLookupRow[]);
+}
+
 /**
  * Fetch quotes or orders for the current scope.
  * Tries the crm_configurations_view first, then falls back to selecting
@@ -283,11 +376,11 @@ export async function listCrmConfigurations(
     }
   }
 
-  return {
-    rows: rows
-      .filter((r) => isSentForCrm(r, docType))
-      .filter((r) => rowVisibleToScope(r, filter)),
-  };
+  const scopedRows = rows
+    .filter((r) => isSentForCrm(r, docType))
+    .filter((r) => rowVisibleToScope(r, filter));
+
+  return { rows: await enrichDealerCountries(scopedRows) };
 }
 
 /**
@@ -371,7 +464,7 @@ export async function fetchCrmConfigurationVisible(
 // ────────────────────────────────────────────────────────────
 
 export interface CrmOrderWithValue extends CrmConfigurationRow {
-  /** Computed via calcConfigurationTotals(state_json), in ORIGINAL currency. 0 if state missing. */
+  /** Persisted order total (or frozen snapshot fallback), in ORIGINAL currency. */
   total_value: number;
   /** Same total converted to DKK using EUR_TO_DKK from src/lib/currency.ts. */
   total_value_dkk: number;
@@ -399,7 +492,7 @@ function parseStateJson(value: unknown): ConfiguratorState | null {
 
 /**
  * Fetch scoped orders (same visibility rules as listCrmConfigurations) AND
- * compute their total_value + machine breakdown from configurations.state_json.
+ * read their historical total_value and machine breakdown.
  *
  * This is the SHARED source for the CRM Dashboard "Lukkede ordrer" KPI and
  * for Budget actuals — guaranteeing that any row visible in CRM → Ordrer is
@@ -447,13 +540,11 @@ export async function listScopedOrdersWithValue(
 
   const out: CrmOrderWithValue[] = scoped.map((r) => {
     const state = stateById.get(r.id) ?? null;
-    let total = 0;
+    const historicalTotal = resolveHistoricalOrderTotal(r.total_price, state);
+    const total = historicalTotal ?? 0;
     const qtyByKey: Record<string, number> = {};
-    const currency: Currency = currencyFromLanguage(state?.language ?? null);
+    const currency: Currency = state ? configuratorCurrency(state) : currencyFromLanguage(null);
     if (state) {
-      try {
-        total = calcConfigurationTotals(state).finalPrice || 0;
-      } catch { /* ignore */ }
       for (const mc of state.machineConfigs ?? []) {
         const key = mc.type;
         if (!key) continue;
@@ -476,22 +567,19 @@ export async function listScopedOrdersWithValue(
 }
 
 // ────────────────────────────────────────────────────────────
-// Soft-delete (Backend only) — sets case_status = 'deleted'.
-// Does NOT touch related rows (configuration_items, dealer, seller, etc.).
+// Permanent deletion is a single, Backend-only database transaction. The
+// linked CRM lead is intentionally preserved; document-local items and
+// activities are cleaned up by the RPC.
 // ────────────────────────────────────────────────────────────
-export async function softDeleteConfiguration(
+export async function permanentlyDeleteConfiguration(
   id: string,
 ): Promise<{ error?: string }> {
   try {
-    const { error } = await supabase
-      .from('configurations')
-      .update({ case_status: 'deleted' })
-      .eq('id', id);
-    if (error) throw error;
+    await deleteCrmRecordPermanently('document', id);
     return {};
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error('[softDeleteConfiguration] failed', { id, error: e });
+    console.error('[permanentlyDeleteConfiguration] failed', { id, error: e });
     return { error: msg };
   }
 }

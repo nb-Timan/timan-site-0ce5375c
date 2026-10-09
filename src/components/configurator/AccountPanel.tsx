@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
-import { pickT } from '@/lib/i18n/translations';
+import { pickT, t as portalT } from '@/lib/i18n/translations';
 import { type PortalUiLanguage, mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -28,6 +28,7 @@ import {
 import { hideConfigurationForScope } from '@/lib/userHiddenConfigurationsService';
 import { resolveHideScopeForCurrentUser } from '@/lib/configurationsService';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import {
   convertCurrency,
   currencyFromLanguage,
@@ -36,6 +37,7 @@ import {
 import {
   AccountCaseStatusFilter,
   buildAccountCaseLines,
+  buildAccountOrderDiscountRows,
   buildAccountCaseSummary,
   buildReorderDraft,
   filterAccountCases,
@@ -258,7 +260,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       return;
     }
 
-    onRestoreState(saved.state_json, saved.id, {
+    onRestoreState(isSavedConfigurationOrderLocked(saved) ? saved.state_json : refreshConfiguratorProductDescriptions(saved.state_json), saved.id, {
       seller_initials: saved.seller_initials,
       seller_email: saved.seller_email,
       seller_name: saved.seller_name,
@@ -381,6 +383,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     () => detailItem ? calcConfigurationTotals(detailItem.state_json) : null,
     [detailItem],
   );
+  const detailDiscountRows = useMemo(
+    () => detailItem && detailTotals
+      ? buildAccountOrderDiscountRows(detailItem.state_json.pricingSnapshot, detailTotals.totalDiscount, language)
+      : [],
+    [detailItem, detailTotals, language],
+  );
   const detailCurrencyLanguage = detailItem?.state_json.language || mapUiLanguageToLegacy(language);
 
   const tx = useMemo(() => {
@@ -420,13 +428,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       description:         { da: 'Beskrivelse',                             en: 'Description',                         de: 'Beschreibung',                        it: 'Descrizione',                                   hu: 'Leírás',                                        sv: 'Beskrivning',                                fr: 'Description',                              pl: 'Opis',                                     cs: 'Popis' },
       note:                { da: 'Note',                                    en: 'Note',                                de: 'Notiz',                               it: 'Nota',                                           hu: 'Megjegyzés',                                    sv: 'Not',                                        fr: 'Note',                                      pl: 'Notatka',                                  cs: 'Poznámka' },
       unitPrice:           { da: 'Pris pr. stk.',                           en: 'Unit price',                          de: 'Stückpreis',                          it: 'Prezzo unitario',                               hu: 'Egységár',                                      sv: 'Pris/st.',                                   fr: 'Prix unitaire',                           pl: 'Cena jedn.',                              cs: 'Jedn. cena' },
-      quantity:            { da: 'Antal',                                   en: 'Quantity',                            de: 'Menge',                               it: 'Quantità',                                       hu: 'Mennyiség',                                     sv: 'Antal',                                      fr: 'Quantité',                                pl: 'Ilość',                                   cs: 'Množství' },
+      quantity:            { da: 'Stk.',                                    en: 'Qty.',                                de: 'Stk.',                                it: 'Qtà',                                            hu: 'Db',                                            sv: 'Antal',                                      fr: 'Qté',                                     pl: 'Ilość',                                   cs: 'Ks' },
       lineTotal:           { da: 'I alt',                                   en: 'Total',                               de: 'Gesamt',                              it: 'Totale',                                         hu: 'Összesen',                                      sv: 'Totalt',                                     fr: 'Total',                                    pl: 'Razem',                                   cs: 'Celkem' },
       subtotal:            { da: 'Subtotal',                                en: 'Subtotal',                            de: 'Zwischensumme',                       it: 'Subtotale',                                      hu: 'Részösszeg',                                    sv: 'Delsumma',                                   fr: 'Sous-total',                              pl: 'Suma częściowa',                         cs: 'Mezisoučet' },
       discount:            { da: 'Rabat',                                   en: 'Discount',                            de: 'Rabatt',                              it: 'Sconto',                                         hu: 'Kedvezmény',                                    sv: 'Rabatt',                                     fr: 'Remise',                                   pl: 'Rabat',                                   cs: 'Sleva' },
       reorderStarted:      { da: 'Ny ordrekladde åbnet',                    en: 'New order draft opened',              de: 'Neuer Bestellentwurf geöffnet',       it: 'Nuova bozza ordine aperta',                     hu: 'Új rendelési vázlat megnyitva',                 sv: 'Ny orderutkast öppnat',                     fr: 'Nouveau brouillon de commande ouvert',      pl: 'Otworzono nowy szkic zamówienia',          cs: 'Otevřen nový koncept objednávky' },
       reorderStartedDescription: { da: 'Den gamle ordre er uændret. Valgene er kopieret til en ny redigerbar konfiguration med aktuelle priser.', en: 'The old order is unchanged. Choices were copied into a new editable configuration with current prices.', de: 'Die alte Bestellung bleibt unverändert. Die Auswahl wurde in eine neue bearbeitbare Konfiguration mit aktuellen Preisen kopiert.', it: 'Il vecchio ordine resta invariato. Le scelte sono copiate in una nuova configurazione modificabile con prezzi attuali.', hu: 'A régi rendelés változatlan. A választások új, szerkeszthető konfigurációba kerültek aktuális árakkal.', sv: 'Den gamla ordern är oförändrad. Valen kopierades till en ny redigerbar konfiguration med aktuella priser.', fr: 'L’ancienne commande reste inchangée. Les choix ont été copiés dans une nouvelle configuration modifiable avec les prix actuels.', pl: 'Stare zamówienie pozostaje bez zmian. Wybory skopiowano do nowej edytowalnej konfiguracji z aktualnymi cenami.', cs: 'Původní objednávka zůstává beze změny. Volby byly zkopírovány do nové upravitelné konfigurace s aktuálními cenami.' },
       quote:               { da: 'Tilbud',                                  en: 'Quote',                               de: 'Angebot',                             it: 'Preventivo',                                      hu: 'Árajánlat',                                     sv: 'Offert',                                      fr: 'Devis',                                     pl: 'Oferta',                                    cs: 'Nabídka' },
+      case:                { da: 'Sag',                                     en: 'Case',                                de: 'Fall',                                it: 'Caso',                                            hu: 'Ügy',                                           sv: 'Ärende',                                      fr: 'Dossier',                                  pl: 'Sprawa',                                   cs: 'Případ' },
       order:               { da: 'Ordre',                                   en: 'Order',                               de: 'Bestellung',                          it: 'Ordine',                                          hu: 'Rendelés',                                      sv: 'Order',                                       fr: 'Commande',                                  pl: 'Zamówienie',                                cs: 'Objednávka' },
       internalNote:        { da: 'Intern note',                             en: 'Internal note',                       de: 'Interne Notiz',                       it: 'Nota interna',                                    hu: 'Belső jegyzet',                                 sv: 'Intern anteckning',                           fr: 'Note interne',                              pl: 'Notatka wewnętrzna',                        cs: 'Interní poznámka' },
       writeNote:           { da: 'Skriv en huskenote...',                   en: 'Write a reminder...',                 de: 'Erinnerung schreiben...',             it: 'Scrivi un promemoria...',                         hu: 'Írj emlékeztetőt...',                           sv: 'Skriv en påminnelse...',                      fr: 'Écrire un rappel...',                       pl: 'Napisz przypomnienie...',                   cs: 'Napsat připomínku...' },
@@ -638,7 +647,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-2 px-4 py-4 text-sm">
                         <div>
                           <div className="font-bold text-gray-900">{summary.reference}</div>
-                          <div className="text-xs text-gray-500">{fmt(summary.orderDate)}</div>
+                          <div className="text-xs text-gray-500">{tx(summary.typeLabel)} · {fmt(summary.orderDate)}</div>
                         </div>
                         <div className="min-w-0">
                           <div className="font-semibold text-gray-900 truncate">{summary.customerName}</div>
@@ -747,23 +756,27 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               </div>
 
               <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="grid grid-cols-[1fr_2fr_1fr_1fr_0.7fr_1fr] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                <div className="hidden grid-cols-[7rem_minmax(12rem,1fr)_4rem_8rem_8rem] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500 sm:grid">
                   <div>{tx('itemNo')}</div>
                   <div>{tx('description')}</div>
-                  <div>{tx('note')}</div>
-                  <div className="text-right">{tx('unitPrice')}</div>
                   <div className="text-right">{tx('quantity')}</div>
+                  <div className="text-right">{tx('unitPrice')}</div>
                   <div className="text-right">{tx('lineTotal')}</div>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {detailLines.map((line, index) => (
-                    <div key={`${line.itemNo}-${index}`} className="grid grid-cols-[1fr_2fr_1fr_1fr_0.7fr_1fr] gap-3 px-4 py-3 text-sm">
-                      <div className="font-mono text-xs text-gray-600">{line.itemNo}</div>
-                      <div className="font-medium text-gray-900">{line.description}</div>
-                      <div className="text-gray-500">{line.note || '-'}</div>
-                      <div className="text-right tabular-nums">{formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}</div>
-                      <div className="text-right tabular-nums">{line.quantity}</div>
-                      <div className="text-right font-semibold tabular-nums">{formatDisplayMoney(line.total, detailCurrencyLanguage)}</div>
+                    <div key={`${line.itemNo}-${index}`} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[7rem_minmax(12rem,1fr)_4rem_8rem_8rem] sm:items-center">
+                      <div className="hidden font-mono text-xs text-gray-600 sm:block">{line.itemNo}</div>
+                      <div className="min-w-0 break-words font-medium text-gray-900">
+                        {line.description}
+                        {line.note && <div className="mt-0.5 text-xs font-normal text-gray-500">{line.note}</div>}
+                        <div className="mt-1 text-xs font-normal text-gray-500 sm:hidden">
+                          <span className="font-mono">{line.itemNo}</span> · {tx('quantity')} {line.quantity} · {tx('unitPrice')} {formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}
+                        </div>
+                      </div>
+                      <div className="hidden text-right tabular-nums sm:block">{line.quantity}</div>
+                      <div className="hidden text-right tabular-nums sm:block">{formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}</div>
+                      <div className="col-start-2 row-start-1 whitespace-nowrap text-right font-semibold tabular-nums sm:col-auto sm:row-auto">{formatDisplayMoney(line.total, detailCurrencyLanguage)}</div>
                     </div>
                   ))}
                 </div>
@@ -772,10 +785,18 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     <span className="text-gray-500">{tx('subtotal')}</span>
                     <span className="w-32 text-right font-semibold tabular-nums">{formatDisplayMoney(detailTotals.subtotal, detailCurrencyLanguage)}</span>
                   </div>
-                  <div className="flex justify-end gap-6 text-sm">
-                    <span className="text-gray-500">{tx('discount')}</span>
-                    <span className="w-32 text-right font-semibold tabular-nums">{formatDisplayMoney(detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
-                  </div>
+                  {detailDiscountRows.map(row => (
+                    <div key={row.label} className="flex justify-end gap-6 text-sm">
+                      <span className="text-right text-gray-500">{row.label}</span>
+                      <span className="w-32 shrink-0 text-right font-semibold tabular-nums">{formatDisplayMoney(-row.amount, detailCurrencyLanguage)}</span>
+                    </div>
+                  ))}
+                  {detailTotals.totalDiscount > 0 && (
+                    <div className="flex justify-end gap-6 border-t border-gray-100 pt-1 text-sm">
+                      <span className="font-semibold text-gray-700">{portalT('accountOrderTotalDiscount', language)}</span>
+                      <span className="w-32 shrink-0 text-right font-semibold tabular-nums">{formatDisplayMoney(-detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-6 text-base">
                     <span className="font-bold text-gray-900">{tx('totalPrice')}</span>
                     <span className="w-32 text-right font-bold tabular-nums">{formatDisplayMoney(detailTotals.finalPrice, detailCurrencyLanguage)}</span>

@@ -24,6 +24,7 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 
 export type WarrantyLayoutScope = "admin" | "dealer";
 
@@ -39,18 +40,28 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Registrerede garantibeviser", icon: FileBadge, match: "/portal/service/warranty/registrations" },
   { to: "/portal/service/warranty/sync", label: "Synkronisering", icon: RefreshCw, match: "/portal/service/warranty/sync" },
+  { to: WARRANTY_CREATE_ROUTE, label: "Opret garantiregistrering", icon: PlusCircle, match: WARRANTY_CREATE_ROUTE },
 ];
 
 const DEALER_NAV: NavItem[] = [
   { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Mine registreringer", icon: ClipboardList, match: "/portal/service/warranty/registrations" },
-  { to: "/portal/service/warranty/new", label: "Opret garantiregistrering", icon: PlusCircle, match: "/portal/service/warranty/new" },
+  { to: WARRANTY_CREATE_ROUTE, label: "Opret garantiregistrering", icon: PlusCircle, match: WARRANTY_CREATE_ROUTE },
 ];
 
 const DEALER_NAV_READONLY: NavItem[] = [
   { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Mine registreringer", icon: ClipboardList, match: "/portal/service/warranty/registrations" },
 ];
+
+/** The sole role-aware navigation registry for every Warranty route. */
+export function getWarrantySidebarItems(
+  scope: WarrantyLayoutScope,
+  canCreate: boolean,
+): NavItem[] {
+  if (scope === "admin") return ADMIN_NAV;
+  return canCreate ? DEALER_NAV : DEALER_NAV_READONLY;
+}
 
 interface WarrantyErrorBoundaryState {
   error: Error | null;
@@ -98,15 +109,15 @@ class WarrantyErrorBoundaryInner extends Component<
 
 interface WarrantyAdminSidebarLayoutProps {
   scope: WarrantyLayoutScope;
-  /** When true (Dealer User read-only), hides the "Ny registrering" item. */
-  readOnly?: boolean;
+  /** Controls the dealer-side create item without changing the shell. */
+  canCreate?: boolean;
   intro?: ReactNode;
   children: ReactNode;
 }
 
 export function WarrantyAdminSidebarLayout({
   scope,
-  readOnly = false,
+  canCreate = false,
   intro,
   children,
 }: WarrantyAdminSidebarLayoutProps) {
@@ -115,8 +126,7 @@ export function WarrantyAdminSidebarLayout({
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
 
-  const nav =
-    scope === "admin" ? ADMIN_NAV : readOnly ? DEALER_NAV_READONLY : DEALER_NAV;
+  const nav = getWarrantySidebarItems(scope, canCreate);
 
   if (!appUser) return null;
 

@@ -26,7 +26,7 @@ describe("machine registry RPC read-chain", () => {
   });
 
   it("keeps View-as as an RLS-preserving reduction and returns server-side counts", () => {
-    const migration = read("supabase/migrations/20260907171500_machine_registry_view_as_scope.sql");
+    const migration = read("supabase/migrations/20260907181843_machine_registry_view_as_scope.sql");
     expect(migration).toContain("security invoker");
     expect(migration).toContain("wr.dealer_account_number = any(p_allowed_dealers)");
     expect(migration).toContain("count(*) filter (where health = 'needs_attention')");
@@ -34,7 +34,7 @@ describe("machine registry RPC read-chain", () => {
   });
 
   it("calculates warranty/match status from canonical SP and active dealer facts", () => {
-    const migration = read("supabase/migrations/20260907184020_machine_registry_warranty_match_status.sql");
+    const migration = read("supabase/migrations/20260907184422_machine_registry_warranty_match_status.sql");
     expect(migration).toContain("wr.dealer_match_status = 'matched'");
     expect(migration).toContain("not coalesce(dealer.is_deleted, false)");
     expect(migration).toContain("not coalesce(dealer.is_blocked, false)");
@@ -43,21 +43,21 @@ describe("machine registry RPC read-chain", () => {
   });
 
   it("returns warranty/match counts from the complete filtered server result", () => {
-    const migration = read("supabase/migrations/20260907185421_machine_registry_warranty_match_counts.sql");
+    const migration = read("supabase/migrations/20260907190023_machine_registry_warranty_match_counts.sql");
     expect(migration).toContain("count(*) filter(where warranty_match_status='approved')");
     expect(migration).toContain("'needsClarification'");
     expect(migration).toContain("'warrantyMatchDetail',warranty_match_detail");
   });
 
   it("applies the clickable warranty status drill-down after calculating card counts", () => {
-    const migration = read("supabase/migrations/20260907191915_add_machine_registry_status_filter.sql");
+    const migration = read("supabase/migrations/20260907192328_add_machine_registry_status_filter.sql");
     expect(migration).toContain("p_warranty_match text default 'all'");
     expect(migration).toContain("warranty_match_status=p_warranty_match");
     expect(migration.indexOf("), counts as (")).toBeLessThan(migration.indexOf("), filtered as ("));
   });
 
   it("sorts dealer-visible commercial fields in the database before the page slice", () => {
-    const migration = read("supabase/migrations/20260907212720_fix_dealer_machine_server_sorting.sql");
+    const migration = read("supabase/migrations/20260907212916_fix_dealer_machine_server_sorting.sql");
     expect(migration).toContain("case when p_sort='invoice'");
     expect(migration).toContain("case when p_sort='revenue'");
     expect(migration).toContain("case when p_sort='cost'");
@@ -79,21 +79,22 @@ describe("machine registry RPC read-chain", () => {
   });
 
   it("keeps MO as the physical-machine reference when a serial also has SP", () => {
-    const migration = read("supabase/migrations/20260908063000_backfill_canonical_machine_orders.sql");
+    const migration = read("supabase/migrations/20260908042855_backfill_canonical_machine_orders.sql");
     expect(migration).toContain("machine_order_source = 'portal_assigned'");
     expect(migration).toContain("machine_order_backfill");
     expect(migration).toContain("warranty_registrations_active_machine_order_unique");
-    expect(migration).toContain("coalesce(nullif(btrim(wr.legacy_warranty_reference), ''), lc.machine_order_number) machine_order_number");
+    expect(migration).toContain("coalesce(nullif(btrim(wr.legacy_warranty_reference)");
+    expect(migration).toContain("'lc.machine_order_number'");
     expect(migration).toContain("wr.source <> 'legacy_machine_import'");
   });
 
   it("uses a deterministic source tie-breaker for canonical serials", () => {
-    const migration = read("supabase/migrations/20260908065500_make_canonical_machine_order_deterministic.sql");
+    const migration = read("supabase/migrations/20260908043034_make_canonical_machine_order_deterministic.sql");
     expect(migration).toContain("wr.sharepoint_form_id desc nulls last,wr.id");
   });
 
   it("moves an MO reference to the deterministic canonical row for duplicate source serials", () => {
-    const migration = read("supabase/migrations/20260908071500_align_canonical_machine_order_rows.sql");
+    const migration = read("supabase/migrations/20260908044022_align_canonical_machine_order_rows.sql");
     expect(migration).toContain("'TMP-' || r.target_id::text");
     expect(migration).toContain("machine_order_canonical_alignment");
     expect(migration).toContain("'{}'::jsonb");

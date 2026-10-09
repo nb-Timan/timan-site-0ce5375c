@@ -51,7 +51,72 @@ interface SyncSummary {
   dryRun: boolean;
   warningDetails: string[];
   durationMs: number;
+  selectedCount?: number;
+  selectedAccountIds?: string[];
+  changes?: SyncCandidate[];
 }
+
+type ComparedField =
+  | "account_number"
+  | "company_name"
+  | "dealer_type"
+  | "customer_type"
+  | "customer_type_label"
+  | "source_customer_type_code"
+  | "country"
+  | "address_line_1"
+  | "address_line_2"
+  | "zip_city_raw"
+  | "postal_code"
+  | "city";
+
+type SyncFieldDiff = {
+  field: ComparedField;
+  portal: unknown;
+  sharepoint: unknown;
+};
+
+type SyncCandidate = {
+  account_number: string;
+  company_name: string;
+  country: string | null;
+  change_type: "create" | "update";
+  changed_field_count: number;
+  changed_fields: SyncFieldDiff[];
+};
+
+const COMPARE_FIELDS: readonly ComparedField[] = [
+  "account_number",
+  "company_name",
+  "dealer_type",
+  "customer_type",
+  "customer_type_label",
+  "source_customer_type_code",
+  "country",
+  "address_line_1",
+  "address_line_2",
+  "zip_city_raw",
+  "postal_code",
+  "city",
+];
+
+// This is deliberately narrower than the whole dealer_accounts record. SharePoint
+// remains master only for these existing company-masterdata fields.
+const MASTERDATA_PATCH_FIELDS = [
+  "company_name",
+  "dealer_type",
+  "customer_type",
+  "customer_type_label",
+  "country",
+  "address_line_1",
+  "address_line_2",
+  "zip_city_raw",
+  "postal_code",
+  "city",
+  "source_customer_type_code",
+  "source_modified_at",
+  "last_synced_at",
+] as const;
 
 /**
  * Split "8920 Randers NV" / "DK-8920 Randers" / "1000 Copenhagen K" into
@@ -231,6 +296,30 @@ function mapSpRow(item: any, nowIso: string): { row: MappedRow | null; warn: str
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const t0 = Date.now();
+  let failureAudit: {
+    admin: any;
+    ranAt: string;
+    email: string;
+    userId: string | null;
+    dryRun: boolean;
+    selectedAccountIds: string[];
+  } | null = null;
+
+  async function persistFailure(message: string) {
+    if (!failureAudit) return;
+    try {
+      await failureAudit.admin.from("sharepoint_sync_logs").insert({
+        ran_at: failureAudit.ranAt,
+        ran_by_email: failureAudit.email,
+        ran_by_user_id: failureAudit.userId,
+        dry_run: failureAudit.dryRun,
+        selected_count: failureAudit.selectedAccountIds.length,
+        selected_account_ids: failureAudit.selectedAccountIds,
+        change_details: [],
+        error: message,
+      });
+    } catch (_auditError) { /* Keep the original error visible to the caller. */ }
+  }
 
   try {
     // --- Auth -----------------------------------------------------------
@@ -262,21 +351,58 @@ Deno.serve(async (req) => {
       return json({ error: "Forbidden — Timan Backend only" }, 403);
     }
 
+    failureAudit = {
+      admin,
+      ranAt: new Date().toISOString(),
+      email,
+      userId: (claimsRes?.claims?.sub as string | undefined) ?? null,
+      dryRun: true,
+      selectedAccountIds: [],
+    };
+
     // --- Parse options --------------------------------------------------
     let dryRun = true;
     let mode: "sync" | "verify" = "sync";
     let limit = 20;
+    let selectedAccountIds: string[] | null = null;
+    let selectionError: string | null = null;
     if (req.method === "POST") {
       try {
         const body = await req.json();
         if (typeof body?.dryRun === "boolean") dryRun = body.dryRun;
         if (body?.mode === "verify") mode = "verify";
         if (typeof body?.limit === "number" && body.limit > 0 && body.limit <= 500) limit = body.limit;
+        if (Object.prototype.hasOwnProperty.call(body ?? {}, "selected_account_ids")) {
+          if (!Array.isArray(body.selected_account_ids)) {
+            selectionError = "selected_account_ids must be an array.";
+          } else {
+            const normalized = body.selected_account_ids.map((value: unknown) => String(value ?? "").trim());
+            if (normalized.some((value: string) => !value)) {
+              selectionError = "selected_account_ids must only contain non-empty account numbers.";
+            } else {
+              selectedAccountIds = [...new Set(normalized)];
+            }
+          }
+        }
       } catch { /* defaults */ }
     } else {
       const u = new URL(req.url);
       if (u.searchParams.get("dryRun") === "false") dryRun = false;
       if (u.searchParams.get("mode") === "verify") mode = "verify";
+    }
+
+    failureAudit.dryRun = dryRun;
+    failureAudit.selectedAccountIds = selectedAccountIds ?? [];
+    if (selectionError) {
+      await persistFailure(selectionError);
+      return json({ error: selectionError }, 400);
+    }
+    if (mode === "sync" && !dryRun && selectedAccountIds === null) {
+      const message = "selected_account_ids is required for a real SharePoint sync. Run dry-run and explicitly select dealer accounts first.";
+      await persistFailure(message);
+      return json({
+        error: message,
+      }, 400);
     }
 
     // --- Fetch SharePoint -----------------------------------------------
@@ -287,21 +413,6 @@ Deno.serve(async (req) => {
     // ======================================================================
     // VERIFY MODE — read-only side-by-side mapping check
     // ======================================================================
-    // Fields compared side-by-side and patched by sync. Keep these in sync.
-    const COMPARE_FIELDS = [
-      "account_number",
-      "company_name",
-      "dealer_type",
-      "customer_type",
-      "customer_type_label",
-      "source_customer_type_code",
-      "country",
-      "address_line_1",
-      "address_line_2",
-      "zip_city_raw",
-      "postal_code",
-      "city",
-    ] as const;
     const norm = (v: unknown) => (v == null ? "" : String(v).trim().toLowerCase());
 
     if (mode === "verify") {
@@ -457,6 +568,51 @@ Deno.serve(async (req) => {
     summary.updated = toUpdate.length;
     summary.created = toCreate.length;
 
+    const changedFieldsFor = (row: MappedRow, current: any | null): SyncFieldDiff[] => {
+      if (!current) {
+        return COMPARE_FIELDS
+          .filter((field) => field !== "account_number")
+          .map((field) => ({
+            field,
+            portal: null,
+            sharepoint: (row as Record<string, unknown>)[field] ?? null,
+          }));
+      }
+      return COMPARE_FIELDS
+        .filter((field) => norm((row as Record<string, unknown>)[field]) !== norm(current[field] ?? null))
+        .map((field) => ({
+          field,
+          portal: current[field] ?? null,
+          sharepoint: (row as Record<string, unknown>)[field] ?? null,
+        }));
+    };
+
+    const candidates: SyncCandidate[] = [
+      ...toCreate.map((row) => {
+        const changed_fields = changedFieldsFor(row, null);
+        return {
+          account_number: row.account_number,
+          company_name: row.company_name,
+          country: row.country,
+          change_type: "create" as const,
+          changed_field_count: changed_fields.length,
+          changed_fields,
+        };
+      }),
+      ...toUpdate.map((row) => {
+        const changed_fields = changedFieldsFor(row, existingMap.get(row.account_number) ?? null);
+        return {
+          account_number: row.account_number,
+          company_name: row.company_name,
+          country: row.country,
+          change_type: "update" as const,
+          changed_field_count: changed_fields.length,
+          changed_fields,
+        };
+      }),
+    ];
+    summary.changes = candidates;
+
     // ------------------------------------------------------------------
     // SAFETY: SharePoint is master for COMPANY MASTERDATA only.
     // The portal is master for ACCESS / STATUS / RELATIONS / SUCCESSION.
@@ -474,28 +630,32 @@ Deno.serve(async (req) => {
     // The whitelist below is the ONLY set of columns the UPDATE path may
     // touch. Do not add portal-controlled columns here.
     // ------------------------------------------------------------------
-    const MASTERDATA_PATCH_FIELDS = [
-      "company_name",
-      "dealer_type",
-      "customer_type",
-      "customer_type_label",
-      "country",
-      "address_line_1",
-      "address_line_2",
-      "zip_city_raw",
-      "postal_code",
-      "city",
-      "source_customer_type_code",
-      "source_modified_at",
-      "last_synced_at",
-    ] as const;
-
     if (!dryRun) {
+      const selectedSet = new Set(selectedAccountIds ?? []);
+      const candidateByAccount = new Map(candidates.map((candidate) => [candidate.account_number, candidate]));
+      const invalidSelected = [...selectedSet].filter((accountNumber) => !candidateByAccount.has(accountNumber));
+      if (invalidSelected.length > 0) {
+        const message = "One or more selected account numbers are not current SharePoint sync candidates.";
+        await persistFailure(message);
+        return json({
+          error: message,
+          invalid_selected_account_ids: invalidSelected,
+        }, 400);
+      }
+
+      const selectedCreates = toCreate.filter((row) => selectedSet.has(row.account_number));
+      const selectedUpdates = toUpdate.filter((row) => selectedSet.has(row.account_number));
+      summary.created = selectedCreates.length;
+      summary.updated = selectedUpdates.length;
+      summary.selectedCount = selectedSet.size;
+      summary.selectedAccountIds = [...selectedSet];
+      summary.changes = candidates.filter((candidate) => selectedSet.has(candidate.account_number));
+
       // INSERT new accounts only. Existing rows are NEVER re-inserted, so
       // portal-controlled flags on existing rows can never be reset here.
       // New rows default to is_active=true / is_blocked=false (table defaults).
-      for (let i = 0; i < toCreate.length; i += 500) {
-        const chunk = toCreate.slice(i, i + 500);
+      for (let i = 0; i < selectedCreates.length; i += 500) {
+        const chunk = selectedCreates.slice(i, i + 500);
         const { error: insErr } = await admin
           .from("dealer_accounts")
           .insert(chunk);
@@ -504,7 +664,7 @@ Deno.serve(async (req) => {
       // UPDATE existing accounts — masterdata whitelist ONLY. Never touches
       // is_active / is_blocked / assigned_seller / users / CRM / quotes /
       // orders / notes / budgets / coordinates.
-      for (const r of toUpdate) {
+      for (const r of selectedUpdates) {
         const patch: Record<string, unknown> = {};
         for (const f of MASTERDATA_PATCH_FIELDS) {
           patch[f] = (r as Record<string, unknown>)[f];
@@ -535,12 +695,16 @@ Deno.serve(async (req) => {
         warnings: summary.warnings,
         duration_ms: summary.durationMs,
         warning_details: summary.warningDetails,
+        selected_count: summary.selectedCount ?? 0,
+        selected_account_ids: summary.selectedAccountIds ?? [],
+        change_details: summary.changes ?? [],
         error: null,
       });
     } catch (_logErr) { /* ignore log errors */ }
 
     return json(summary, 200);
   } catch (e) {
+    await persistFailure(e instanceof Error ? e.message : String(e));
     return json(
       { error: e instanceof Error ? e.message : String(e), durationMs: Date.now() - t0 },
       500,

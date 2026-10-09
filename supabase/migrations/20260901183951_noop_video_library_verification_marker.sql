@@ -1,2 +1,1 @@
--- No schema changes.
--- Recorded during live connector verification after applying the video library migration.
+do $$ begin null; end $$;;

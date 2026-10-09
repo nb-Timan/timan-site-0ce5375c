@@ -13,6 +13,9 @@
  * downline partner scope. Internal notes stay hidden from external roles.
  */
 import React, { useEffect, useMemo, useState } from "react";
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, Building2, Mail, MapPin, Phone, GitBranch, Star,
@@ -23,7 +26,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listDealerContacts, resolveCanonicalFirstContact, type DealerContact } from "@/lib/dealerContactsService";
+import { resolveCanonicalFirstContact, type DealerContact } from "@/lib/dealerContactsService";
 import { computeCompletion } from "@/lib/dealerProfileCompletion";
 import { toast } from "sonner";
 import { useAppUser, type SessionUser } from "@/context/AppUserContext";
@@ -40,17 +43,20 @@ import {
   hasUsableDealerAddress,
   requestDealerGeocoding,
 } from "@/lib/dealerGeocodingService";
-import { derivePortalRole } from "@/lib/portalAccess";
+import { derivePortalRole, hasAreaAccess } from "@/lib/portalAccess";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccountFamilyByNumber, fetchDealerAccountStatsByNumbers, fetchDealerAccountsForSeller,
-  updateDealerAccount, type UpdateDealerAccountPatch,
+  type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
-import { buildDealerDetailRowsFromVisibleDealers } from "@/lib/dealerDetailScope";
+import {
+  addRelatedDealerDetailRowsFromVisibleDealers,
+  buildDealerDetailRowsFromVisibleDealers,
+} from "@/lib/dealerDetailScope";
 import type { BackendUser } from "@/lib/backend-users-store";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import {
@@ -66,8 +72,14 @@ import {
   buildPartnerAdminSellerState,
   buildPartnerAdminTypePatch,
   getInitialPartnerAdminType,
+  isEligibleServicePartnerParent,
   type PartnerAdminSellerOption,
 } from "@/lib/partnerAdminEdit";
+import {
+  listPartnerAccountRelationsForAccount,
+  setServicePartnerMainRelation,
+  type PartnerAccountRelation,
+} from "@/lib/partnerRelationsService";
 import { supabase } from "@/lib/supabase";
 import {
   listActivities as listCalendarActivities,
@@ -119,10 +131,11 @@ import PartnerAgreementHistory from "@/components/portal/PartnerAgreementHistory
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { JournalScope } from "@/lib/machineJournalService";
 import type { MachineSortDirection, MachineSortKey } from "@/lib/machineOverviewFilters";
+import { hasExtendedWarranty } from "@/lib/extendedWarranty";
 
 /** New multilang strings for redesigned dealer detail. */
 type DealerDetailText = Partial<Record<PortalUiLanguage, string>> & { da: string; en?: string };
-const L: Record<string, DealerDetailText> = {
+const L = {
   primary_contact:  { da: "Primær kontaktperson", en: "Primary contact", de: "Hauptansprechpartner", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
   no_primary:       { da: "Primær kontaktperson mangler", en: "Primary contact missing", de: "Hauptansprechpartner fehlt", it: "Contatto principale mancante", hu: "Hiányzó elsődleges kapcsolat" },
   call:             { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Referente", hu: "Kapcsolattartó" },
@@ -153,27 +166,32 @@ const L: Record<string, DealerDetailText> = {
   area:             { da: "Område", en: "Area", de: "Bereich", it: "Area", hu: "Terület" },
   comment:          { da: "Kommentar", en: "Comment", de: "Kommentar", it: "Commento", hu: "Megjegyzés" },
   no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
-  demo_machines:    { da: "Demo-maskiner", en: "Demo machines", de: "Demomaschinen", it: "Macchine demo", hu: "Demógépek" },
+  demo_machines:    { da: "Demo-maskiner", en: "Demo machines", de: "Demomaschinen", it: "Macchine demo", hu: "Demógépek", sv: "Demomaskiner", fr: "Machines de démonstration", pl: "Maszyny demonstracyjne", cs: "Předváděcí stroje" },
+  demo_machines_loans: { da: "Demo-maskiner / lån", en: "Demo machines / loans", de: "Demomaschinen / Leihen", it: "Macchine demo / prestiti", hu: "Demógépek / kölcsönök", sv: "Demomaskiner / lån", fr: "Machines de démonstration / prêts", pl: "Maszyny demonstracyjne / wypożyczenia", cs: "Předváděcí stroje / zápůjčky" },
+  view_loans: { da: "Se lån", en: "View loans", de: "Leihen anzeigen", it: "Vedi prestiti", hu: "Kölcsönök megtekintése", sv: "Visa lån", fr: "Voir les prêts", pl: "Zobacz wypożyczenia", cs: "Zobrazit zápůjčky" },
   no_active_demo_machines: { da: "Ingen aktive demo-maskiner", en: "No active demo machines", de: "Keine aktiven Demomaschinen", it: "Nessuna macchina demo attiva", hu: "Nincs aktív demógép" },
   no_machines:      { da: "Ingen maskiner", en: "No machines", de: "Keine Maschinen", it: "Nessuna macchina", hu: "Nincs gép" },
   view_machines:    { da: "Se maskiner", en: "View machines", de: "Maschinen anzeigen", it: "Vedi macchine", hu: "Gépek megtekintése" },
-  all_machines:     { da: "Alle", en: "All", de: "Alle", it: "Tutte", hu: "Összes" },
+  all_machines:     { da: "Alle", en: "All", de: "Alle", it: "Tutte", hu: "Összes", sv: "Alla", fr: "Toutes", pl: "Wszystkie", cs: "Všechny" },
   serial_number:    { da: "Serienummer", en: "Serial number", de: "Seriennummer", it: "Numero di serie", hu: "Sorozatszám" },
   machine_model:    { da: "Model/type", en: "Model/type", de: "Modell/Typ", it: "Modello/tipo", hu: "Modell/típus" },
   order_no:         { da: "Ordrenr.", en: "Order no.", de: "Auftragsnr.", it: "N. ordine", hu: "Rendelésszám" },
   delivery_date:    { da: "Levering", en: "Delivery", de: "Lieferung", it: "Consegna", hu: "Szállítás" },
   customer:         { da: "Kunde", en: "Customer", de: "Kunde", it: "Cliente", hu: "Ügyfél" },
   warranty_sp:      { da: "Garanti/SP", en: "Warranty/SP", de: "Garantie/SP", it: "Garanzia/SP", hu: "Garancia/SP" },
-  lifecycle_status: { da: "Lifecycle-status", en: "Lifecycle status", de: "Lifecycle-Status", it: "Stato lifecycle", hu: "Életciklus állapot" },
-  normal_machine:   { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
-  active_demo:      { da: "Aktiv demo", en: "Active demo", de: "Aktive Demo", it: "Demo attiva", hu: "Aktív demó" },
-  ready_for_sale:   { da: "Klar til salg", en: "Ready for sale", de: "Verkaufsbereit", it: "Pronta per la vendita", hu: "Eladásra kész" },
-  sold_early:       { da: "Solgt før tilladt dato", en: "Sold before allowed date", de: "Vor erlaubtem Datum verkauft", it: "Venduta prima della data consentita", hu: "Engedélyezett dátum előtt eladva" },
-  sold_registered:  { da: "Solgt/garantiregistreret", en: "Sold/warranty registered", de: "Verkauft/garantieregistriert", it: "Venduta/registrata in garanzia", hu: "Eladva/garanciára regisztrálva" },
-  demo_missing_delivery: { da: "Demo - leveringsdato mangler", en: "Demo - delivery date missing", de: "Demo - Lieferdatum fehlt", it: "Demo - data consegna mancante", hu: "Demó - szállítási dátum hiányzik" },
-  days_left:        { da: "dage tilbage", en: "days left", de: "Tage verbleiben", it: "giorni rimanenti", hu: "nap van hátra" },
-  days_early:       { da: "dage før tid", en: "days early", de: "Tage zu früh", it: "giorni in anticipo", hu: "nappal korábban" },
-  after_9_months:   { da: "efter 9 mdr.", en: "after 9 months", de: "nach 9 Monaten", it: "dopo 9 mesi", hu: "9 hónap után" },
+  demo_machine:     { da: "Demo-maskine", en: "Demo machine", de: "Demomaschine", it: "Macchina demo", hu: "Demógép", sv: "Demomaskin", fr: "Machine de démonstration", pl: "Maszyna demonstracyjna", cs: "Předváděcí stroj" },
+  extended_warranty: { da: "Forlænget garanti", en: "Extended warranty", de: "Garantieverlängerung", it: "Garanzia estesa", hu: "Kiterjesztett garancia", sv: "Förlängd garanti", fr: "Garantie prolongée", pl: "Przedłużona gwarancja", cs: "Prodloužená záruka" },
+  extended_warranty_registered: { da: "Forlænget garanti registreret", en: "Extended warranty registered", de: "Garantieverlängerung registriert", it: "Garanzia estesa registrata", hu: "Kiterjesztett garancia regisztrálva", sv: "Förlängd garanti registrerad", fr: "Garantie prolongée enregistrée", pl: "Zarejestrowano przedłużoną gwarancję", cs: "Prodloužená záruka registrována" },
+  demo_status:      { da: "Demo-status", en: "Demo status", de: "Demo-Status", it: "Stato demo", hu: "Demó állapota", sv: "Demostatus", fr: "Statut de démonstration", pl: "Status maszyny demonstracyjnej", cs: "Stav předváděcího stroje" },
+  normal_machine:   { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál", sv: "Normal", fr: "Normale", pl: "Standardowa", cs: "Běžný" },
+  active_demo:      { da: "Aktiv demo", en: "Active demo", de: "Aktive Demo", it: "Demo attiva", hu: "Aktív demó", sv: "Aktiv demo", fr: "Démo active", pl: "Aktywna maszyna demonstracyjna", cs: "Aktivní předváděcí stroj" },
+  ready_for_sale:   { da: "Klar til salg", en: "Ready for sale", de: "Verkaufsbereit", it: "Pronta per la vendita", hu: "Eladásra kész", sv: "Klar för försäljning", fr: "Prête à la vente", pl: "Gotowa do sprzedaży", cs: "Připraveno k prodeji" },
+  sold_early:       { da: "Solgt før tilladt dato", en: "Sold before allowed date", de: "Vor erlaubtem Datum verkauft", it: "Venduta prima della data consentita", hu: "Engedélyezett dátum előtt eladva", sv: "Såld före tillåtet datum", fr: "Vendue avant la date autorisée", pl: "Sprzedana przed dozwolonym terminem", cs: "Prodáno před povoleným datem" },
+  sold_registered:  { da: "Solgt/garantiregistreret", en: "Sold/warranty registered", de: "Verkauft/garantieregistriert", it: "Venduta/registrata in garanzia", hu: "Eladva/garanciára regisztrálva", sv: "Såld/garantiregistrerad", fr: "Vendue/enregistrée sous garantie", pl: "Sprzedana/zarejestrowana gwarancyjnie", cs: "Prodáno/registrováno v záruce" },
+  demo_missing_delivery: { da: "Demo - leveringsdato mangler", en: "Demo - delivery date missing", de: "Demo - Lieferdatum fehlt", it: "Demo - data consegna mancante", hu: "Demó - szállítási dátum hiányzik", sv: "Demo - leveransdatum saknas", fr: "Démo - date de livraison manquante", pl: "Demo - brak daty dostawy", cs: "Demo - chybí datum dodání" },
+  days_left:        { da: "dage tilbage", en: "days left", de: "Tage verbleiben", it: "giorni rimanenti", hu: "nap van hátra", sv: "dagar kvar", fr: "jours restants", pl: "dni pozostało", cs: "dní zbývá" },
+  days_early:       { da: "dage før tid", en: "days early", de: "Tage zu früh", it: "giorni in anticipo", hu: "nappal korábban", sv: "dagar för tidigt", fr: "jours trop tôt", pl: "dni za wcześnie", cs: "dní předčasně" },
+  after_9_months:   { da: "efter 9 mdr.", en: "after 9 months", de: "nach 9 Monaten", it: "dopo 9 mesi", hu: "9 hónap után", sv: "efter 9 månader", fr: "après 9 mois", pl: "po 9 miesiącach", cs: "po 9 měsících" },
 
   role:             { da: "Rolle", en: "Role", de: "Rolle", it: "Ruolo", hu: "Szerep" },
   phone:            { da: "Telefon", en: "Phone", de: "Telefon", it: "Telefono", hu: "Telefon" },
@@ -222,6 +240,11 @@ const L: Record<string, DealerDetailText> = {
   main_account:     { da: "Hovedkonto", en: "Main account", de: "Hauptkonto", it: "Account principale", hu: "Fő fiók", sv: "Huvudkonto", fr: "Compte principal", pl: "Konto główne", cs: "Hlavní účet" },
   no_budget:        { da: "Intet budget", en: "No budget", de: "Kein Budget", it: "Nessun budget", hu: "Nincs költségvetés", sv: "Ingen budget", fr: "Aucun budget", pl: "Brak budżetu", cs: "Žádný rozpočet" },
   edit_dealer:      { da: "Rediger partner", en: "Edit partner", de: "Partner bearbeiten", it: "Modifica partner", hu: "Partner szerkesztése", sv: "Redigera partner", fr: "Modifier le partenaire", pl: "Edytuj partnera", cs: "Upravit partnera" },
+  linked_main_partner: { da: "Tilknyttet hovedpartner", en: "Linked main partner", de: "Zugeordneter Hauptpartner", it: "Partner principale collegato", hu: "Kapcsolt főpartner", sv: "Kopplad huvudpartner", fr: "Partenaire principal lié", pl: "Powiązany partner główny", cs: "Propojený hlavní partner" },
+  search_main_partner: { da: "Søg navn eller kontonummer", en: "Search name or account number", de: "Name oder Kontonummer suchen", it: "Cerca nome o numero conto", hu: "Keresés név vagy számlaszám alapján", sv: "Sök namn eller kontonummer", fr: "Rechercher un nom ou un numéro de compte", pl: "Szukaj nazwy lub numeru konta", cs: "Hledat název nebo číslo účtu" },
+  no_main_partner: { da: "Ingen hovedpartner", en: "No main partner", de: "Kein Hauptpartner", it: "Nessun partner principale", hu: "Nincs főpartner", sv: "Ingen huvudpartner", fr: "Aucun partenaire principal", pl: "Brak partnera głównego", cs: "Žádný hlavní partner" },
+  billing_via: { da: "Fakturering via", en: "Billing via", de: "Abrechnung über", it: "Fatturazione tramite", hu: "Számlázás ezen keresztül", sv: "Fakturering via", fr: "Facturation via", pl: "Fakturowanie przez", cs: "Fakturace přes" },
+  own_account: { da: "Egen konto", en: "Own account", de: "Eigenes Konto", it: "Conto proprio", hu: "Saját fiók", sv: "Eget konto", fr: "Compte propre", pl: "Własne konto", cs: "Vlastní účet" },
   notes_heading:    { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek", sv: "Anteckningar", fr: "Notes", pl: "Notatki", cs: "Poznámky" },
   internal_notes:   { da: "Interne noter", en: "Internal notes", de: "Interne Notizen", it: "Note interne", hu: "Belső jegyzetek", sv: "Interna anteckningar", fr: "Notes internes", pl: "Notatki wewnętrzne", cs: "Interní poznámky" },
   shared_notes:     { da: "Delte noter", en: "Shared notes", de: "Geteilte Notizen", it: "Note condivise", hu: "Megosztott jegyzetek", sv: "Delade anteckningar", fr: "Notes partagées", pl: "Notatki udostępnione", cs: "Sdílené poznámky" },
@@ -230,6 +253,7 @@ const L: Record<string, DealerDetailText> = {
   shared:           { da: "Delt", en: "Shared", de: "Geteilt", it: "Condivisa", hu: "Megosztva", sv: "Delad", fr: "Partagée", pl: "Udostępnione", cs: "Sdíleno" },
   add_activity_note:{ da: "Tilføj aktivitet / note", en: "Add activity / note", de: "Aktivität / Notiz hinzufügen", it: "Aggiungi attività / nota", hu: "Tevékenység / jegyzet hozzáadása", sv: "Lägg till aktivitet / anteckning", fr: "Ajouter une activité / note", pl: "Dodaj aktywność / notatkę", cs: "Přidat aktivitu / poznámku" },
   add_note_title:   { da: "Tilføj note", en: "Add note", de: "Notiz hinzufügen", it: "Aggiungi nota", hu: "Jegyzet hozzáadása", sv: "Lägg till anteckning", fr: "Ajouter une note", pl: "Dodaj notatkę", cs: "Přidat poznámku" },
+  note_type:        { da: "Notetype", en: "Note type", de: "Notiztyp", it: "Tipo di nota", hu: "Jegyzettípus", sv: "Anteckningstyp", fr: "Type de note", pl: "Typ notatki", cs: "Typ poznámky" },
   dealer_internal_default: { da: "Forhandler: {dealer} · intern som standard", en: "Dealer: {dealer} · internal by default", de: "Händler: {dealer} · standardmäßig intern", it: "Rivenditore: {dealer} · interna come standard", hu: "Kereskedő: {dealer} · alapértelmezetten belső", sv: "Återförsäljare: {dealer} · intern som standard", fr: "Revendeur : {dealer} · interne par défaut", pl: "Dealer: {dealer} · domyślnie wewnętrzna", cs: "Prodejce: {dealer} · výchozí interní" },
   note_text:        { da: "Notetekst", en: "Note text", de: "Notiztext", it: "Testo nota", hu: "Jegyzet szövege", sv: "Anteckningstext", fr: "Texte de la note", pl: "Treść notatki", cs: "Text poznámky" },
   followup_optional:{ da: "Opfølgningsdato (valgfri)", en: "Follow-up date (optional)", de: "Nachfassdatum (optional)", it: "Data follow-up (facoltativa)", hu: "Utánkövetési dátum (opcionális)", sv: "Uppföljningsdatum (valfritt)", fr: "Date de suivi (facultatif)", pl: "Data działania następczego (opcjonalnie)", cs: "Datum následné akce (volitelné)" },
@@ -292,7 +316,7 @@ const L: Record<string, DealerDetailText> = {
   note_demo:        { da: "Demo", en: "Demo", de: "Demo", it: "Demo", hu: "Demó", sv: "Demo", fr: "Démo", pl: "Demo", cs: "Demo" },
   note_offer:       { da: "Tilbud", en: "Offer", de: "Angebot", it: "Offerta", hu: "Ajánlat", sv: "Offert", fr: "Offre", pl: "Oferta", cs: "Nabídka" },
   note_service:     { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz", sv: "Service", fr: "Service", pl: "Serwis", cs: "Servis" },
-};
+} satisfies Record<string, DealerDetailText>;
 const tl = (k: keyof typeof L, lang: PortalUiLanguage): string => L[k][lang] ?? L[k].en ?? L[k].da;
 
 function isServicePartnerAccount(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">): boolean {
@@ -407,6 +431,8 @@ function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string)
     geocoded_at: null,
     geocoding_status: null,
     geocoding_error: null,
+    geocoding_address_hash: null,
+    geocoding_retry_after: null,
     google_place_id: null,
     successor_dealer_id: null,
     successor_dealer_account_number: null,
@@ -580,7 +606,10 @@ async function fetchDealerDetailUsers(
 
 export default function CrmDealerDetailPage({ presentation = "crm" }: { presentation?: "crm" | "partnerdata" }) {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
-  const { appUser, loading } = useAppUser();
+  const { appUser: sessionUser, loading } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
+  const { listPartnerDataDealers, listDealerContacts, updateDealerAccount } = getPartnerDataRepository();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
@@ -591,6 +620,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [partnerRelations, setPartnerRelations] = useState<PartnerAccountRelation[]>([]);
+  const [partnerAdminAccounts, setPartnerAdminAccounts] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
@@ -638,6 +669,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
+  const sellerViewActive = portalRole === "timan_backend" && Boolean(getActiveSellerView(appUser?.email));
   const canPreviewDealerMachines = admin || seller;
   const partnerDataPresentation = presentation === "partnerdata";
   const dealerOverviewHref = (dealerNumber: string) => partnerDataPresentation
@@ -654,6 +686,12 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const noteAuthorParty: DealerNoteAuthorParty = externalCrm ? "dealer" : "timan";
 
   useEffect(() => {
+    if (academyMode && partnerDataPresentation) {
+      academyPartnerDataSandbox.trackAcademyMachineOpened(accountNumber);
+    }
+  }, [academyMode, accountNumber, partnerDataPresentation]);
+
+  useEffect(() => {
     if (!appUser || !accountNumber) return;
     let cancelled = false;
     (async () => {
@@ -662,16 +700,38 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
       // role's machine rows while the selected seller scope is resolving.
       setMachineContext(null);
       try {
+        if (academyMode) {
+          setDealers(buildDealerDetailRowsFromVisibleDealers(academyPartnerDataSandbox.listDealers(), accountNumber));
+          setStats({}); setUsers([]); setCalendar([]); setDealerQuotes([]); setDealerOrders([]);
+          setAllLeads([]); setAllDemos([]); setBudgetIndex(null);
+          return;
+        }
         let dealerRows: DealerAccount[] = [];
         let scopedDealerNumbers: string[] | null = null;
         let sellerStats: Record<string, DealerAccountStats> | null = null;
+        let preloadedRelations: PartnerAccountRelation[] | null = null;
         if (seller) {
           const sellerRes = await fetchDealerAccountsForSeller({
+            sellerId: effectiveUser?.id ?? null,
             initials: getEffectiveSellerInitials(appUser),
             email: getEffectiveSellerEmail(appUser),
           });
           dealerRows = buildDealerDetailRowsFromVisibleDealers(sellerRes.dealers, accountNumber);
+          const selectedVisibleDealer = sellerRes.dealers.find((row) => row.account_number === accountNumber);
+          if (selectedVisibleDealer && dealerRows.length > 0) {
+            preloadedRelations = await listPartnerAccountRelationsForAccount(selectedVisibleDealer.id);
+            dealerRows = addRelatedDealerDetailRowsFromVisibleDealers(
+              dealerRows,
+              sellerRes.dealers,
+              selectedVisibleDealer.id,
+              preloadedRelations,
+            );
+          }
           sellerStats = sellerRes.stats;
+        } else if (externalCrm && partnerDataPresentation) {
+          const scopeRes = await listPartnerDataDealers(effectiveUser, portalRole);
+          dealerRows = buildDealerDetailRowsFromVisibleDealers(scopeRes.rows, accountNumber);
+          scopedDealerNumbers = scopeRes.rows.map((dealer) => dealer.account_number);
         } else {
           const [scopeRes, dRes] = await Promise.all([
             externalCrm ? buildJournalScope(effectiveUser, portalRole) : Promise.resolve(null),
@@ -689,6 +749,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         if (cancelled) return;
         if (dealerRows.length === 0) {
           setDealers([]);
+          setPartnerRelations([]);
           setStats({});
           setUsers([]);
           setCalendar([]);
@@ -702,6 +763,10 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         }
         const dealerNumbers = Array.from(new Set(dealerRows.map((d) => d.account_number).filter(Boolean)));
         const dealerIds = Array.from(new Set(dealerRows.map((d) => d.id).filter(Boolean)));
+        const selectedDealer = dealerRows.find((row) => row.account_number === accountNumber) ?? dealerRows[0];
+        const accountRelations = preloadedRelations ?? (academyMode || !selectedDealer
+          ? []
+          : await listPartnerAccountRelationsForAccount(selectedDealer.id));
         const [sRes, detailUsers, cal] = await Promise.all([
           sellerStats ? Promise.resolve({ rows: [] as DealerAccountStats[] }) : fetchDealerAccountStatsByNumbers(dealerNumbers),
           fetchDealerDetailUsers(dealerRows, { includeAllTimanUsers: admin || seller }),
@@ -709,6 +774,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         ]);
         if (cancelled) return;
         setDealers(dealerRows);
+        setPartnerRelations(accountRelations);
         const map: Record<string, DealerAccountStats> = {};
         if (sellerStats) {
           for (const dealer of dealerRows) {
@@ -782,6 +848,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         if (!cancelled) {
           const fallbackDealer = externalCrm ? fallbackDealerFromUser(effectiveUser, accountNumber) : null;
           setDealers(fallbackDealer ? [fallbackDealer] : []);
+          setPartnerRelations([]);
           setStats({});
           setUsers([]);
           setCalendar([]);
@@ -862,7 +929,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
 
   // Load notes (whenever scope changes)
   useEffect(() => {
-    if (!dealer || !canUseNotes) {
+    if (academyMode || !dealer || !canUseNotes) {
       setNotes([]);
       setNoteComments({});
       return;
@@ -889,7 +956,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   }, [dealer?.id]);
 
   useEffect(() => {
-    if (!dealer?.account_number) { setDealerContracts([]); return; }
+    if (academyMode || !dealer?.account_number) { setDealerContracts([]); return; }
     let cancelled = false;
     fetchDealerContractsForDealerAccount(dealer.account_number).then(({ rows }) => {
       if (!cancelled) setDealerContracts(rows);
@@ -904,6 +971,15 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
     next.delete("edit");
     setSearchParams(next, { replace: true });
   }, [dealer, canEditPartnerAdmin, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!showEditDealer || !canEditPartnerAdmin) return;
+    let cancelled = false;
+    listPartnerDataDealers(effectiveUser, portalRole).then((result) => {
+      if (!cancelled) setPartnerAdminAccounts(result.rows);
+    });
+    return () => { cancelled = true; };
+  }, [showEditDealer, canEditPartnerAdmin, effectiveUserKey, portalRole, listPartnerDataDealers]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -1020,11 +1096,23 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const hasGroup = branchNumbers.length > 1;
   const collaborationPartners = dealers
     .filter((d) => {
-      if (d.parent_account_number !== mainAccountNumber) return false;
+      const linkedByRelation = partnerRelations.some((relation) =>
+        relation.active && relation.source_account_id === dealer.id && relation.target_account_id === d.id
+      );
+      if (d.parent_account_number !== mainAccountNumber && !linkedByRelation) return false;
+      if (d.id === dealer.id) return false;
       if (d.is_deleted || d.is_blocked) return false;
-      return Boolean(d.parent_account_number) || isDealerCustomerAccount(d) || isServicePartnerAccount(d);
+      return linkedByRelation || Boolean(d.parent_account_number) || isDealerCustomerAccount(d) || isServicePartnerAccount(d);
     })
     .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
+  const linkedMainPartnerRelation = partnerRelations.find((relation) =>
+    relation.active
+    && relation.target_account_id === dealer.id
+    && (relation.relation_type === "dealer_has_service_partner" || relation.relation_type === "importer_has_service_partner")
+  ) ?? null;
+  const linkedMainPartner = linkedMainPartnerRelation
+    ? dealers.find((row) => row.id === linkedMainPartnerRelation.source_account_id) ?? null
+    : null;
 
   const sellerCtx = getActiveSellerView(appUser.email);
   const effInitials = getEffectiveSellerInitials(appUser);
@@ -1339,16 +1427,32 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
     );
   }
 
-  async function handleSaveDealer(patch: UpdateDealerAccountPatch): Promise<{ ok: boolean; error?: string }> {
+  async function handleSaveDealer(
+    patch: UpdateDealerAccountPatch,
+    hierarchy: { parentAccountId: string | null; billViaParent: boolean },
+  ): Promise<{ ok: boolean; error?: string }> {
     if (!dealer) return { ok: false, error: tl("dealer_missing_error", lang) };
     const res = await updateDealerAccount(dealer.id, patch);
     if (!res.ok) {
       toast.error(res.error || tl("partner_update_error", lang));
       return res;
     }
+    if (!academyMode) {
+      const relationResult = await setServicePartnerMainRelation({
+        childAccountId: dealer.id,
+        parentAccountId: hierarchy.parentAccountId,
+        billViaParent: hierarchy.billViaParent,
+      });
+      if (!relationResult.ok) {
+        const error = relationResult.error || tl("partner_update_error", lang);
+        toast.error(error);
+        return { ok: false, error };
+      }
+    }
     // Refresh only this dealer family; the detail view derives from it.
-    const dRes = await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
+    const dRes = academyMode ? { rows: academyPartnerDataSandbox.listDealers() } : await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
     setDealers(dRes.rows);
+    if (!academyMode) setPartnerRelations(await listPartnerAccountRelationsForAccount(dealer.id));
     toast.success(tl("partner_update_success", lang));
     setShowEditDealer(false);
     return { ok: true };
@@ -1356,6 +1460,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
 
   return (
     <CrmLayout pageTitle={dealer.branch_name || dealer.company_name} partnerDataPresentation={partnerDataPresentation}>
+      <AcademyPartnerDataGuidance />
 
       {isDealerInactive(dealer) && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
@@ -1492,6 +1597,17 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
                 )}
               </div>
 
+              {linkedMainPartner && (
+                <div className="sm:col-span-2">
+                  <LinkedMainPartnerPanel
+                    partner={linkedMainPartner}
+                    billingViaParent={dealer.billing_account_id === linkedMainPartner.id}
+                    lang={lang}
+                    onOpen={() => navigate(dealerOverviewHref(linkedMainPartner.account_number))}
+                  />
+                </div>
+              )}
+
               <div className="sm:col-span-2">
                 <CollaborationPartnersPanel
                   partners={collaborationPartners}
@@ -1507,6 +1623,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
                   dealer={machineContext?.dealer ?? null}
                   scope={machineContext?.scope ?? null}
                   lang={lang}
+                  canViewLoans={hasAreaAccess(effectiveUser, 'loans')}
                   onOpenMachines={() => {
                     setMachineListDemoOnly(true);
                     setActiveTab("machines");
@@ -1665,7 +1782,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
             scope={machineContext?.scope ?? null}
             lang={lang}
             initialDemoOnly={machineListDemoOnly}
-            showFinancials={!externalCrm && machinePresentation === "timan"}
+            showCommercials={!externalCrm && machinePresentation === "timan"}
+            showBackendMargins={portalRole === "timan_backend" && !sellerViewActive && machinePresentation === "timan"}
           />
         </TabsContent>
 
@@ -1687,6 +1805,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         <EditDealerModal
           dealer={dealer}
           sellers={partnerAdminSellerOptions}
+          parentCandidates={partnerAdminAccounts}
+          linkedMainPartner={linkedMainPartner}
           lang={lang}
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
@@ -1722,6 +1842,37 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
       <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
       {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
     </div>
+  );
+}
+
+function LinkedMainPartnerPanel({
+  partner,
+  billingViaParent,
+  lang,
+  onOpen,
+}: {
+  partner: DealerAccount;
+  billingViaParent: boolean;
+  lang: PortalUiLanguage;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 text-left hover:bg-emerald-50"
+    >
+      <span className="min-w-0">
+        <span className="block text-xs font-bold uppercase tracking-wide text-emerald-700">{tl("linked_main_partner", lang)}</span>
+        <span className="mt-1 block truncate text-sm font-semibold text-slate-900">
+          {partner.company_name} · #{partner.account_number}
+        </span>
+        <span className="mt-1 block text-xs text-slate-500">
+          {tl("billing_via", lang)}: {billingViaParent ? partner.company_name : tl("own_account", lang)}
+        </span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-emerald-700" />
+    </button>
   );
 }
 
@@ -1872,6 +2023,7 @@ function CrmDemoMachinesPanel({
   lang,
   onOpenMachines,
   compact = false,
+  loanHref,
 }: {
   rows: DealerMachineRegisterRow[];
   total?: number;
@@ -1880,6 +2032,7 @@ function CrmDemoMachinesPanel({
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
   compact?: boolean;
+  loanHref?: string | null;
 }) {
   return (
     <div className={`bg-white border border-slate-200 ${compact ? "rounded-lg p-4" : "rounded-2xl p-5"}`}>
@@ -1889,16 +2042,14 @@ function CrmDemoMachinesPanel({
           onClick={onOpenMachines}
           className="text-left text-sm font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-700"
         >
-          {tl("demo_machines", lang)}
+          {loanHref ? tl("demo_machines_loans", lang) : tl("demo_machines", lang)}
         </button>
-        <button
-          type="button"
-          onClick={onOpenMachines}
-          className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
-          aria-label={`${tl("view_machines", lang)} ${total}`}
-        >
-          {total}
-        </button>
+        <div className="flex items-center gap-2">
+          {loanHref && <Link to={loanHref} className="text-xs font-semibold text-emerald-700 hover:text-emerald-800">{tl('view_loans', lang)}</Link>}
+          <button type="button" onClick={onOpenMachines}
+            className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
+            aria-label={`${tl("view_machines", lang)} ${total}`}>{total}</button>
+        </div>
       </div>
       {loading ? (
         <p className="text-sm text-slate-500">Henter demo-maskiner…</p>
@@ -1948,12 +2099,13 @@ function CrmDemoMachinesPanel({
 }
 
 function CrmDemoMachinesPreview({
-  dealer, scope, lang, onOpenMachines,
+  dealer, scope, lang, onOpenMachines, canViewLoans,
 }: {
   dealer: DealerAccount | null;
   scope: JournalScope | null;
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
+  canViewLoans: boolean;
   compact?: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
@@ -1976,7 +2128,8 @@ function CrmDemoMachinesPreview({
     return () => { cancelled = true; };
   }, [dealer, scope]);
 
-  return <CrmDemoMachinesPanel rows={rows} total={total} loading={loading} error={error} lang={lang} onOpenMachines={onOpenMachines} compact />;
+  const loanHref = canViewLoans && dealer?.id ? `/portal/loans?partner=${encodeURIComponent(dealer.id)}` : null;
+  return <CrmDemoMachinesPanel rows={rows} total={total} loading={loading} error={error} lang={lang} onOpenMachines={onOpenMachines} compact loanHref={loanHref} />;
 }
 
 function CrmMachineRegisterPanel({
@@ -1984,13 +2137,15 @@ function CrmMachineRegisterPanel({
   scope,
   lang,
   initialDemoOnly,
-  showFinancials,
+  showCommercials,
+  showBackendMargins,
 }: {
   dealer: DealerAccount | null;
   scope: JournalScope | null;
   lang: PortalUiLanguage;
   initialDemoOnly: boolean;
-  showFinancials: boolean;
+  showCommercials: boolean;
+  showBackendMargins: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -2005,9 +2160,9 @@ function CrmMachineRegisterPanel({
   const formatDkk = (value: number | null) => value == null
     ? "—"
     : formatConvertedMoney(value, "DKK", displayCurrency);
-  const formatPercent = (revenue: number | null, margin: number | null) => {
-    if (revenue == null || margin == null || revenue === 0) return "—";
-    return new Intl.NumberFormat("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(margin / revenue);
+  const formatPercent = (value: number | null | undefined) => {
+    if (value == null) return "—";
+    return new Intl.NumberFormat("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
   };
 
   // A dealer change is a new list. Never reuse a prior dealer's search or sort.
@@ -2029,6 +2184,7 @@ function CrmMachineRegisterPanel({
       try {
         const result = await fetchDealerMachineRegisterPage({
           dealer, scope, query, demoOnly, sort, direction, page, pageSize,
+          includeBackendMargins: showBackendMargins,
         });
         if (!cancelled) { setRows(result.rows); setTotal(result.total); }
       } catch (error) {
@@ -2039,7 +2195,7 @@ function CrmMachineRegisterPanel({
       }
     }, 180);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [dealer, scope, query, demoOnly, sort, direction, page]);
+  }, [dealer, scope, query, demoOnly, sort, direction, page, showBackendMargins]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const toggleSort = (key: MachineSortKey, initial: MachineSortDirection = "asc") => {
@@ -2047,8 +2203,8 @@ function CrmMachineRegisterPanel({
     if (direction === initial) { setDirection(initial === "asc" ? "desc" : "asc"); setPage(1); return; }
     setSort("delivery"); setDirection("desc"); setPage(1);
   };
-  const SortHeader = ({ label, sortKey, initial = "asc" }: { label: string; sortKey: MachineSortKey; initial?: MachineSortDirection }) => (
-    <th className="py-2 pr-3 whitespace-nowrap">
+  const SortHeader = ({ label, sortKey, initial = "asc", sentenceCase = false }: { label: string; sortKey: MachineSortKey; initial?: MachineSortDirection; sentenceCase?: boolean }) => (
+    <th className={`py-2 pr-3 whitespace-nowrap ${sentenceCase ? "normal-case" : ""}`}>
       <button type="button" onClick={() => toggleSort(sortKey, initial)} className="inline-flex items-center gap-1 hover:text-slate-800">
         {label}{sort !== sortKey ? <ArrowUpDown className="h-3 w-3" /> : direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
       </button>
@@ -2099,20 +2255,21 @@ function CrmMachineRegisterPanel({
                 <SortHeader label={tl("serial_number", lang)} sortKey="serial" />
                 <SortHeader label={tl("machine_model", lang)} sortKey="model" />
                 <SortHeader label="Garanti nr." sortKey="warrantyId" />
+                <SortHeader label={tl("demo_machine", lang)} sortKey="status" sentenceCase />
+                <th className="py-2 pr-3 whitespace-nowrap normal-case">{tl("extended_warranty", lang)}</th>
+                {demoOnly && <SortHeader label={tl("demo_status", lang)} sortKey="lifecycle" sentenceCase />}
                 <SortHeader label="MO nr." sortKey="machineOrder" />
                 <SortHeader label="ERP nr." sortKey="erpOrder" />
                 <SortHeader label="Portal-ordrenr." sortKey="portalOrder" />
                 <SortHeader label={tl("delivery_date", lang)} sortKey="delivery" initial="desc" />
-                <SortHeader label={tl("status", lang)} sortKey="status" />
                 <SortHeader label={tl("customer", lang)} sortKey="customer" />
                 <SortHeader label="Fakturanr." sortKey="invoice" />
-                {showFinancials && <>
-                  <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />
+                {showCommercials && <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />}
+                {showBackendMargins && <>
                   <SortHeader label="Kostpris" sortKey="cost" initial="desc" />
                   <SortHeader label="Dækningsbidrag" sortKey="margin" initial="desc" />
-                  <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />
                 </>}
-                <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
+                {showCommercials && <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -2123,25 +2280,36 @@ function CrmMachineRegisterPanel({
                     <td className="py-3 pr-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.machineModel || row.machineType || "—"}</td>
                     <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{row.warrantyCertificate || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
+                    <td className="py-3 pr-3 text-left align-middle">
+                      {hasExtendedWarranty(row) ? (
+                        <CheckCircle2
+                          className="h-4 w-4 text-emerald-600"
+                          aria-label={tl("extended_warranty_registered", lang)}
+                          title={tl("extended_warranty_registered", lang)}
+                        />
+                      ) : null}
+                    </td>
+                    {demoOnly && (
+                      <td className="py-3 pr-3">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
+                          {meta.icon}{meta.label}
+                        </span>
+                        {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
+                      </td>
+                    )}
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.machineOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.erpOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.portalOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{fmtDate(row.deliveryDate)}</td>
-                    <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.customerName || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.invoiceNumber || "—"}</td>
-                    {showFinancials && <>
-                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>
+                    {showCommercials && <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>}
+                    {showBackendMargins && <>
                       <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.costAmount)}</td>
                       <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.contributionMarginAmount)}</td>
-                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.revenue, row.contributionMarginAmount)}</td>
                     </>}
-                    <td className="py-3 pr-3">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
-                        {meta.icon}{meta.label}
-                      </span>
-                      {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
-                    </td>
+                    {showCommercials && <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.contributionMarginPercent)}</td>}
                   </tr>
                 );
               })}
@@ -2433,7 +2601,7 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
   );
 }
 
-interface NewNoteForm {
+export interface NewNoteForm {
   note_type: DealerNoteType;
   note_text: string;
   follow_up_date: string;
@@ -2444,7 +2612,7 @@ interface NewNoteForm {
   cal_when: string;
 }
 
-function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
+export function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
   dealerLabel: string;
   shareLabel: string;
   lang: PortalUiLanguage;
@@ -2462,11 +2630,17 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
     cal_when: "",
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 mt-12">
-        <h2 className="text-lg font-bold text-slate-900 mb-1">{tl("add_note_title", lang)}</h2>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dealer-note-modal-title"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 mt-12"
+      >
+        <h2 id="dealer-note-modal-title" className="text-lg font-bold text-slate-900 mb-1">{tl("add_note_title", lang)}</h2>
         <p className="text-xs text-slate-500 mb-4">{tl("dealer_internal_default", lang).replace("{dealer}", dealerLabel)}</p>
 
         <label className="block text-xs font-bold text-slate-600 mb-1">{tl("note_type", lang)}</label>
@@ -2521,12 +2695,20 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
           </div>
         )}
 
+        {saveError && (
+          <p role="alert" className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {saveError}
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">{tl("cancel", lang)}</button>
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">{tl("cancel", lang)}</button>
           <button
+            type="button"
             disabled={saving || !form.note_text.trim()}
             onClick={async () => {
               setSaving(true);
+              setSaveError(null);
               try {
                 // Convert datetime-local to ISO if present
                 const iso = (s: string) => s ? new Date(s).toISOString() : "";
@@ -2535,6 +2717,8 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
                   follow_up_date: iso(form.follow_up_date),
                   cal_when: iso(form.cal_when),
                 });
+              } catch {
+                setSaveError(tl("note_save_error", lang));
               } finally { setSaving(false); }
             }}
             className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
@@ -2549,6 +2733,8 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
 function EditDealerModal({
   dealer,
   sellers,
+  parentCandidates,
+  linkedMainPartner,
   lang,
   onCancel,
   onSave,
@@ -2556,9 +2742,14 @@ function EditDealerModal({
 }: {
   dealer: DealerAccount;
   sellers: PartnerAdminSellerOption[];
+  parentCandidates: DealerAccount[];
+  linkedMainPartner: DealerAccount | null;
   lang: PortalUiLanguage;
   onCancel: () => void;
-  onSave: (patch: UpdateDealerAccountPatch) => Promise<{ ok: boolean; error?: string }>;
+  onSave: (
+    patch: UpdateDealerAccountPatch,
+    hierarchy: { parentAccountId: string | null; billViaParent: boolean },
+  ) => Promise<{ ok: boolean; error?: string }>;
   onGeocoded?: () => void | Promise<void>;
 }) {
   const initialSellerState = buildPartnerAdminSellerState(dealer, sellers);
@@ -2574,6 +2765,8 @@ function EditDealerModal({
     phone: dealer.phone || "",
     ...initialSellerState,
     partner_type: initialPartnerType,
+    main_partner_id: linkedMainPartner?.id || "",
+    billing_mode: dealer.billing_account_id ? "parent" : "own",
   });
   // Geo captured from Google Places when the user selects a suggestion.
   // Manual typing leaves these null; backend manual geocode panel handles backfill.
@@ -2583,6 +2776,7 @@ function EditDealerModal({
     google_place_id: dealer.google_place_id ?? null,
   });
   const [saving, setSaving] = useState(false);
+  const [parentSearch, setParentSearch] = useState("");
 
   const upd = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -2592,6 +2786,24 @@ function EditDealerModal({
   const sellerOptions = useMemo<PartnerAdminSellerOption[]>(() => {
     return buildPartnerAdminSellerOptions(form, sellers);
   }, [sellers, form.assigned_seller_email, form.assigned_seller_id, form.assigned_seller_initials, form.assigned_seller_name]);
+  const parentOptions = useMemo(() => {
+    const byId = new Map(parentCandidates
+      .filter((account) => isEligibleServicePartnerParent(account, dealer.id))
+      .map((account) => [account.id, account]));
+    if (linkedMainPartner && isEligibleServicePartnerParent(linkedMainPartner, dealer.id)) {
+      byId.set(linkedMainPartner.id, linkedMainPartner);
+    }
+    return Array.from(byId.values()).sort((a, b) => a.company_name.localeCompare(b.company_name, "da"));
+  }, [dealer.id, linkedMainPartner, parentCandidates]);
+  const visibleParentOptions = useMemo(() => {
+    const query = parentSearch.trim().toLocaleLowerCase("da");
+    if (!query) return parentOptions;
+    return parentOptions.filter((account) =>
+      account.id === form.main_partner_id
+      || account.company_name.toLocaleLowerCase("da").includes(query)
+      || account.account_number.toLocaleLowerCase("da").includes(query)
+    );
+  }, [form.main_partner_id, parentOptions, parentSearch]);
 
   function applySeller(sellerId: string) {
     if (!sellerId) {
@@ -2720,6 +2932,51 @@ function EditDealerModal({
               )}
             </select>
           </label>
+          {form.partner_type === "service_partner" && (
+            <>
+              <label className="block">
+                <span className="block text-xs font-bold text-slate-600 mb-1">{tl("linked_main_partner", lang)}</span>
+                <input
+                  type="search"
+                  value={parentSearch}
+                  onChange={(event) => setParentSearch(event.target.value)}
+                  placeholder={tl("search_main_partner", lang)}
+                  className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <select
+                  value={form.main_partner_id}
+                  onChange={(event) => setForm((current) => ({
+                    ...current,
+                    main_partner_id: event.target.value,
+                    billing_mode: event.target.value ? current.billing_mode : "own",
+                  }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">{tl("no_main_partner", lang)}</option>
+                  {visibleParentOptions.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.company_name} · #{account.account_number}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="block text-xs font-bold text-slate-600 mb-1">{tl("billing_via", lang)}</span>
+                <select
+                  value={form.billing_mode}
+                  onChange={setText("billing_mode")}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="own">{tl("own_account", lang)} · #{dealer.account_number}</option>
+                  <option value="parent" disabled={!form.main_partner_id}>
+                    {form.main_partner_id
+                      ? `${parentOptions.find((account) => account.id === form.main_partner_id)?.company_name ?? tl("linked_main_partner", lang)}`
+                      : tl("linked_main_partner", lang)}
+                  </option>
+                </select>
+              </label>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
@@ -2736,8 +2993,9 @@ function EditDealerModal({
               setSaving(true);
               try {
                 const trim = (s: string) => (s.trim() === "" ? null : s.trim());
+                const existingAddress = dealer.address ?? dealer.address_line_1 ?? null;
                 const addressChanged =
-                  trim(form.address) !== (dealer.address ?? null) ||
+                  trim(form.address) !== existingAddress ||
                   trim(form.postal_code) !== (dealer.postal_code ?? null) ||
                   trim(form.city) !== (dealer.city ?? null) ||
                   trim(form.country) !== (dealer.country ?? null);
@@ -2745,8 +3003,8 @@ function EditDealerModal({
                   company_name: form.company_name.trim(),
                   account_number: form.account_number.trim(),
                   country: trim(form.country),
-                  address: trim(form.address),
-                  address_line_1: trim(form.address),
+                  address: addressChanged ? trim(form.address) : dealer.address,
+                  address_line_1: addressChanged ? trim(form.address) : dealer.address_line_1,
                   postal_code: trim(form.postal_code),
                   city: trim(form.city),
                   email: trim(form.email),
@@ -2769,7 +3027,12 @@ function EditDealerModal({
                 } else if (addressChanged) {
                   Object.assign(patch, buildPendingGeocodingPatch(hasUsableDealerAddress(addressParts)));
                 }
-                const saved = await onSave(patch);
+                const saved = await onSave(patch, {
+                  parentAccountId: form.partner_type === "service_partner" && form.main_partner_id
+                    ? form.main_partner_id
+                    : null,
+                  billViaParent: form.partner_type === "service_partner" && form.billing_mode === "parent",
+                });
                 if (saved.ok && addressChanged && !resolvedPatch && hasUsableDealerAddress(addressParts)) {
                   const geocoded = await requestDealerGeocoding(dealer.id);
                   if (!geocoded.ok) {

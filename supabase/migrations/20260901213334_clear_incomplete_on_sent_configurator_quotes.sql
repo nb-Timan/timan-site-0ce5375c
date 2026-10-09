@@ -17,4 +17,4 @@ where coalesce(l.incomplete_from_configurator, false) = true
         or lower(coalesce(c.case_status, '')) = 'ordre_afgivet'
         or lower(coalesce(c.status, '')) = 'ordre_afgivet'
       )
-  );
+  );;

@@ -10,6 +10,10 @@ import { normalizePortalLanguageCode } from '@/lib/portalLanguages';
 
 export type Currency = 'DKK' | 'EUR' | 'SEK';
 
+export function isCurrency(value: unknown): value is Currency {
+  return value === 'DKK' || value === 'EUR' || value === 'SEK';
+}
+
 /** Partner default currencies. This never converts historical commercial data. */
 export const PARTNER_CURRENCY_CODES = ['DKK', 'EUR', 'SEK'] as const;
 export type PartnerCurrencyCode = (typeof PARTNER_CURRENCY_CODES)[number];
@@ -87,6 +91,34 @@ export function formatMoney(value: number, currency: Currency): string {
 
 export function formatConvertedMoney(value: number, source: Currency, target: Currency): string {
   return formatMoney(convertCurrency(value, source, target), target);
+}
+
+const MONEY_LOCALES: Record<string, string> = {
+  da: 'da-DK',
+  en: 'en-GB',
+  de: 'de-DE',
+  it: 'it-IT',
+  hu: 'hu-HU',
+  sv: 'sv-SE',
+  fr: 'fr-FR',
+  pl: 'pl-PL',
+  cs: 'cs-CZ',
+};
+
+/** Locale-aware portal formatting after conversion through the canonical rate model. */
+export function formatLocalizedConvertedMoney(
+  value: number,
+  source: Currency,
+  target: Currency,
+  language?: string | null,
+): string {
+  const normalizedLanguage = normalizePortalLanguageCode(language) ?? 'da';
+  return new Intl.NumberFormat(MONEY_LOCALES[normalizedLanguage] ?? 'en-GB', {
+    style: 'currency',
+    currency: target,
+    currencyDisplay: 'narrowSymbol',
+    maximumFractionDigits: 0,
+  }).format(convertCurrency(value, source, target));
 }
 
 export function formatCompactConvertedMoney(value: number, source: Currency, target: Currency): string {

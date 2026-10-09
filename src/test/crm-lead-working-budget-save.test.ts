@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updates: Array<Record<string, unknown>> = [];
 let failRemoteUpdate = false;
+let interestRows: Array<Record<string, unknown>> = [];
 
 vi.mock('@/lib/supabase', () => {
   const chain: Record<string, (...args: unknown[]) => unknown> = {};
@@ -12,6 +13,8 @@ vi.mock('@/lib/supabase', () => {
     },
     eq: () => chain,
     select: () => chain,
+    in: () => chain,
+    order: () => Promise.resolve({ data: interestRows, error: null }),
     maybeSingle: () => Promise.resolve(
       failRemoteUpdate
         ? { data: null, error: { message: 'RLS denied' } }
@@ -66,6 +69,7 @@ describe('legacy lead working-budget remote save', () => {
     localStorage.clear();
     updates.length = 0;
     failRemoteUpdate = false;
+    interestRows = [];
     localStorage.setItem('timan.crm.leads.v1', JSON.stringify([legacyLead()]));
   });
 
@@ -97,5 +101,21 @@ describe('legacy lead working-budget remote save', () => {
 
     const saved = JSON.parse(localStorage.getItem('timan.crm.leads.v1') || '[]') as CrmLead[];
     expect(saved[0]?.move_to_working_qty).toBe(0);
+  });
+
+  it('preserves canonical quantities during an unrelated working-budget update', async () => {
+    interestRows = [{
+      id: 'interest-1', lead_id: 'legacy-lead', interest_type: 'machine',
+      machine_key: 'RC-1000S', item_key: 'RC-1000S', item_number: '411000', quantity: 27,
+    }];
+
+    await updateLead(
+      'legacy-lead',
+      { move_to_working_qty: 1 },
+      { requireRemote: true, remoteOnly: 'move_to_working_qty' },
+    );
+
+    const saved = JSON.parse(localStorage.getItem('timan.crm.leads.v1') || '[]') as CrmLead[];
+    expect(saved[0].machine_interest_items?.[0].quantity).toBe(27);
   });
 });

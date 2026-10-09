@@ -4,23 +4,19 @@ function cleanEmail(value: string | null | undefined): string {
   return (value || '').trim();
 }
 
-export function buildMesseLeadMailRecipients(
+export function buildMesseLeadInternalMailRouting(
   sellerEmail: string | null | undefined,
-  extraRecipientEmail?: string | null,
 ): {
-  to: string[];
-  recipientEmail: string;
-  extraRecipientEmail: string | null;
+  to: [string];
   bcc: string[];
 } {
-  const primaryEmail = cleanEmail(sellerEmail);
-  const extraEmail = cleanEmail(extraRecipientEmail);
-  const visibleRecipients = Array.from(new Set([primaryEmail, extraEmail].filter(Boolean)));
+  const recipientEmail = cleanEmail(sellerEmail);
+  if (!recipientEmail) {
+    throw new Error('Messe lead mail requires a responsible Timan seller email.');
+  }
 
   return {
-    to: visibleRecipients,
-    recipientEmail: primaryEmail,
-    extraRecipientEmail: extraEmail || null,
+    to: [recipientEmail],
     bcc: [MESSE_LEAD_BCC_EMAIL],
   };
 }

@@ -44,7 +44,7 @@ describe("CRM Budget fiscal year", () => {
     expect(currentFiscalYearForBudget(new Date("2027-07-01T12:00:00Z"))).toBe(2027);
   });
 
-  it("places working-budget leads into the same fiscal year without changing their calendar month", () => {
+  it("places legacy working-budget leads in the same fiscal year with canonical quantity 1", () => {
     const lead = {
       id: "lead-jan", lead_no: 1023, title: "January lead", move_to_working_qty: 2,
       expected_close_date: "2027-01-15", machine_types: ["RC-1000s"],
@@ -53,7 +53,7 @@ describe("CRM Budget fiscal year", () => {
     } as unknown as CrmLead;
 
     expect(buildLeadWorkingContributions([lead])).toEqual(expect.arrayContaining([
-      expect.objectContaining({ year: 2026, month_idx: 0, product_key: "RC-1000s", qty: 2 }),
+      expect.objectContaining({ year: 2026, month_idx: 0, product_key: "RC-1000s", qty: 1 }),
     ]));
   });
 

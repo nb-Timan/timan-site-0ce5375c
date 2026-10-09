@@ -234,4 +234,4 @@ on public.marketing_video_primary_products
 for all
 to authenticated
 using (public.can_manage_marketing_videos())
-with check (public.can_manage_marketing_videos());
+with check (public.can_manage_marketing_videos());;

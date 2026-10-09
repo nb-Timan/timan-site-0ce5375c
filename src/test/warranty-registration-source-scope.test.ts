@@ -10,6 +10,7 @@ describe("warranty registration source scope", () => {
 
     expect(service).toContain('.in("source", ["sharepoint", "portal_manual"])');
     expect(service).toContain('.like("certificate_number", "SP-%")');
+    expect(service).toContain('.eq("is_active_in_source", true)');
     expect(service).toContain("return row.certificate_number ?? \"\";");
     expect(service).not.toContain("if (row.legacy_warranty_reference) return row.legacy_warranty_reference;");
   });

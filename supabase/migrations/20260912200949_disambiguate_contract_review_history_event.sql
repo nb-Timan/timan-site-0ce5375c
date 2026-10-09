@@ -1,6 +1,3 @@
--- Disambiguate the contract review history audit call for databases that have
--- both 10-argument and 11-argument append_partner_agreement_history overloads.
-
 create or replace function public.complete_dealer_contract_guided_review(
   p_contract_id uuid,
   p_snapshot jsonb,
@@ -56,4 +53,4 @@ end;
 $$;
 
 revoke all on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) from public;
-grant execute on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) to authenticated;
+grant execute on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) to authenticated;;

@@ -2,24 +2,35 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, Clock, Film, LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import {
+  TIMAN_COMPANY_PROFILE,
+  timanCompanyPostalCity,
+} from '../../supabase/functions/_shared/timanCompanyProfile';
 import ModuleCard from '@/components/portal/ModuleCard';
 import PlaceholderCard from '@/components/portal/PlaceholderCard';
 import BackendHome from '@/components/portal/BackendHome';
-import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
+import { PORTAL_AREAS, SALES_CARD_ORDER, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { canAccessContractsModule, canManageMarketingConfiguratorContent, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canAccessContractsModule, canManageMarketingConfiguratorContent, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
 import { tv } from '@/lib/videoLibraryI18n';
 import { fetchActiveDealerContractAccessWindow, type DealerContractAccessWindow } from '@/lib/dealerContractsService';
 import { academySandbox } from '@/lib/academySandbox';
-import { isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { getLocalAcademyUser, hasEffectiveAcademyCapabilityAccess } from '@/lib/academyCurriculum';
+import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
+import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
+import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
+import { findPortalCapabilityContractByRoute, portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
+import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -78,18 +89,21 @@ const PLACEHOLDER_DESC_KEY: Record<string, string> = {
 interface Props { areaId: PortalAreaId }
 
 export default function PortalAreaPage({ areaId }: Props) {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser: sessionUser, loading, setAppUser, logout } = useAppUser();
+  const academyService = academySandbox.isActive() && areaId === 'teknik_service';
+  const appUser = academyService ? sessionUser ?? (import.meta.env.DEV ? getLocalAcademyUser() : null) : academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const academyAccess = useAcademyAccess();
   const [activeContractAccess, setActiveContractAccess] = useState<DealerContractAccessWindow | null>(null);
   const { markAreaRead, submoduleBadge, markSubmoduleRead, moduleBadge } = useChangelog(appUser, lang);
   useEffect(() => {
     // Mark only module-level area entries read on mount. Submodule-tagged
     // entries remain unread until the user opens the matching submodule.
-    if (appUser) markAreaRead(areaId);
+    if (appUser && !academyService) markAreaRead(areaId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areaId, appUser?.email]);
 
@@ -126,7 +140,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   }
 
   const area = PORTAL_AREAS.find(a => a.id === areaId);
-  if (!area || !isAreaVisible(area, effectiveUser)) return <Navigate to="/portal" replace />;
+  if (!area || (academyService ? !canOpenAcademyService(effectiveUser) : !isAreaVisible(area, effectiveUser))) return <Navigate to="/portal" replace />;
 
   const portalRole = derivePortalRole(effectiveUser);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
@@ -148,7 +162,27 @@ export default function PortalAreaPage({ areaId }: Props) {
       if (!key) return true;
       if (key === 'contracts') return canAccessContractsModule(effectiveUser);
       return hasModuleAccess(portalRole, key, moduleOverride);
-    });
+    })
+    .filter((module) => hasEffectiveAcademyCapabilityAccess(
+      effectiveUser,
+      true,
+      findPortalCapabilityContractByRoute(module.href)?.academyGate,
+      academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds(),
+    ));
+  type AreaCard =
+    | { kind: 'loans' }
+    | { kind: 'module'; module: (typeof areaModules)[number] };
+  const areaCards: AreaCard[] = areaId === 'salg_marketing'
+    ? SALES_CARD_ORDER.flatMap<AreaCard>((cardId) => {
+        if (cardId === 'loans') {
+          return hasAreaAccess(effectiveUser, 'loans')
+            ? [{ kind: 'loans' }]
+            : [];
+        }
+        const module = areaModules.find((candidate) => candidate.id === cardId);
+        return module ? [{ kind: 'module', module }] : [];
+      })
+    : areaModules.map((module) => ({ kind: 'module', module }));
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
   const showNewsOverviewCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
 
@@ -162,6 +196,7 @@ export default function PortalAreaPage({ areaId }: Props) {
       />
 
       <main className={`${areaId === 'timan_backend' || areaId === 'teknik_service' ? 'max-w-[1700px] xl:px-12' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full`}>
+        {academyService && <AcademyMachineGuidance />}
         <div className="mb-10">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{AREA_TITLE_KEY[areaId] ? t(AREA_TITLE_KEY[areaId], uiLanguage) : (area.title[lang] || area.title.en)}</h1>
           <p className="text-gray-600 text-base mt-2 max-w-3xl">{AREA_DESC_KEY[areaId] ? t(AREA_DESC_KEY[areaId], uiLanguage) : (area.description[lang] || area.description.en)}</p>
@@ -171,22 +206,20 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-          {areaId === 'salg_marketing' && activeContractAccess?.contract_id && (
-            <PlaceholderCard
-              title="Åbn kontrakt"
-              language={lang}
-              to={`/portal/contracts/${activeContractAccess.contract_id}`}
-              icon={Clock}
-              description={`Tilgængelig indtil ${new Date(activeContractAccess.closes_at).toLocaleString('da-DK', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}`}
-            />
-          )}
-          {areaModules.map(m => {
+          {areaCards.map((card) => {
+            if (card.kind === 'loans') {
+              return (
+                <PlaceholderCard
+                  key="loans"
+                  title={t('area_loans_title', uiLanguage)}
+                  language={lang}
+                  to={PORTAL_AREA_ROUTES.loans}
+                  icon={KeyRound}
+                  description={t('area_loans_desc', uiLanguage)}
+                />
+              );
+            }
+            const m = card.module;
             const mb = moduleBadge(m.id);
             const mUpdateBadge = mb
               ? {
@@ -204,14 +237,33 @@ export default function PortalAreaPage({ areaId }: Props) {
               module={m}
               language={uiLanguage}
               updateBadge={mUpdateBadge}
-              academyLocked={m.id === 'configurator' && !isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academySandbox.getCompletedCaseIds())}
             />;
           })}
+          {areaId === 'salg_marketing' && activeContractAccess?.contract_id && hasEffectiveAcademyCapabilityAccess(
+            effectiveUser,
+            true,
+            'sales_complete',
+            academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds(),
+          ) && (
+            <PlaceholderCard
+              title="Åbn kontrakt"
+              language={lang}
+              to={`/portal/contracts/${activeContractAccess.contract_id}`}
+              icon={Clock}
+              description={`Tilgængelig indtil ${new Date(activeContractAccess.closes_at).toLocaleString('da-DK', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}`}
+            />
+          )}
           {showCreateNewsCard && (
             <PlaceholderCard
               title={t('newsCmsTitle', uiLanguage)}
               language={lang}
-              to="/portal/marketing/news"
+              to={portalCapabilityRoute('marketing.news_create')}
               icon={Newspaper}
               description={t('newsCmsSubtitle', uiLanguage)}
             />
@@ -220,7 +272,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title={t('newsCmsOverview', uiLanguage)}
               language={lang}
-              to="/portal/marketing/news/overview"
+              to={portalCapabilityRoute('marketing.news_overview')}
               icon={ListChecks}
               description={t('newsCmsDashboardHelp', uiLanguage)}
             />
@@ -229,7 +281,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title={tv('videoMgmtTitle', uiLanguage)}
               language={lang}
-              to="/portal/marketing/videos"
+              to={portalCapabilityRoute('marketing.videos')}
               icon={Film}
               description={tv('videoMgmtIntro', uiLanguage)}
             />
@@ -238,37 +290,38 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title="Byg din Timan"
               language={lang}
-              to="/portal/marketing/configurator"
+              to={portalCapabilityRoute('marketing.configurator')}
               icon={Wrench}
-              description="Redigér produktindhold, billeder, video og specifikationer til Configurator."
+              label="Configurator & kampagner"
+              description="Redigér produktindhold, billeder, video og specifikationer – og opret, redigér og publicér kampagner til Configurator."
             />
           )}
           {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
             <PlaceholderCard
               title={t('siteFeaturesTitle', uiLanguage)}
               language={lang}
-              to="/portal/marketing/site-features"
+              to={portalCapabilityRoute('marketing.site_features')}
               icon={Sparkles}
               description={t('siteFeaturesCardDescription', uiLanguage)}
             />
           )}
-          {area.placeholders.map(p => {
+          {area.placeholders.filter(p => !academyService || p.key === 'machine_search').map(p => {
             let href: string | undefined;
             let icon: LucideIcon | undefined;
             if (p.key === 'tsb_portal') {
               if (!canAccessTsb(portalRole, effectiveUser ?? null)) return null;
-              href = '/portal/service/tsb';
+              href = portalCapabilityRoute('service.tsb');
             } else if (p.key === 'warranty_reg') {
-              href = '/portal/service/warranty';
+              href = portalCapabilityRoute('service.warranty');
             } else if (p.key === 'service_maintenance') {
-              href = '/portal/service/maintenance'; icon = Wrench;
+              href = portalCapabilityRoute('service.maintenance'); icon = Wrench;
             } else if (p.key === 'service_tickets') {
-              href = '/portal/service/tickets'; icon = Ticket;
+              href = portalCapabilityRoute('service.tickets'); icon = Ticket;
             } else if (p.key === 'machine_search') {
-              href = '/portal/service/machines'; icon = Search;
+              href = portalCapabilityRoute('service.machine_search'); icon = Search;
             } else if (p.key === 'claims') {
               if (!hasModuleAccess(portalRole, 'claims', moduleOverride)) return null;
-              href = '/portal/service/claims'; icon = LifeBuoy;
+              href = portalCapabilityRoute('service.claims'); icon = LifeBuoy;
             } else if (p.key === 'users') {
               href = '/portal/backend/users'; icon = Users;
             } else if (p.key === 'roles') {
@@ -302,23 +355,28 @@ export default function PortalAreaPage({ areaId }: Props) {
                   ].filter(Boolean).join('\n'),
                 }
               : null;
-            return (
+            const card = (
               <PlaceholderCard
                 key={p.key}
                 title={titleKey ? t(titleKey, uiLanguage) : (p.title[lang] || p.title.en)}
                 language={lang}
-                to={href}
+                to={academyService && href ? `${href}?academy_mode=true` : href}
                 icon={icon}
                 description={descKey ? t(descKey, uiLanguage) : undefined}
                 updateBadge={updateBadge}
-                onActivate={() => markSubmoduleRead(p.key)}
+                onActivate={() => { if (!academyService) markSubmoduleRead(p.key); }}
               />
             );
+            return academyService ? (
+              <AcademyHintTarget key={p.key} targetKey="academy-machine-search-open" activeTargetKey={!academySandbox.getServiceCase1().searchOpened ? 'academy-machine-search-open' : null}>
+                <div>{card}</div>
+              </AcademyHintTarget>
+            ) : card;
           })}
         </div>
         )}
 
-        {areaId === 'teknik_service' && (
+        {areaId === 'teknik_service' && !academyService && (
           <section className="mt-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('supportSectionTitle', uiLanguage)}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -332,8 +390,10 @@ export default function PortalAreaPage({ areaId }: Props) {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">{t('companyHeading', uiLanguage)}</h3>
                 <dl className="space-y-2 text-sm text-gray-700">
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCompany', uiLanguage)}:</dt><dd>Timan A/S</dd></div>
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelAddress', uiLanguage)}:</dt><dd>Osvald Pedersens Vej 2A-D, 6980 Tim</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCompany', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.companyName}</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelAddress', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.street}, {timanCompanyPostalCity()}</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCountry', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.country}</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCvr', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.cvr}</dd></div>
                 </dl>
               </div>
             </div>

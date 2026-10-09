@@ -23,6 +23,7 @@ import {
   type CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import { PRODUCTS } from '@/data/machines';
 import { BUDGET_PRODUCTS } from '@/lib/crmBudgetService';
@@ -210,7 +211,7 @@ export async function listScopedConfigurations(
     const state = stateById.get(r.id) ?? null;
     let total = 0;
     const qtyByKey: Record<string, number> = {};
-    const currency = currencyFromLanguage(state?.language ?? null);
+    const currency = state ? configuratorCurrency(state) : currencyFromLanguage(null);
     if (state) {
       try { total = calcConfigurationTotals(state).finalPrice || 0; } catch { /* ignore */ }
       for (const [productKey, quantity] of Object.entries(pipelineProductQtyFromState(state))) {

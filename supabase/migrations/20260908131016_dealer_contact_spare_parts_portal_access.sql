@@ -1,7 +1,3 @@
--- Individual reservedelsportal access is stored on the canonical dealer
--- contact. The flag can be prepared before a portal identity exists, but the
--- access RPC only grants entry when the active app user matches that contact.
-
 alter table public.dealer_contacts
   add column if not exists spare_parts_portal_access boolean not null default false;
 
@@ -79,4 +75,4 @@ revoke all on function public.can_manage_dealer_contact_portal_access(uuid) from
 revoke all on function public.guard_dealer_contact_spare_parts_portal_access() from public, anon;
 revoke all on function public.can_access_spare_parts_portal() from public, anon;
 grant execute on function public.can_manage_dealer_contact_portal_access(uuid) to authenticated, service_role;
-grant execute on function public.can_access_spare_parts_portal() to authenticated, service_role;
+grant execute on function public.can_access_spare_parts_portal() to authenticated, service_role;;

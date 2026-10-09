@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History, CalendarDays, Eye, ArrowDown, ArrowUp, Check, ChevronsUpDown, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -22,8 +22,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import CrmLayout from '@/components/crm/CrmLayout';
-import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
-import { useAppUser } from '@/context/AppUserContext';
+import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
+import EditOrderTimelineModal from '@/components/crm/EditOrderTimelineModal';
+import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
+import ReadOnlySalesDocumentModal, { type ReadOnlySalesDocumentType } from '@/components/crm/ReadOnlySalesDocumentModal';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
+import { useAppUser, type SessionUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -33,14 +39,31 @@ import { isExternalCrmRole } from '@/lib/crmScope';
 import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
-  softDeleteConfiguration,
+  fetchCrmConfigurationVisible,
+  permanentlyDeleteConfiguration,
   getCrmConfigurationDeepLink,
   getCrmConfigurationLeadDeepLink,
   CrmConfigurationRow,
+  CrmConfigurationFilter,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
-import { logActivity } from '@/lib/crmActivitiesService';
+import { isSavedConfigurationOrderLocked, loadConfigurationByIdUnscoped, type SavedConfiguration } from '@/lib/configurationsService';
 import { Language } from '@/types/configurator';
+import { useCountryFormatter } from '@/lib/formatCountry';
+import {
+  DEFAULT_CRM_DOCUMENT_FILTERS,
+  buildCrmDocumentCountries,
+  buildCrmDocumentDealerOptions,
+  buildCrmDocumentStatuses,
+  crmDocumentDealerLabel,
+  crmDocumentNumber,
+  crmDocumentSentAt,
+  crmDocumentStatus,
+  filterAndSortCrmDocuments,
+  showCrmDocumentStatusColumn,
+  type CrmDocumentDealerOption,
+  type CrmDocumentSort,
+} from '@/lib/crmDocumentListFilters';
 
 interface Props { mode: CrmDocumentType }
 
@@ -62,6 +85,30 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'A Timan konfigurátorban készült rendelések.',
   },
   search: { da: 'Søg…', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
+  all_dealers: { da: 'Alle forhandlere', en: 'All dealers', de: 'Alle Händler', it: 'Tutti i rivenditori', hu: 'Minden kereskedő' },
+  search_dealer: { da: 'Søg forhandler eller kontonr.', en: 'Search dealer or account no.', de: 'Händler oder Kontonr. suchen', it: 'Cerca rivenditore o conto', hu: 'Kereskedő vagy ügyfélszám keresése' },
+  no_dealers: { da: 'Ingen forhandlere fundet.', en: 'No dealers found.', de: 'Keine Händler gefunden.', it: 'Nessun rivenditore trovato.', hu: 'Nem található kereskedő.' },
+  all_countries: { da: 'Alle lande', en: 'All countries', de: 'Alle Länder', it: 'Tutti i paesi', hu: 'Minden ország' },
+  all_statuses: { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Minden állapot' },
+  all_sources: { da: 'Alle kilder', en: 'All sources', de: 'Alle Quellen', it: 'Tutte le origini', hu: 'Minden forrás' },
+  source_standard: { da: 'Normal', en: 'Standard', de: 'Standard', it: 'Standard', hu: 'Normál' },
+  source_sales_stock: { da: 'Salgslager / Demo', en: 'Sales stock / Demo', de: 'Verkaufslager / Demo', it: 'Stock vendita / Demo', hu: 'Értékesítési készlet / Demo' },
+  sorting: { da: 'Sortering', en: 'Sorting', de: 'Sortierung', it: 'Ordinamento', hu: 'Rendezés' },
+  sort_standard: { da: 'Standardvisning', en: 'Default view', de: 'Standardansicht', it: 'Vista standard', hu: 'Alapértelmezett nézet' },
+  sort_newest: { da: 'Nyeste først', en: 'Newest first', de: 'Neueste zuerst', it: 'Più recenti', hu: 'Legújabb elöl' },
+  sort_oldest: { da: 'Ældste først', en: 'Oldest first', de: 'Älteste zuerst', it: 'Meno recenti', hu: 'Legrégebbi elöl' },
+  sort_sent_newest: { da: 'Senest sendt først', en: 'Most recently sent', de: 'Zuletzt gesendet', it: 'Ultimo invio', hu: 'Legutóbb küldött' },
+  sort_sent_oldest: { da: 'Ældst sendt først', en: 'Oldest sent first', de: 'Älteste Sendung', it: 'Primo invio', hu: 'Legrégebben küldött' },
+  sort_number_asc: { da: 'Nummer stigende', en: 'Number ascending', de: 'Nummer aufsteigend', it: 'Numero crescente', hu: 'Szám szerint növekvő' },
+  sort_number_desc: { da: 'Nummer faldende', en: 'Number descending', de: 'Nummer absteigend', it: 'Numero decrescente', hu: 'Szám szerint csökkenő' },
+  sort_dealer_asc: { da: 'Forhandler A–Å', en: 'Dealer A–Z', de: 'Händler A–Z', it: 'Rivenditore A–Z', hu: 'Kereskedő A–Z' },
+  sort_dealer_desc: { da: 'Forhandler Å–A', en: 'Dealer Z–A', de: 'Händler Z–A', it: 'Rivenditore Z–A', hu: 'Kereskedő Z–A' },
+  reset_filters: { da: 'Nulstil filtre', en: 'Reset filters', de: 'Filter zurücksetzen', it: 'Reimposta filtri', hu: 'Szűrők törlése' },
+  status_submitted: { da: 'Ordre afgivet', en: 'Order submitted', de: 'Auftrag aufgegeben', it: 'Ordine inviato', hu: 'Rendelés leadva' },
+  status_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
+  status_active: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+  status_paused: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
+  status_unknown: { da: 'Ukendt', en: 'Unknown', de: 'Unbekannt', it: 'Sconosciuto', hu: 'Ismeretlen' },
   empty_quotes: {
     da: 'Ingen tilbud at vise. Opret et tilbud i konfiguratoren.',
     en: 'No quotes to show. Create one in the configurator.',
@@ -83,6 +130,8 @@ const T: Record<string, Record<Language, string>> = {
   col_seller: { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
   col_dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   col_status: { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
+  col_expected_delivery: { da: 'Forventet levering', en: 'Expected delivery', de: 'Voraussichtliche Lieferung', it: 'Consegna prevista', hu: 'Várható szállítás' },
+  col_purchase_order: { da: 'REK./PO nr.', en: 'Requisition / PO no.', de: 'Bestellreferenz / PO-Nr.', it: 'Riferimento / n. PO', hu: 'Beszerzési / PO-szám' },
   col_created: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
   col_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
   col_actions: { da: 'Handling', en: 'Actions', de: 'Aktionen', it: 'Azioni', hu: 'Műveletek' },
@@ -90,6 +139,7 @@ const T: Record<string, Record<Language, string>> = {
   open_lead: { da: 'Åbn Lead', en: 'Open Lead', de: 'Lead öffnen', it: 'Apri lead', hu: 'Lead megnyitása' },
   no_linked_lead: { da: 'Intet tilknyttet lead', en: 'No linked lead', de: 'Kein verknüpfter Lead', it: 'Nessun lead collegato', hu: 'Nincs kapcsolt lead' },
   count_label: { da: 'rækker', en: 'rows', de: 'Zeilen', it: 'righe', hu: 'sor' },
+  count_of: { da: 'af', en: 'of', de: 'von', it: 'di', hu: '/' },
   scope_backend: { da: 'Viser alle (Backend)', en: 'Showing all (Backend)', de: 'Alle (Backend)', it: 'Tutti (Backend)', hu: 'Mind (Backend)' },
   scope_seller: { da: 'Viser kun egne', en: 'Showing only own', de: 'Nur eigene', it: 'Solo i propri', hu: 'Csak sajátok' },
   scope_dealer: { da: 'Viser kun egen forhandler', en: 'Showing only own dealer', de: 'Nur eigener Händler', it: 'Solo proprio rivenditore', hu: 'Csak saját kereskedő' },
@@ -100,19 +150,118 @@ function fmtDate(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('da-DK'); } catch { return '—'; }
 }
 
-function statusBadge(row: Pick<CrmConfigurationRow, 'case_status' | 'status' | 'submitted_at' | 'order_sent_at'>): { label: string; cls: string } {
-  const s = (row.case_status || row.status || 'aktiv').toLowerCase();
-  if (row.order_sent_at || row.submitted_at) return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (s === 'ordre_afgivet') return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (s === 'pause')         return { label: 'Pause',         cls: 'bg-amber-50 text-amber-700 border-amber-200' };
-  if (s === 'aktiv')         return { label: 'Aktiv',         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-  return { label: row.case_status || row.status || '—', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+function statusBadge(row: CrmConfigurationRow, mode: CrmDocumentType, lang: Language): { label: string; cls: string } {
+  const status = crmDocumentStatus(row, mode);
+  if (status === 'submitted' || status === 'ordre_afgivet') return { label: T.status_submitted[lang], cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (status === 'sent') return { label: T.status_sent[lang], cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (status === 'pause') return { label: T.status_paused[lang], cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+  if (status === 'aktiv') return { label: T.status_active[lang], cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  return { label: statusFilterLabel(status, lang), cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+}
+
+function statusFilterLabel(status: string, lang: Language): string {
+  if (status === 'submitted' || status === 'ordre_afgivet') return T.status_submitted[lang];
+  if (status === 'sent') return T.status_sent[lang];
+  if (status === 'aktiv') return T.status_active[lang];
+  if (status === 'pause') return T.status_paused[lang];
+  if (status === 'unknown') return T.status_unknown[lang];
+  return status.replace(/[_-]+/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function DealerFilter({
+  dealers,
+  value,
+  onChange,
+  lang,
+}: {
+  dealers: CrmDocumentDealerOption[];
+  value: string;
+  onChange: (value: string) => void;
+  lang: Language;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = dealers.find((dealer) => dealer.key === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={T.all_dealers[lang]}
+          aria-expanded={open}
+          className="inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 xl:w-[210px]"
+        >
+          <span className="truncate">
+            {selected
+              ? `${selected.label}${selected.accountNumber ? ` · ${selected.accountNumber}` : ''}`
+              : T.all_dealers[lang]}
+          </span>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[330px] max-w-[calc(100vw-2rem)] p-0">
+        <Command>
+          <CommandInput placeholder={T.search_dealer[lang]} />
+          <CommandList>
+            <CommandEmpty>{T.no_dealers[lang]}</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value={T.all_dealers[lang]}
+                onSelect={() => { onChange('all'); setOpen(false); }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value === 'all' ? 'opacity-100' : 'opacity-0'}`} />
+                {T.all_dealers[lang]}
+              </CommandItem>
+              {dealers.map((dealer) => (
+                <CommandItem
+                  key={dealer.key}
+                  value={`${dealer.label} ${dealer.accountNumber ?? ''}`}
+                  onSelect={() => { onChange(dealer.key); setOpen(false); }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === dealer.key ? 'opacity-100' : 'opacity-0'}`} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{dealer.label}</span>
+                    {dealer.accountNumber && <span className="block text-[11px] text-slate-500">{dealer.accountNumber}</span>}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SortableHeader({
+  label,
+  active,
+  direction,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  direction: 'asc' | 'desc';
+  onClick: () => void;
+}) {
+  const DirectionIcon = direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-sm hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+    >
+      {label}
+      <DirectionIcon className={`h-3 w-3 ${active ? 'opacity-100' : 'opacity-25'}`} />
+    </button>
+  );
 }
 
 export default function CrmQuotesOrdersPage({ mode }: Props) {
   const { appUser } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveUserEmail = effectiveUser?.email ?? null;
   const effectiveUserDisplayName = effectiveUser?.display_name ?? null;
@@ -121,6 +270,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const effectiveUserPartnerType = effectiveUser?.partner_type ?? null;
   const effectiveDealerNumber = effectiveUser?.dealer_number ?? null;
   const effectiveCompanyDealer = effectiveUser?.company_dealer ?? null;
+  const effectiveOrganizationAccessRole = effectiveUser?.organization_access_role ?? null;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
@@ -129,8 +279,17 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(dealerParam);
+  const [dealerFilter, setDealerFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.dealerKey);
+  const [countryFilter, setCountryFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.country);
+  const [statusFilter, setStatusFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.status);
+  const [sourceFilter, setSourceFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.sourceType);
+  const [sort, setSort] = useState<CrmDocumentSort>(DEFAULT_CRM_DOCUMENT_FILTERS.sort);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
+  const [editingTimelineRow, setEditingTimelineRow] = useState<CrmConfigurationRow | null>(null);
+  const [revisionRow, setRevisionRow] = useState<CrmConfigurationRow | null>(null);
+  const [openedDocument, setOpenedDocument] = useState<{ document: SavedConfiguration; type: ReadOnlySalesDocumentType } | null>(null);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -138,33 +297,61 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
 
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';
-  // Backend/admin can always edit ownership, even when "viewing as" a seller.
-  const canEditOwnership = portalRole === 'timan_backend' && mode === 'order';
+  // `portalRole` is derived from the effective user, so this remains hidden
+  // when Backend is viewing the portal with a seller or external scope.
+  const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';
+  const canReopenSubmittedOrder = isBackendFull && mode === 'order';
+  const canOpenSalesDocument = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
   const canDelete = isBackendFull;
+
+  // buildJournalScope only needs these external identity fields. Keeping this
+  // stable avoids reloading CRM lists when View-as supplies a new object ref.
+  const effectiveScopeUser = useMemo<SessionUser | null>(() => {
+    if (!effectiveUserEmail) return null;
+    return {
+      email: effectiveUserEmail,
+      display_name: effectiveUserDisplayName ?? undefined,
+      dealer_number: effectiveDealerNumber,
+      company_dealer: effectiveCompanyDealer,
+      organization_access_role: effectiveOrganizationAccessRole,
+    } as SessionUser;
+  }, [
+    effectiveCompanyDealer,
+    effectiveDealerNumber,
+    effectiveOrganizationAccessRole,
+    effectiveUserDisplayName,
+    effectiveUserEmail,
+  ]);
+
+  const buildCurrentCrmScope = useCallback(async (): Promise<Omit<CrmConfigurationFilter, 'documentType'>> => {
+    const sellerId = await resolveSellerId(appUser?.email);
+    const sellerView = getActiveSellerView(appUser?.email);
+    const sellerInitials = sellerView?.initials
+      ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
+    const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
+    const dealerNumbers = isExternalCrmRole(portalRole)
+      ? Array.from((await buildJournalScope(effectiveScopeUser, portalRole)).dealerNumbers)
+      : null;
+    return {
+      role: portalRole,
+      sellerId,
+      sellerInitials,
+      sellerEmail,
+      dealerNumber: effectiveDealerNumber,
+      dealerNumbers,
+    };
+  }, [appUser?.display_name, appUser?.email, effectiveDealerNumber, effectiveScopeUser, isSeller, portalRole]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
-      const sellerId = await resolveSellerId(appUser?.email);
-      const sellerView = getActiveSellerView(appUser?.email);
-      const sellerInitials = sellerView?.initials
-        ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
-      const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
-      const dealerNumber = effectiveDealerNumber;
-      const dealerNumbers = isExternalCrmRole(portalRole)
-        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
-        : null;
+      const scope = await buildCurrentCrmScope();
 
       const { rows: fetched, error: err } = await listCrmConfigurations({
-        role: portalRole,
-        sellerId,
-        sellerInitials,
-        sellerEmail,
-        dealerNumber,
-        dealerNumbers,
+        ...scope,
         documentType: mode,
       });
       if (cancelled) return;
@@ -174,29 +361,60 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     })();
     return () => { cancelled = true; };
   }, [
-    appUser?.email,
-    appUser?.display_name,
+    buildCurrentCrmScope,
     effectiveUserEmail,
     effectiveUserDisplayName,
     effectiveUserPortalRole,
     effectiveUserRole,
     effectiveUserPartnerType,
-    effectiveDealerNumber,
-    effectiveCompanyDealer,
-    portalRole,
     mode,
-    isSeller,
     reloadKey,
   ]);
 
   const handleRowClick = useCallback((r: CrmConfigurationRow) => {
-    if (canEditOwnership) setEditingRow(r);
-  }, [canEditOwnership]);
+    if (canEditOrderContacts) setEditingRow(r);
+  }, [canEditOrderContacts]);
+
+  const handleOpenSalesDocument = useCallback(async (row: CrmConfigurationRow) => {
+    if (openingDocumentId || !canOpenSalesDocument) return;
+    setOpeningDocumentId(row.id);
+    try {
+      // View-as runs under the Backend JWT, so enforce the effective CRM
+      // scope before loading the full persisted snapshot.
+      const scope = await buildCurrentCrmScope();
+      const { row: visible, error: visibilityError } = await fetchCrmConfigurationVisible(row.id, scope);
+      if (visibilityError || !visible) {
+        toast.error(mode === 'order' ? 'Du har ikke adgang til denne ordre.' : 'Du har ikke adgang til dette tilbud.');
+        return;
+      }
+      const ownerEmail = effectiveUserEmail ?? appUser?.email ?? '';
+      if (!ownerEmail) {
+        toast.error('Kunne ikke identificere den aktuelle portalbruger.');
+        return;
+      }
+      const saved = mode === 'order'
+        ? await loadSubmittedOrderConfirmation(row.id, ownerEmail, effectiveUser?.id)
+        : await loadConfigurationByIdUnscoped(row.id, ownerEmail);
+      if (!saved || (mode === 'order' && !isSavedConfigurationOrderLocked(saved))) {
+        toast.error(mode === 'order' ? 'Kunne ikke indlæse den afsendte ordre.' : 'Kunne ikke indlæse det gemte tilbud.');
+        return;
+      }
+      if (mode === 'quote' && saved.case_type !== 'quote') {
+        toast.error('Det valgte dokument er ikke et tilbud.');
+        return;
+      }
+      setOpenedDocument({ document: saved, type: mode });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke indlæse dokumentbekræftelsen.');
+    } finally {
+      setOpeningDocumentId(null);
+    }
+  }, [appUser?.email, buildCurrentCrmScope, canOpenSalesDocument, effectiveUserEmail, effectiveUser?.id, mode, openingDocumentId]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingRow) return;
     setDeleteBusy(true);
-    const { error: delErr } = await softDeleteConfiguration(deletingRow.id);
+    const { error: delErr } = await permanentlyDeleteConfiguration(deletingRow.id);
     setDeleteBusy(false);
     if (delErr) {
       console.error('[CrmQuotesOrdersPage] delete failed', delErr);
@@ -204,69 +422,56 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       return;
     }
 
-    // Audit trail: log the deletion as a CRM activity. Activities are stored
-    // in a separate table and are not affected by the soft-delete on the
-    // configuration row, so the entry remains visible in CRM → Aktiviteter.
     const isOrder = mode === 'order';
-    const docNumber = isOrder
-      ? (deletingRow.order_number || deletingRow.quote_number || deletingRow.id)
-      : (deletingRow.quote_number || deletingRow.id);
-    const company = deletingRow.dealer_company_name || deletingRow.dealer_name || null;
-    const actorName = appUser?.display_name || appUser?.email || null;
-    try {
-      await logActivity({
-        activity_type: isOrder ? 'order_deleted' : 'quote_deleted',
-        title: `${isOrder ? 'Ordre' : 'Tilbud'} slettet: ${docNumber}${company ? ` · ${company}` : ''}`,
-        description: `Slettet af ${actorName || 'ukendt bruger'}`,
-        configuration_id: deletingRow.id,
-        quote_id: isOrder ? null : (deletingRow.quote_number || null),
-        order_id: isOrder ? (deletingRow.order_number || null) : null,
-        dealer_account_id: deletingRow.dealer_account_id,
-        dealer_number: deletingRow.dealer_number,
-        dealer_name: company,
-        seller_user_id: deletingRow.assigned_seller_id,
-        seller_email: deletingRow.seller_email,
-        seller_initials: deletingRow.seller_initials,
-        seller_name: deletingRow.seller_name,
-        account_name: company,
-        created_by_email: appUser?.email ?? null,
-        created_by_name: actorName,
-        meta: {
-          deleted_number: docNumber,
-          deleted_document_type: isOrder ? 'order' : 'quote',
-          deleted_at: new Date().toISOString(),
-          deleted_by_email: appUser?.email ?? null,
-          deleted_by_name: actorName,
-          dealer_company_name: company,
-        },
-      });
-    } catch (e) {
-      console.warn('[CrmQuotesOrdersPage] activity log failed (delete still applied)', e);
-    }
-
     setRows((prev) => prev.filter((x) => x.id !== deletingRow.id));
     toast.success(isOrder ? 'Ordren er slettet.' : 'Tilbuddet er slettet.');
     setDeletingRow(null);
     setReloadKey((k) => k + 1);
-  }, [deletingRow, mode, appUser?.display_name, appUser?.email]);
+  }, [deletingRow, mode]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const hay = [
-        r.quote_number, r.order_number, r.title,
-        r.seller_initials, r.seller_email, r.seller_name,
-        r.dealer_number, r.dealer_name, r.dealer_company_name,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, search]);
+  const dealerOptions = useMemo(() => buildCrmDocumentDealerOptions(rows), [rows]);
+  const countryOptions = useMemo(() => buildCrmDocumentCountries(rows), [rows]);
+  const statusOptions = useMemo(() => buildCrmDocumentStatuses(rows, mode), [mode, rows]);
+  useEffect(() => {
+    if (dealerFilter !== 'all' && !dealerOptions.some((dealer) => dealer.key === dealerFilter)) setDealerFilter('all');
+    if (countryFilter !== 'all' && !countryOptions.includes(countryFilter)) setCountryFilter('all');
+    if (statusFilter !== 'all' && !statusOptions.includes(statusFilter)) setStatusFilter('all');
+  }, [countryFilter, countryOptions, dealerFilter, dealerOptions, statusFilter, statusOptions]);
+  const filtered = useMemo(() => filterAndSortCrmDocuments(rows, {
+    search,
+    dealerKey: dealerFilter,
+    country: countryFilter,
+    status: statusFilter,
+    sourceType: sourceFilter,
+    sort,
+  }, mode), [countryFilter, dealerFilter, mode, rows, search, sort, sourceFilter, statusFilter]);
+  const filtersActive = Boolean(
+    search.trim()
+    || dealerFilter !== 'all'
+    || countryFilter !== 'all'
+    || statusFilter !== 'all'
+    || sourceFilter !== 'all'
+    || sort !== 'standard',
+  );
+
+  const resetFilters = useCallback(() => {
+    setSearch('');
+    setDealerFilter(DEFAULT_CRM_DOCUMENT_FILTERS.dealerKey);
+    setCountryFilter(DEFAULT_CRM_DOCUMENT_FILTERS.country);
+    setStatusFilter(DEFAULT_CRM_DOCUMENT_FILTERS.status);
+    setSourceFilter(DEFAULT_CRM_DOCUMENT_FILTERS.sourceType);
+    setSort(DEFAULT_CRM_DOCUMENT_FILTERS.sort);
+  }, []);
+
+  const toggleSort = useCallback((ascending: CrmDocumentSort, descending: CrmDocumentSort) => {
+    setSort((current) => current === ascending ? descending : ascending);
+  }, []);
 
   const titleKey = mode === 'order' ? 'title_orders' : 'title_quotes';
   const subtitleKey = mode === 'order' ? 'subtitle_orders' : 'subtitle_quotes';
   const emptyKey = mode === 'order' ? 'empty_orders' : 'empty_quotes';
   const Icon = mode === 'order' ? ShoppingCart : FileText;
+  const showStatusColumn = showCrmDocumentStatusColumn(mode);
 
   const scopeLabel = isBackendFull ? T.scope_backend[lang]
     : isSeller || getActiveSellerView(appUser?.email) ? T.scope_seller[lang]
@@ -290,20 +495,89 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               {scopeLabel}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {filtered.length} {T.count_label[lang]}
+              {filtersActive ? `${filtered.length} ${T.count_of[lang]} ${rows.length}` : filtered.length} {T.count_label[lang]}
             </span>
           </div>
         </div>
 
-        <div className="relative mb-4 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={T.search[lang]}
-            className="w-full pl-10 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
+          <div className="relative min-w-0 sm:col-span-2 xl:w-[260px] xl:shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={T.search[lang]}
+              aria-label={T.search[lang]}
+              className="h-9 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            />
+          </div>
+
+          <DealerFilter
+            dealers={dealerOptions}
+            value={dealerFilter}
+            onChange={setDealerFilter}
+            lang={lang}
           />
+
+          <select
+            value={countryFilter}
+            onChange={(event) => setCountryFilter(event.target.value)}
+            aria-label={T.all_countries[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[150px]"
+          >
+            <option value="all">{T.all_countries[lang]}</option>
+            {countryOptions.map((country) => <option key={country} value={country}>{formatCountry(country)}</option>)}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label={T.all_statuses[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[155px]"
+          >
+            <option value="all">{T.all_statuses[lang]}</option>
+            {statusOptions.map((status) => <option key={status} value={status}>{statusFilterLabel(status, lang)}</option>)}
+          </select>
+
+          <select
+            value={sourceFilter}
+            onChange={(event) => setSourceFilter(event.target.value as typeof sourceFilter)}
+            aria-label={T.all_sources[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[170px]"
+          >
+            <option value="all">{T.all_sources[lang]}</option>
+            <option value="STANDARD">{T.source_standard[lang]}</option>
+            <option value="SALES_STOCK_DEMO">{T.source_sales_stock[lang]}</option>
+          </select>
+
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as CrmDocumentSort)}
+            aria-label={T.sorting[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[180px]"
+          >
+            <option value="standard">{T.sort_standard[lang]}</option>
+            <option value="date-desc">{T.sort_newest[lang]}</option>
+            <option value="date-asc">{T.sort_oldest[lang]}</option>
+            <option value="sent-desc">{T.sort_sent_newest[lang]}</option>
+            <option value="sent-asc">{T.sort_sent_oldest[lang]}</option>
+            <option value="number-asc">{T.sort_number_asc[lang]}</option>
+            <option value="number-desc">{T.sort_number_desc[lang]}</option>
+            <option value="dealer-asc">{T.sort_dealer_asc[lang]}</option>
+            <option value="dealer-desc">{T.sort_dealer_desc[lang]}</option>
+          </select>
+
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:justify-self-start"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {T.reset_filters[lang]}
+            </button>
+          )}
         </div>
 
         {error && (
@@ -331,42 +605,80 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               <thead>
                 <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
                   <th className="text-left px-3 py-2 font-semibold">
-                    {mode === 'order' ? T.col_order_number[lang] : T.col_number[lang]}
+                    <SortableHeader
+                      label={mode === 'order' ? T.col_order_number[lang] : T.col_quote_number[lang]}
+                      active={sort === 'number-asc' || sort === 'number-desc'}
+                      direction={sort === 'number-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('number-asc', 'number-desc')}
+                    />
                   </th>
                   {mode === 'order' && (
                     <th className="text-left px-3 py-2 font-semibold">{T.col_quote_number[lang]}</th>
                   )}
                   <th className="text-left px-3 py-2 font-semibold">{T.col_title[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_seller[lang]}</th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_dealer[lang]}</th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">
+                    <SortableHeader
+                      label={T.col_dealer[lang]}
+                      active={sort === 'dealer-asc' || sort === 'dealer-desc'}
+                      direction={sort === 'dealer-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('dealer-asc', 'dealer-desc')}
+                    />
+                  </th>
+                  {showStatusColumn && <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>}
+                  {mode === 'order' && <th className="text-left px-3 py-2 font-semibold">{T.col_expected_delivery[lang]}</th>}
+                  {mode === 'order' && <th className="hidden px-3 py-2 text-left font-semibold sm:table-cell">{T.col_purchase_order[lang]}</th>}
+                  <th className="text-left px-3 py-2 font-semibold">
+                    <SortableHeader
+                      label={T.col_created[lang]}
+                      active={sort === 'date-asc' || sort === 'date-desc'}
+                      direction={sort === 'date-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('date-asc', 'date-desc')}
+                    />
+                  </th>
+                  <th className="text-left px-3 py-2 font-semibold">
+                    <SortableHeader
+                      label={T.col_sent[lang]}
+                      active={sort === 'sent-asc' || sort === 'sent-desc'}
+                      direction={sort === 'sent-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('sent-asc', 'sent-desc')}
+                    />
+                  </th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
-                  {canEditOwnership && <th className="px-3 py-2 font-semibold w-10"></th>}
+                  {mode === 'order' && canOpenSalesDocument && <th className="px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
+                  {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-24"></th>}
                   {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => {
-                  const number = mode === 'order'
-                    ? (r.order_number || r.quote_number || r.id.slice(0, 8))
-                    : (r.quote_number || r.id.slice(0, 8));
-                  const sentAt = mode === 'order' ? (r.order_sent_at || r.submitted_at) : r.quote_sent_at;
-                  const badge = statusBadge(r);
-                  const dealerLabel = r.dealer_company_name
-                    ?? r.dealer_name
-                    ?? (r.dealer_number ? `#${r.dealer_number}` : '—');
+                  const number = crmDocumentNumber(r, mode);
+                  const sentAt = crmDocumentSentAt(r, mode);
+                  const badge = statusBadge(r, mode, lang);
+                  const dealerLabel = crmDocumentDealerLabel(r);
                   const configuratorHref = getCrmConfigurationDeepLink(r);
                   const leadHref = getCrmConfigurationLeadDeepLink(r);
                   return (
                     <tr
                       key={r.id}
                       onClick={() => handleRowClick(r)}
-                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOwnership ? 'cursor-pointer' : ''}`}
+                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOrderContacts ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
-                        {number}
+                        {canOpenSalesDocument ? (
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); void handleOpenSalesDocument(r); }}
+                            disabled={openingDocumentId === r.id}
+                            className="font-mono text-[12px] font-semibold text-[#2d5a27] underline decoration-emerald-700/35 underline-offset-2 hover:decoration-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label={`${mode === 'order' ? T.col_order_number[lang] : T.col_quote_number[lang]} ${number}`}
+                          >
+                            {openingDocumentId === r.id ? '…' : number}
+                          </button>
+                        ) : number}
+                        {mode === 'order' && r.purchase_order_number && (
+                          <span className="mt-0.5 block font-sans text-[11px] text-slate-500" title={r.purchase_order_numbers.join(', ') || undefined}>REK./PO: {r.purchase_order_number}</span>
+                        )}
                       </td>
                       {mode === 'order' && (
                         <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
@@ -375,19 +687,24 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       )}
                       <td className="px-3 py-2.5 text-slate-800 max-w-[280px]">
                         <span className="block truncate" title={r.title || undefined}>{r.title || '—'}</span>
+                        {r.sales_source_type === 'SALES_STOCK_DEMO' && <span className="mt-1 inline-flex border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">{T.source_sales_stock[lang]}</span>}
                       </td>
                       <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
                         {r.seller_initials || r.seller_name || r.seller_email || '—'}
                       </td>
                       <td className="px-3 py-2.5 text-slate-700 max-w-[260px] truncate">
                         {dealerLabel}
-                        {r.dealer_country && <span className="ml-1 text-[11px] text-slate-400">· {r.dealer_country}</span>}
+                        {r.dealer_country && <span className="ml-1 text-[11px] text-slate-400">· {formatCountry(r.dealer_country)}</span>}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>
-                          {badge.label}
-                        </span>
-                      </td>
+                      {showStatusColumn && (
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        </td>
+                      )}
+                      {mode === 'order' && <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.delivery_date)}</td>}
+                      {mode === 'order' && <td className="hidden px-3 py-2.5 font-mono text-[12px] text-slate-600 sm:table-cell" title={r.purchase_order_numbers.join(', ') || undefined}>{r.purchase_order_number || '—'}</td>}
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
                       {mode === 'quote' && (
@@ -414,16 +731,63 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           </div>
                         </td>
                       )}
-                      {canEditOwnership && (
-                        <td className="px-3 py-2.5 text-right">
+                      {mode === 'order' && canOpenSalesDocument && (
+                        <td className="px-3 py-2.5 whitespace-nowrap">
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
-                            className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
-                            title="Ret sælger og forhandler"
+                            onClick={(e) => { e.stopPropagation(); void handleOpenSalesDocument(r); }}
+                            disabled={openingDocumentId === r.id}
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-[12px] font-medium text-[#2d5a27] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Eye className="h-3.5 w-3.5" />
+                            {openingDocumentId === r.id ? '…' : 'Åbn'}
                           </button>
+                        </td>
+                      )}
+                      {canEditOrderContacts && (
+                        <td className="px-3 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
+                              className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                              title="Redigér ordreoplysninger"
+                              aria-label="Redigér ordreoplysninger"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEditingTimelineRow(r); }}
+                              className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                              title="Redigér oprettet og sendt"
+                              aria-label="Redigér oprettet og sendt"
+                            >
+                              <CalendarDays className="h-3.5 w-3.5" />
+                            </button>
+                            {canReopenSubmittedOrder && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); navigate(`${configuratorHref}&orderCorrection=1`); }}
+                                className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                                title="Åbn i Configurator"
+                                aria-label="Åbn i Configurator"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {canReopenSubmittedOrder && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setRevisionRow(r); }}
+                                className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                                title="Revisionshistorik"
+                                aria-label="Revisionshistorik"
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                       {canDelete && (
@@ -449,13 +813,23 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       </div>
 
       {editingRow && (
-        <EditOrderOwnershipModal
+        <EditOrderContactModal
           row={editingRow}
-          canEdit={canEditOwnership}
+          canEdit={canEditOrderContacts}
           onClose={() => setEditingRow(null)}
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+      {editingTimelineRow && (
+        <EditOrderTimelineModal
+          row={editingTimelineRow}
+          canEdit={canEditOrderContacts}
+          onClose={() => setEditingTimelineRow(null)}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+      {revisionRow && <SubmittedOrderRevisionHistoryModal row={revisionRow} onClose={() => setRevisionRow(null)} />}
+      {openedDocument && <ReadOnlySalesDocumentModal document={openedDocument.document} documentType={openedDocument.type} onClose={() => setOpenedDocument(null)} />}
 
       <AlertDialog
         open={!!deletingRow}
@@ -464,12 +838,12 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {mode === 'order' ? 'Slet ordre?' : 'Slet tilbud?'}
+              {mode === 'order' ? 'Slet ordre permanent?' : 'Slet tilbud permanent?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {mode === 'order'
-                ? 'Er du sikker på, at du vil slette denne ordre? Ordren fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'
-                : 'Er du sikker på, at du vil slette dette tilbud? Tilbuddet fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'}
+                ? 'Ordren slettes permanent fra Timan-systemet og fjernes fra CRM, Dashboard og Budget. Handlingen kan ikke fortrydes.'
+                : 'Tilbuddet slettes permanent fra Timan-systemet og fjernes fra CRM, Dashboard og Budget. Handlingen kan ikke fortrydes.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -479,7 +853,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               disabled={deleteBusy}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteBusy ? '…' : 'Ja, slet'}
+              {deleteBusy ? '…' : 'Ja, slet permanent'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

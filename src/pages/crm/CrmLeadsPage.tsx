@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
+import { crmLeadText } from '@/lib/crmLeadI18n';
+import { formatCrmLeadMachineInterestSummary } from '@/lib/crmLeadMachineInterest';
+import { crmLostReasonLabel, serializeCrmLostReason } from '@/lib/crmLostReason';
 import { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -15,8 +21,8 @@ import { resolveSellerDisplay, useSellerDirectory, type SellerDirectory } from '
 import {
   listLeadsPage, updateLead, getLead, deleteLead, deleteDemoLead,
   CrmLead, type CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview, type CrmLeadsPageQueryResult,
-  formatLeadNo, formatDemoNo,
-  LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
+  formatLeadNo, formatDemoNo, formatLeadReferenceDisplay,
+  LOST_REASON_OPTIONS,
   getLeadAttachmentSignedUrls, getLeadImageAttachments,
 } from '@/lib/crmLeadsService';
 import {
@@ -48,12 +54,37 @@ import {
 import { toast } from 'sonner';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getLocalAcademyUser } from '@/lib/academyCurriculum';
 import {
   buildCrmLeadOwnerFilterOptions,
   type CrmLeadOwnerFilter,
 } from '@/lib/crmLeadOwnerFilter';
 import { formatConvertedMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
+import { listCrmLeadNotes, sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
+import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
+import { CrmCompetitorSelect, OTHER_COMPETITOR } from '@/components/crm/CrmCompetitorSelect';
+import { listCrmCompetitors, type CrmCompetitor } from '@/lib/crmCompetitorsService';
+import { getMissingStoredCrmLeadFields } from '@/lib/crmLeadValidation';
+import {
+  CRM_LEAD_MACHINE_FAMILIES,
+  getCrmLeadEquipmentOptions,
+  getCrmLeadMachineFamilyLabel,
+} from '@/lib/crmLeadMachineFilter';
+import {
+  defaultCrmLeadsNavigationState,
+  createCrmLeadsDetailNavigationState,
+  parseCrmLeadsNavigationState,
+  readCurrentCrmLeadsScrollPosition,
+  rememberCurrentCrmLeadsScrollPosition,
+  serializeCrmLeadsNavigationState,
+  type CrmLeadsFollowupFilter,
+  type CrmLeadsNavigationState,
+  type CrmLeadsSort,
+  type CrmLeadsTab,
+  type CrmLeadsType,
+} from '@/lib/crmLeadsNavigationState';
+import { compareCrmLeadExpectedClose } from '@/lib/crmLeadExpectedCloseSort';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -74,11 +105,12 @@ type TKey =
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
   | 'convert_to_demo' | 'convert_to_quote' | 'convert_label' | 'to_demo_label' | 'to_quote_label' | 'go_to_quote'
-  | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
+  | 'urgency_overdue' | 'urgency_later'
   | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
   | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
+  | 'sort_expected_close_asc'
   | 'page_prev' | 'page_next' | 'page_range'
-  | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
+  | 'st_Lead' | 'st_DemoWant' | 'st_Demo' | 'st_DemoHeld' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 type UiText = Record<Language, string> & Partial<Record<Exclude<PortalUiLanguage, Language>, string>>;
 
@@ -128,7 +160,7 @@ const T: Record<TKey, UiText> = {
   type_won:      { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes', fr: 'Gagné', pl: 'Wygrane', cs: 'Vyhrané' },
   type_lost:     { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett', fr: 'Perdu', pl: 'Utracone', cs: 'Ztracené' },
   unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan', fr: 'Non assigné', pl: 'Nieprzypisane', cs: 'Nepřiřazeno' },
-  incomplete_chip:{ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead', fr: 'Lead incomplet', pl: 'Niekompletny lead', cs: 'Neúplný lead' },
+  incomplete_chip:{ da: 'Mangler udfyldelse', en: 'Needs completion', de: 'Angaben fehlen', it: 'Dati mancanti', hu: 'Hiányzó adatok', fr: 'Informations manquantes', pl: 'Brakujące dane', cs: 'Chybějící údaje' },
   shared_chip:   { da: 'Delt med dig', en: 'Shared with you', de: 'Mit dir geteilt', it: 'Condiviso con te', hu: 'Megosztva veled', fr: 'Partagé avec vous', pl: 'Udostępnione Tobie', cs: 'Sdíleno s vámi' },
   close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás', fr: 'Fermer', pl: 'Zamknij', cs: 'Zavřít' },
   close_title:   { da: 'Luk lead', en: 'Close lead', de: 'Lead schließen', it: 'Chiudi lead', hu: 'Lead lezárása', fr: 'Fermer le lead', pl: 'Zamknij lead', cs: 'Zavřít lead' },
@@ -136,8 +168,8 @@ const T: Record<TKey, UiText> = {
   won_label:     { da: 'Ordre vundet', en: 'Order won', de: 'Auftrag gewonnen', it: 'Ordine vinto', hu: 'Megrendelés nyertes', fr: 'Commande gagnée', pl: 'Zamówienie wygrane', cs: 'Objednávka vyhrána' },
   lost_label:    { da: 'Ordre tabt', en: 'Order lost', de: 'Auftrag verloren', it: 'Ordine perso', hu: 'Megrendelés elveszett', fr: 'Commande perdue', pl: 'Zamówienie utracone', cs: 'Objednávka ztracena' },
   lost_analysis_title: { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése', fr: 'Analyse de l’affaire perdue', pl: 'Analiza utraconej sprzedaży', cs: 'Analýza ztraceného obchodu' },
-  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
-  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
+  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', sv: 'Förlorat till konkurrent', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
+  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', sv: 'Annan konkurrent', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
   lost_reason:   { da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum verloren', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el', fr: 'Pourquoi nous avons perdu la commande', pl: 'Dlaczego utraciliśmy zamówienie', cs: 'Proč jsme objednávku ztratili' },
   lost_comment:  { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés', fr: 'Commentaire', pl: 'Komentarz', cs: 'Komentář' },
   save:          { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés', fr: 'Enregistrer', pl: 'Zapisz', cs: 'Uložit' },
@@ -153,8 +185,7 @@ const T: Record<TKey, UiText> = {
   to_quote_label:{ da: 'til tilbud', en: 'to quote', de: 'in Angebot', it: 'in offerta', hu: 'ajánlattá', fr: 'en devis', pl: 'na ofertę', cs: 'na nabídku' },
   go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz', fr: 'Aller au devis', pl: 'Przejdź do oferty', cs: 'Přejít na nabídku' },
   urgency_overdue:{ da: 'Forfalden', en: 'Overdue', de: 'Überfällig', it: 'Scaduto', hu: 'Lejárt', fr: 'En retard', pl: 'Zaległe', cs: 'Po termínu' },
-  urgency_soon:   { da: 'Inden 20 dage', en: 'Within 20 days', de: 'In 20 Tagen', it: 'Entro 20 giorni', hu: '20 napon belül', fr: 'Dans 20 jours', pl: 'W ciągu 20 dni', cs: 'Do 20 dnů' },
-  urgency_later:  { da: 'Inden 2 mdr.', en: 'Within 2 mo.', de: 'In 2 Mon.', it: 'Entro 2 mesi', hu: '2 hónapon belül', fr: 'Dans 2 mois', pl: 'W ciągu 2 mies.', cs: 'Do 2 měs.' },
+  urgency_later:  { da: 'Inden for 2 måneder', en: 'Within 2 months', de: 'Innerhalb von 2 Monaten', it: 'Entro 2 mesi', hu: '2 hónapon belül', sv: 'Inom 2 månader', fr: 'Dans les 2 mois', pl: 'W ciągu 2 miesięcy', cs: 'Do 2 měsíců' },
   sort_default:   { da: 'Sortér: standard', en: 'Sort: default', de: 'Sortieren: Standard', it: 'Ordina: standard', hu: 'Rendezés: alap', fr: 'Tri : standard', pl: 'Sortuj: standard', cs: 'Řadit: standard' },
   sort_title_asc: { da: 'Titel: A-Å', en: 'Title: A-Z', de: 'Titel: A-Z', it: 'Titolo: A-Z', hu: 'Cím: A-Z', fr: 'Titre : A-Z', pl: 'Tytuł: A-Z', cs: 'Název: A-Z' },
   sort_title_desc:{ da: 'Titel: Å-A', en: 'Title: Z-A', de: 'Titel: Z-A', it: 'Titolo: Z-A', hu: 'Cím: Z-A', fr: 'Titre : Z-A', pl: 'Tytuł: Z-A', cs: 'Název: Z-A' },
@@ -162,11 +193,14 @@ const T: Record<TKey, UiText> = {
   sort_date_asc:  { da: 'Dato: ældste først', en: 'Date: oldest first', de: 'Datum: älteste zuerst', it: 'Data: meno recenti prima', hu: 'Dátum: legrégebbi elöl', fr: 'Date : plus ancien', pl: 'Data: najstarsze', cs: 'Datum: nejstarší' },
   sort_prob_desc: { da: 'Status %: høj til lav', en: 'Status %: high to low', de: 'Status %: hoch zu niedrig', it: 'Status %: alto-basso', hu: 'Státusz %: magas-alacsony', fr: 'Statut % : décroissant', pl: 'Status %: malejąco', cs: 'Stav %: sestupně' },
   sort_prob_asc:  { da: 'Status %: lav til høj', en: 'Status %: low to high', de: 'Status %: niedrig zu hoch', it: 'Status %: basso-alto', hu: 'Státusz %: alacsony-magas', fr: 'Statut % : croissant', pl: 'Status %: rosnąco', cs: 'Stav %: vzestupně' },
+  sort_expected_close_asc: { da: 'Forventet luk: tidligst til senest', en: 'Expected close: earliest to latest', de: 'Erwarteter Abschluss: frühester bis spätester', it: 'Chiusura prevista: dalla prima all’ultima', hu: 'Várható zárás: legkorábbitól a legkésőbbiig', sv: 'Förväntat avslut: tidigast till senast', fr: 'Clôture prévue : du plus tôt au plus tard', pl: 'Planowane zamknięcie: od najwcześniejszego do najpóźniejszego', cs: 'Očekávané uzavření: od nejdřívějšího po nejpozdější' },
   page_prev:      { da: 'Forrige', en: 'Previous', de: 'Zurück', it: 'Precedente', hu: 'Előző', fr: 'Précédent', pl: 'Poprzednia', cs: 'Předchozí' },
   page_next:      { da: 'Næste', en: 'Next', de: 'Weiter', it: 'Successiva', hu: 'Következő', fr: 'Suivant', pl: 'Następna', cs: 'Další' },
   page_range:     { da: 'Viser', en: 'Showing', de: 'Zeigt', it: 'Mostra', hu: 'Megjelenítve', fr: 'Affichage', pl: 'Pokazuje', cs: 'Zobrazuje' },
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead', fr: 'Lead', pl: 'Lead', cs: 'Lead' },
-  st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve', fr: 'Démo planifiée', pl: 'Demo zaplanowane', cs: 'Demo plánováno' },
+  st_DemoWant:   { da: 'Ønsker demo', en: 'Demo requested', de: 'Demo gewünscht', it: 'Demo richiesta', hu: 'Demó kért', sv: 'Demo önskas', fr: 'Démo demandée', pl: 'Demo oczekiwane', cs: 'Demo požadováno' },
+  st_Demo:       { da: 'Demo aftalt', en: 'Demo agreed', de: 'Demo vereinbart', it: 'Demo concordata', hu: 'Demó egyeztetve', sv: 'Demo avtalad', fr: 'Démo convenue', pl: 'Demo uzgodnione', cs: 'Ukázka dohodnuta' },
+  st_DemoHeld:   { da: 'Demo afholdt', en: 'Demo held', de: 'Demo durchgeführt', it: 'Demo effettuata', hu: 'Demo megtartva', sv: 'Demo genomförd', fr: 'Démo effectuée', pl: 'Demo odbyło się', cs: 'Demo proběhlo' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve', fr: 'Devis envoyé', pl: 'Oferta wysłana', cs: 'Nabídka odeslána' },
   st_Followup:   { da: 'Follow-up', en: 'Follow-up', de: 'Follow-up', it: 'Follow-up', hu: 'Utánkövetés', fr: 'Suivi', pl: 'Kontakt', cs: 'Kontakt' },
   st_Vundet:     { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes', fr: 'Gagné', pl: 'Wygrane', cs: 'Vyhrané' },
@@ -180,6 +214,8 @@ interface UnifiedLead {
   id: string;
   /** Human-readable number, e.g. "L-1000" or "D-8000". */
   display_no: string;
+  reference_no?: number | null;
+  reference_type?: 'L' | 'G' | null;
   type: LeadType;
   title: string;
   customer: string | null;
@@ -196,6 +232,7 @@ interface UnifiedLead {
   equipment: string | null;
   date: string | null;
   next_followup: string | null;
+  expected_close_date: string | null;
   status: string | null;
   probability: number | null;
   value: number | null;
@@ -206,12 +243,16 @@ interface UnifiedLead {
   /** Phase 40 — true when the lead was created via the configurator's
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
+  demo_registration_pending?: boolean;
+  demo_registration?: CrmLead['demo_registration'];
   shared?: boolean;
 }
 
 const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
   Lead: 'st_Lead',
-  'Demo planlagt': 'st_Demo',
+  'Ønsker demo': 'st_DemoWant',
+  'Demo aftalt': 'st_Demo',
+  'Demo afholdt': 'st_DemoHeld',
   'Tilbud sendt': 'st_Tilbud',
   'Follow-up': 'st_Followup',
   Vundet: 'st_Vundet',
@@ -289,7 +330,9 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     : linkedDealer;
   return {
     id: l.id,
-    display_no: formatLeadNo(l.lead_no),
+    display_no: formatLeadNo(l.lead_no, l.lead_reference_type),
+    reference_no: l.lead_no,
+    reference_type: l.lead_reference_type || (l.lead_no != null && l.lead_no >= 5000 ? 'G' : 'L'),
     type: 'open',
     title: l.title,
     customer: l.contact_information || null,
@@ -302,7 +345,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     created_by_partner: false,
     owner_is_timan_seller: false,
     responsible_name: l.owner_name,
-    machine: (l.machine_types || []).join(', ') || null,
+    machine: formatCrmLeadMachineInterestSummary(l.machine_types, l.machine_interest_items) || null,
     equipment: null,
     date: l.first_contact_date || l.created_at,
     next_followup: l.next_followup_date,
@@ -312,7 +355,9 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     detail_href: `/portal/crm/leads/${l.id}`,
     attachments: l.attachments || [],
     has_demo: l.demo_has_run === 'yes',
-    incomplete: l.incomplete_from_configurator === true,
+    incomplete: getMissingStoredCrmLeadFields(l).length > 0,
+    demo_registration_pending: l.demo_registration_pending === true,
+    demo_registration: l.demo_registration,
   };
 }
 
@@ -320,6 +365,8 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
   return {
     id: d.id,
     display_no: formatDemoNo(d.demo_no),
+    reference_no: d.demo_no,
+    reference_type: null,
     type: 'demo',
     title: d.title,
     customer: d.customer_name,
@@ -344,13 +391,14 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
   };
 }
 
-type TabKey = 'open' | 'won' | 'closed' | 'all';
-type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
-type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
+type TabKey = CrmLeadsTab;
+type SortKey = CrmLeadsSort;
+type UserLeadType = CrmLeadsType;
 type FollowupTone = 'overdue' | 'soon' | 'later' | 'neutral';
-type FollowupFilter = Exclude<FollowupTone, 'neutral'>;
+type FollowupFilter = CrmLeadsFollowupFilter;
 
 const USER_LEAD_TYPES: UserLeadType[] = ['open', 'demo', 'won', 'lost'];
+const MOBILE_RESULT_TABS: TabKey[] = ['all', 'won', 'closed'];
 
 function isWonRow(row: UnifiedLead): boolean {
   return row.status === 'Vundet' || row.status === 'Won';
@@ -391,7 +439,6 @@ const FOLLOWUP_BADGE: Record<FollowupTone, string> = {
 
 const FOLLOWUP_FILTERS: Array<{ key: FollowupFilter; labelKey: TKey }> = [
   { key: 'overdue', labelKey: 'urgency_overdue' },
-  { key: 'soon', labelKey: 'urgency_soon' },
   { key: 'later', labelKey: 'urgency_later' },
 ];
 
@@ -431,6 +478,7 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
   if (sort === 'date_asc') return (a.date || '').localeCompare(b.date || '');
   if (sort === 'prob_desc') return (b.probability ?? -1) - (a.probability ?? -1);
   if (sort === 'prob_asc') return (a.probability ?? 999) - (b.probability ?? 999);
+  if (sort === 'expected_close_asc') return compareCrmLeadExpectedClose(a, b, 'asc');
   const aLegacy = /^G-/.test(a.display_no || '');
   const bLegacy = /^G-/.test(b.display_no || '');
   if (aLegacy !== bLegacy) return aLegacy ? 1 : -1;
@@ -438,13 +486,16 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
 }
 
 export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = {}) {
-  const { appUser } = useAppUser();
+  const { appUser: sessionUser } = useAppUser();
+  const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
   const effectiveUser = useEffectivePortalUser(appUser);
+  const academyAccess = useAcademyAccess();
+  const crmDemoUnlocked = academyAccess?.isUnlocked('crm_demo') ?? true;
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const dealerParam = searchParams.get('dealer') || '';
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
@@ -474,32 +525,75 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const [pageResult, setPageResult] = useState<CrmLeadsPageQueryResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
-
-  const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : 'open');
-  const [followupFilter, setFollowupFilter] = useState<FollowupFilter | null>(null);
-  const [q, setQ] = useState(dealerParam);
-  const [typeFilter, setTypeFilter] = useState<UserLeadType | ''>('');
-  const [machineFilter, setMachineFilter] = useState('');
-  const [equipmentFilter, setEquipmentFilter] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState<CrmLeadOwnerFilter>('');
-  const [stage, setStage] = useState<string>('');
-  const [sort, setSort] = useState<SortKey>('default');
-  const [page, setPage] = useState(0);
+  const navigationState = useMemo(
+    () => parseCrmLeadsNavigationState(searchParams, { isAdmin }),
+    [isAdmin, searchParams],
+  );
+  const {
+    tab,
+    followupFilter,
+    q,
+    typeFilter,
+    machineFilter,
+    equipmentFilter,
+    ownerFilter,
+    stage,
+    sort,
+    page,
+  } = navigationState;
+  const pendingScrollRestore = useRef<number | null>(readCurrentCrmLeadsScrollPosition());
+  const scrollRestoreComplete = useRef(false);
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
+  const [noteTarget, setNoteTarget] = useState<UnifiedLead | null>(null);
+  const [notesByLeadId, setNotesByLeadId] = useState<Record<string, CrmLeadNote[]>>({});
   const topFilterButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm leading-none transition whitespace-nowrap';
   const topActionButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium leading-none shadow-sm transition whitespace-nowrap';
+  const mobileControlClass = 'flex min-h-11 w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-tight transition';
+  const mobileCountClass = 'inline-flex min-w-5 shrink-0 items-center justify-center rounded-md px-1 py-0.5 text-[10px] tabular-nums';
 
-  useEffect(() => {
-    if (dealerParam) {
-      setQ(dealerParam);
-      setTab('all');
-      setFollowupFilter(null);
+  const updateNavigationState = useCallback((
+    patch: Partial<CrmLeadsNavigationState>,
+    options: { clearDealer?: boolean; resetPage?: boolean } = {},
+  ) => {
+    setSearchParams((currentParams) => {
+      const current = parseCrmLeadsNavigationState(currentParams, { isAdmin });
+      const next = { ...current, ...patch };
+      if (options.resetPage !== false && patch.page === undefined) next.page = 0;
+      return serializeCrmLeadsNavigationState(currentParams, next, {
+        isAdmin,
+        clearDealer: options.clearDealer,
+      });
+    }, { replace: true });
+  }, [isAdmin, setSearchParams]);
+
+  const resetAllLeadFilters = () => {
+    setSearchParams((currentParams) => serializeCrmLeadsNavigationState(
+      currentParams,
+      defaultCrmLeadsNavigationState('all'),
+      { isAdmin, clearDealer: true },
+    ), { replace: true });
+  };
+
+  const selectLeadTab = (nextTab: TabKey) => {
+    if (nextTab === 'all') {
+      resetAllLeadFilters();
+      return;
     }
-  }, [dealerParam]);
+    updateNavigationState({ tab: nextTab, followupFilter: null });
+  };
+
+  const selectFollowupCohort = (nextFilter: CrmLeadsFollowupFilter) => {
+    const active = followupFilter === nextFilter;
+    updateNavigationState({
+      tab: 'open',
+      followupFilter: active ? null : nextFilter,
+      ...(nextFilter === 'later' && !active ? { sort: 'expected_close_asc' as const } : {}),
+    });
+  };
 
   const refreshLeads = async () => {
     setReloadKey((value) => value + 1);
@@ -513,20 +607,19 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       navigate(`/configurator?fromLeadQuote=${encodeURIComponent(leadId)}`);
     } catch (e) {
       console.error(e);
-      toast.error(lang === 'da' ? 'Kunne ikke konvertere leadet til tilbud' : 'Could not convert lead to quote');
+      toast.error(crmLeadText('quoteConversionError', lang));
       setQuoteConvertBusyId(null);
     }
   }
 
   useEffect(() => {
-    if (!dealerParam) {
-      setTab('open');
-    }
-  }, [dealerParam]);
-
-  useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (repository.academy) {
+        setExternalDealerScope(null);
+        setExternalScopeLoading(false);
+        return;
+      }
       setExternalScopeLoading(true);
       try {
         const res = await fetchDealerAccounts({ includeDeleted: true });
@@ -591,22 +684,52 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         setPageResult(result);
       } catch (err) {
         console.error('[CRM Leads] page query failed:', err);
-        toast.error(lang === 'da' ? 'Kunne ikke hente leads' : 'Could not load leads');
+        toast.error(crmLeadText('leadLoadError', lang));
         setPageResult(null);
       }
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, ownerFilter, ownerOptions.primarySellerIds, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [tab, followupFilter, q, typeFilter, machineFilter, equipmentFilter, ownerFilter, stage, sort]);
+  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, lang, machineFilter, equipmentFilter, ownerFilter, ownerOptions.primarySellerIds, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
 
   const visible = useMemo<UnifiedLead[]>(
     () => (pageResult?.rows ?? []).map((row) => ({ ...row, detail_href: row.detail_href || null })),
     [pageResult],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const leadIds = repository.academy
+      ? []
+      : visible.filter((row) => row.type === 'open').map((row) => row.id);
+    if (!leadIds.length) {
+      setNotesByLeadId({});
+      return;
+    }
+    void listCrmLeadNotes(leadIds).then((notes) => {
+      if (cancelled) return;
+      const grouped: Record<string, CrmLeadNote[]> = {};
+      for (const note of notes) {
+        if (!note.lead_id) continue;
+        (grouped[note.lead_id] ||= []).push(note);
+      }
+      setNotesByLeadId(grouped);
+    }).catch((error) => {
+      console.warn('[CRM Leads] lead-note summary failed', error);
+      if (!cancelled) setNotesByLeadId({});
+    });
+    return () => { cancelled = true; };
+  }, [repository.academy, visible]);
+
+  useEffect(() => {
+    if (loading || scrollRestoreComplete.current) return;
+    scrollRestoreComplete.current = true;
+    const y = pendingScrollRestore.current;
+    pendingScrollRestore.current = null;
+    if (y == null) return;
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+    return () => cancelAnimationFrame(frame);
+  }, [loading]);
 
   const counts = pageResult?.counts ?? { all: 0, open: 0, won: 0, closed: 0 };
   const followupCounts = pageResult?.followup_counts ?? { overdue: 0, soon: 0, later: 0 };
@@ -617,12 +740,15 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   }, [pageResult?.options.types]);
 
   const machineOptions = useMemo(() => {
-    return pageResult?.options.machines ?? [];
-  }, [pageResult?.options.machines]);
+    return CRM_LEAD_MACHINE_FAMILIES;
+  }, []);
 
   const equipmentOptions = useMemo(() => {
-    return pageResult?.options.equipment ?? [];
-  }, [pageResult?.options.equipment]);
+    return getCrmLeadEquipmentOptions(
+      pageResult?.options.machines ?? [],
+      pageResult?.options.equipment ?? [],
+    );
+  }, [pageResult?.options.equipment, pageResult?.options.machines]);
 
   const statusOptions = useMemo(() => {
     const values = new Map<string, string>();
@@ -670,7 +796,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
 
   return (
     <CrmLayout pageTitle={tt('page_title', lang)}>
-      {repository.academy && <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><b>Academy træning - CRM Leads, Part {academyPart || 1}</b><p className="mt-1">Du arbejder med lokale træningsleads. Ingen lead, deling, demo eller mail sendes til produktion.</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">{(academyPart === 2 ? [[academyCrmSandbox.getProgress().activityUpdated, 'Aktivitet/opfølgning'], [academyCrmSandbox.getProgress().shared, 'Lead delt med Academy-forhandler'], [academyCrmSandbox.getProgress().demoConverted, 'Academy-demo']] : [[academyCrmSandbox.getProgress().overdueUpdated, 'Forfaldent lead opdateret'], [academyCrmSandbox.getProgress().configuratorCompleted, 'Configurator-lead færdigoprettet']]).map(([done, label]) => <span key={String(label)}>{done ? '✓' : '○'} {String(label)}</span>)}</div></section>}
+      {repository.academy && <AcademyCrmGuidance part={academyPart} />}
       {/* Header */}
       <div className="mb-5">
         <div>
@@ -689,8 +815,80 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+      {/* Mobile status grid. It shares the same filters and routes as the desktop toolbar below. */}
+      <div className="mb-4 grid grid-cols-3 gap-2 md:hidden" data-testid="crm-leads-mobile-status-grid">
+        <div className="min-w-0 space-y-1.5">
+          {TABS.filter((t) => t.key === 'open').map(t => {
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
+            return (
+              <button
+                key={t.key}
+                onClick={() => selectLeadTab(t.key)}
+                className={cn(
+                  mobileControlClass,
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700'
+                )}>
+                <span className="min-w-0">{t.label}</span>
+                <span className={cn(mobileCountClass, active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600')}>{c}</span>
+              </button>
+            );
+          })}
+          {[...FOLLOWUP_FILTERS].reverse().map((item) => {
+            const active = followupFilter === item.key;
+            const c = followupCounts[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => selectFollowupCohort(item.key)}
+                className={cn(mobileControlClass, FOLLOWUP_BADGE[item.key], active && 'shadow-sm ring-2 ring-offset-1 ring-current/20')}
+              >
+                <span className="min-w-0">{tt(item.labelKey, lang)}</span>
+                <span className={cn(mobileCountClass, active ? 'bg-white/60' : 'bg-white/70')}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          {MOBILE_RESULT_TABS.map((key) => {
+            const t = TABS.find((candidate) => candidate.key === key);
+            if (!t) return null;
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
+            return (
+              <button
+                key={t.key}
+                onClick={() => selectLeadTab(t.key)}
+                className={cn(
+                  mobileControlClass,
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700'
+                )}>
+                <span className="min-w-0">{t.label}</span>
+                <span className={cn(mobileCountClass, active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600')}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+        {!repository.academy && (
+          <div className="min-w-0 space-y-1.5">
+            <Link to="/portal/crm/leads/new"
+              className={cn(mobileControlClass, 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm')}>
+              <span className="flex min-w-0 items-center gap-1"><Plus className="h-3.5 w-3.5 shrink-0" />{tt('new_lead', lang)}</span>
+            </Link>
+            {crmDemoUnlocked && <Link to="/portal/crm/demo-leads/new"
+              className={cn(mobileControlClass, 'bg-white text-[#2d5a27] border-[#2d5a27]/30')}>
+              <span className="flex min-w-0 items-center gap-1"><Plus className="h-3.5 w-3.5 shrink-0" />{tt('new_demo', lang)}</span>
+            </Link>}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop and tablet toolbar. */}
+      <div className="mb-4 hidden flex-col gap-2 md:flex xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
           {TABS.filter((t) => t.key === 'open').map(t => {
             const active = tab === t.key && followupFilter === null;
@@ -698,10 +896,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   topFilterButtonClass,
                   active
@@ -722,10 +917,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={item.key}
-                onClick={() => {
-                  setTab('open');
-                  setFollowupFilter(active ? null : item.key);
-                }}
+                onClick={() => selectFollowupCohort(item.key)}
                 className={cn(
                   topFilterButtonClass,
                   FOLLOWUP_BADGE[item.key],
@@ -746,10 +938,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   topFilterButtonClass,
                   active
@@ -772,10 +961,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   topFilterButtonClass,
                   active
@@ -791,10 +977,10 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             );
           })}
           {!repository.academy && <>
-            <Link to="/portal/crm/demo-leads/new"
+            {crmDemoUnlocked && <Link to="/portal/crm/demo-leads/new"
               className={cn(topActionButtonClass, 'bg-white text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] hover:bg-gray-50')}>
               <Plus className="h-4 w-4" /> {tt('new_demo', lang)}
-            </Link>
+            </Link>}
             <Link to="/portal/crm/leads/new"
               className={cn(topActionButtonClass, 'bg-[#2d5a27] text-white hover:bg-[#234820]')}>
               <Plus className="h-4 w-4" /> {tt('new_lead', lang)}
@@ -805,46 +991,48 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
 
       {/* Filter strip */}
       <div className={cn(
-        'bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 grid grid-cols-1 md:grid-cols-2 gap-3',
+        'bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 grid grid-cols-2 gap-3',
         isAdmin
           ? 'xl:grid-cols-7'
           : 'xl:grid-cols-[minmax(220px,1.05fr)_minmax(130px,0.5fr)_minmax(190px,0.95fr)_minmax(160px,0.75fr)_minmax(160px,0.75fr)_minmax(185px,0.8fr)]',
       )}>
-        <div className="relative min-w-0">
+        <div className="relative min-w-0 col-span-2 md:col-span-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tt('search_ph', lang)}
+          <input value={q} onChange={e=>updateNavigationState({ q: e.target.value })} placeholder={tt('search_ph', lang)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none" />
         </div>
-        <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value as UserLeadType | '')}
+        <select value={typeFilter} onChange={e=>updateNavigationState({ typeFilter: e.target.value as UserLeadType | '' })}
           aria-label={tt('filter_type', lang)}
-          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_types', lang)}</option>
           {typeOptions.map((type) => (
             <option key={type} value={type}>{tt('filter_type', lang)}: {getUserLeadTypeLabel(type, lang)}</option>
           ))}
         </select>
-        <select value={machineFilter} onChange={e=>setMachineFilter(e.target.value)}
+        <select value={machineFilter} onChange={e=>updateNavigationState({ machineFilter: e.target.value })}
           aria-label={tt('filter_machine', lang)}
-          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_machines', lang)}</option>
-          {machineOptions.map((machine) => <option key={machine} value={machine}>{machine}</option>)}
+          {machineOptions.map((machine) => (
+            <option key={machine} value={machine}>{getCrmLeadMachineFamilyLabel(machine, lang)}</option>
+          ))}
         </select>
-        <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)}
+        <select value={equipmentFilter} onChange={e=>updateNavigationState({ equipmentFilter: e.target.value })}
           aria-label={tt('filter_equipment', lang)}
-          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white"
+          className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white"
           disabled={equipmentOptions.length === 0}>
           <option value="">{tt('all_equipment', lang)}</option>
           {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
         </select>
-        <select value={stage} onChange={e=>setStage(e.target.value)}
-          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+        <select value={stage} onChange={e=>updateNavigationState({ stage: e.target.value })}
+          className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_status', lang)}</option>
           {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
         {isAdmin && (
-          <select value={ownerFilter} onChange={e=>setOwnerFilter(e.target.value as CrmLeadOwnerFilter)}
+          <select value={ownerFilter} onChange={e=>updateNavigationState({ ownerFilter: e.target.value as CrmLeadOwnerFilter })}
             aria-label={tt('filter_owner', lang)}
-            className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+            className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
             <option value="">{tt('all_owners', lang)}</option>
             {ownerOptions.primary.map((owner) => (
               <option key={owner.id} value={`seller:${owner.id}`}>{owner.initials}</option>
@@ -858,8 +1046,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         )}
         <div className="relative min-w-0">
           <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
-            className="w-full rounded-xl border border-gray-200 text-sm pl-10 pr-3 py-2.5 bg-white">
+          <select value={sort} onChange={e=>updateNavigationState({ sort: e.target.value as SortKey })}
+            className="w-full truncate rounded-xl border border-gray-200 text-sm pl-10 pr-3 py-2.5 bg-white">
             <option value="default">{tt('sort_default', lang)}</option>
             <option value="title_asc">{tt('sort_title_asc', lang)}</option>
             <option value="title_desc">{tt('sort_title_desc', lang)}</option>
@@ -867,6 +1055,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             <option value="date_asc">{tt('sort_date_asc', lang)}</option>
             <option value="prob_desc">{tt('sort_prob_desc', lang)}</option>
             <option value="prob_asc">{tt('sort_prob_asc', lang)}</option>
+            <option value="expected_close_asc">{tt('sort_expected_close_asc', lang)}</option>
           </select>
         </div>
       </div>
@@ -889,13 +1078,20 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <thead className="bg-gray-50/70 text-[11px] uppercase tracking-[0.06em] text-gray-500">
                 <tr>
                   <th className="text-left px-4 py-3">{tt('col_type', lang)}</th>
-                  <th className="text-left px-4 py-3">{tt('col_title', lang)}</th>
+                  <th className="min-w-[240px] text-left px-4 py-3">{tt('col_title', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_dealer', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_owner', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_machine', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_date', lang)}</th>
                   <th className="text-left px-4 py-3 whitespace-nowrap">{tt('col_followup', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_status', lang)}</th>
+                  <th
+                    scope="col"
+                    data-testid="crm-leads-note-header"
+                    className="w-[84px] min-w-[84px] px-2 py-3 text-left whitespace-nowrap"
+                  >
+                    {crmLeadText('note', lang)}
+                  </th>
                   <th className="text-right px-4 py-3">{tt('col_action', lang)}</th>
                 </tr>
               </thead>
@@ -906,21 +1102,52 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const userType = getUserLeadType(r);
                   const followupTone = getFollowupTone(r.next_followup);
                   const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
+                  const noteCount = notesByLeadId[r.id]?.length ?? 0;
+                  const noteActionLabel = noteCount > 0 ? `${crmLeadText('note', lang)} (${noteCount})` : crmLeadText('note', lang);
+                  const compactReference = r.type === 'open'
+                    ? formatLeadReferenceDisplay(r.reference_no, r.reference_type)
+                    : r.display_no === '—' ? '' : r.display_no;
+                  const compactDemoReference = r.type === 'open' && r.demo_id && r.demo_no != null
+                    ? formatDemoNo(r.demo_no)
+                    : '';
                   return (
                     <tr key={`${r.type}-${r.id}`}
-                      onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
+                      onClick={() => {
+                        if (!r.detail_href) return;
+                        rememberCurrentCrmLeadsScrollPosition();
+                        navigate(r.detail_href, {
+                          state: createCrmLeadsDetailNavigationState(location.pathname, location.search),
+                        });
+                      }}
                       className={cn('transition-colors', clickable ? 'cursor-pointer hover:bg-gray-50/60' : 'hover:bg-gray-50/40')}>
-                      <td className="px-4 py-3.5">
-                        <span className={cn(
-                          'inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
-                          FOLLOWUP_BADGE[followupTone]
-                        )}>
-                          {getUserLeadTypeLabel(userType, lang)}
-                        </span>
+                      <td data-testid="crm-leads-type-cell" className="w-[88px] min-w-[88px] px-4 py-3 align-top">
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className={cn(
+                            'inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
+                            FOLLOWUP_BADGE[followupTone]
+                          )}>
+                            {getUserLeadTypeLabel(userType, lang)}
+                          </span>
+                          {compactReference && (
+                            <span
+                              data-testid="crm-leads-compact-reference"
+                              className="font-mono text-[11px] leading-none tabular-nums text-slate-500 whitespace-nowrap"
+                            >
+                              {compactReference}
+                            </span>
+                          )}
+                          {compactDemoReference && compactDemoReference !== '—' && (
+                            <span
+                              data-testid="crm-leads-compact-demo-reference"
+                              className="font-mono text-[10px] leading-none tabular-nums text-slate-400 whitespace-nowrap"
+                            >
+                              {compactDemoReference}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td data-testid="crm-leads-title-customer-cell" className="min-w-[240px] px-4 py-3.5">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-mono text-[11px] tabular-nums text-slate-500 shrink-0">{r.display_no}</span>
                           <span className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</span>
                           {r.incomplete && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
@@ -930,6 +1157,11 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           {r.shared && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
                               {tt('shared_chip', lang)}
+                            </span>
+                          )}
+                          {(r.demo_registration || r.demo_registration_pending) && (
+                            <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
+                              {r.demo_registration ? demoFlowText(crmDemoProgress(r.demo_registration), lang) : crmDemoMissingLabel(lang)}
                             </span>
                           )}
                           {imageAttachments.length > 0 && (
@@ -952,7 +1184,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           )}
                         </div>
                         {r.customer && r.customer !== r.title && (
-                          <div className="text-xs text-gray-500 truncate max-w-[260px]">{r.customer}</div>
+                          <div className="mt-0.5 min-w-0 truncate max-w-[260px] text-xs text-gray-500">
+                            {r.customer}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[220px] truncate">{r.dealer || '—'}</td>
@@ -1004,20 +1238,44 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           </div>
                         ) : '—'}
                       </td>
+                      <td
+                        data-testid="crm-leads-note-cell"
+                        className="w-[84px] min-w-[84px] px-2 py-3.5 text-left align-middle"
+                      >
+                        {r.type === 'open' && !repository.academy ? (
+                          <button
+                            type="button"
+                            title={noteCount > 0 ? `${crmLeadText('addNote', lang)} · ${noteCount} ${crmLeadText('notesCount', lang)}` : crmLeadText('addNote', lang)}
+                            aria-label={`${noteActionLabel} for ${r.display_no}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setNoteTarget(r);
+                            }}
+                            className="inline-flex h-8 items-center justify-start gap-1 whitespace-nowrap rounded-md px-1.5 text-[12px] text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>{noteActionLabel}</span>
+                          </button>
+                        ) : (
+                          <span className="text-[12px] text-gray-400">—</span>
+                        )}
+                      </td>
                       <td className="px-2 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div data-testid="crm-leads-action-cell" className="flex items-center justify-end gap-2">
                           {canActOnOpenLead && (
                             <>
-                              {!r.has_demo && (
+                              {!r.has_demo && (repository.academy || crmDemoUnlocked) && (
                                 <Link
                                   to={repository.academy
                                     ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=${academyPart || 2}&fromLead=${encodeURIComponent(r.id)}`
                                     : `/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  aria-label={tt('convert_to_demo', lang)}
+                                  aria-label={repository.academy ? tt('convert_to_demo', lang) : demoFlowText('plan', lang)}
                                   className="inline-flex h-8 min-w-[58px] items-center justify-center text-center text-violet-700 hover:underline"
                                 >
-                                  <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
+                                  {repository.academy
+                                    ? <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
+                                    : <span className="text-[12px]">{demoFlowText('plan', lang)}</span>}
                                 </Link>
                               )}
                               {!repository.academy && (r.quote_id ? (
@@ -1088,7 +1346,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <button
                 type="button"
                 disabled={page === 0}
-                onClick={() => setPage((value) => Math.max(0, value - 1))}
+                onClick={() => updateNavigationState({ page: Math.max(0, page - 1) }, { resetPage: false })}
                 className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {tt('page_prev', lang)}
@@ -1096,7 +1354,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <button
                 type="button"
                 disabled={pageEnd >= totalCount}
-                onClick={() => setPage((value) => value + 1)}
+                onClick={() => updateNavigationState({ page: page + 1 }, { resetPage: false })}
                 className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {tt('page_next', lang)}
@@ -1139,6 +1397,35 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         </div>
       )}
 
+      <Dialog open={!!noteTarget} onOpenChange={(open) => { if (!open) setNoteTarget(null); }}>
+        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{crmLeadText('addNote', lang)} – {noteTarget?.display_no}</DialogTitle>
+          </DialogHeader>
+          {noteTarget && (
+            <CrmLeadHistoryPanel
+              leadId={noteTarget.id}
+              leadLabel={noteTarget.title}
+              authorUserId={appUser?.id ?? null}
+              authorName={appUser?.display_name || appUser?.email || null}
+              ownerUserId={noteTarget.owner_user_id}
+              ownerName={noteTarget.owner_name}
+              initialLimit={3}
+              onCancel={() => setNoteTarget(null)}
+              onNotesChanged={(notes) => {
+                setNotesByLeadId((current) => ({
+                  ...current,
+                  [noteTarget.id]: sortCrmLeadNotes(notes),
+                }));
+              }}
+              onFollowupChanged={() => {
+                void refreshLeads();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <WonLostDialog
         lead={closeTarget}
         lang={lang as Language}
@@ -1151,9 +1438,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Slet lead?</AlertDialogTitle>
+            <AlertDialogTitle>Slet lead permanent?</AlertDialogTitle>
             <AlertDialogDescription>
-              Er du sikker på, at du vil slette dette lead? Det fjernes fra CRM-listen.
+              Leadet slettes permanent fra Timan-systemet og fjernes fra CRM, Dashboard og Budget. Handlingen kan ikke fortrydes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1163,7 +1450,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               disabled={deleteBusy}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteBusy ? '…' : 'Ja, slet'}
+              {deleteBusy ? '…' : 'Ja, slet permanent'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1189,6 +1476,18 @@ function WonLostDialog({
   const [reason, setReason] = useState('');
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
+  const [competitors, setCompetitors] = useState<CrmCompetitor[]>([]);
+  const [competitorError, setCompetitorError] = useState(false);
+  const { uiLanguage } = useLanguage();
+  const leadId = lead?.id;
+
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    void listCrmCompetitors().then(rows => { if (!cancelled) { setCompetitors(rows); setCompetitorError(false); } })
+      .catch(() => { if (!cancelled) setCompetitorError(true); });
+    return () => { cancelled = true; };
+  }, [leadId]);
 
   useEffect(() => {
     setMode(null);
@@ -1198,24 +1497,26 @@ function WonLostDialog({
   if (!lead) return null;
 
   async function handleSave() {
-    if (!lead) return;
+    if (!lead || (mode === 'lost' && competitorError)) return;
     setSaving(true);
     try {
       const isWon = mode === 'won';
       const nextActivity = isWon ? NEXT_ACTIVITY_WON : NEXT_ACTIVITY_LOST;
       const closedAt = new Date().toISOString();
+      const selectedCompetitor = competitors.find(row => row.id === competitor);
       await updateLead(lead.id, {
         next_activity: nextActivity,
         probability: isWon ? 100 : 0,
         pipeline_stage: deriveLegacyPipelineStage(nextActivity),
         status: 'closed',
         ...(isWon ? {} : {
-          lost_competitor: competitor === 'Andre' ? (competitorOther || 'Andre') : (competitor || null),
-          lost_reason: reason || null,
+          lost_competitor_id: selectedCompetitor?.id ?? null,
+          lost_competitor: selectedCompetitor?.name ?? (competitor === OTHER_COMPETITOR ? (competitorOther || 'Andre') : null),
+          lost_reason: serializeCrmLostReason(reason),
           lost_comment: comment || null,
         }),
         updated_at: closedAt,
-      } as any);
+      });
       // Verify before showing success.
       const fresh = await getLead(lead.id);
       const ok = !!fresh && fresh.next_activity === nextActivity;
@@ -1265,13 +1566,10 @@ function WonLostDialog({
             </div>
             <div>
               <label className="text-[12px] font-medium text-gray-700">{tt('lost_to', lang)}</label>
-              <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
-                value={competitor} onChange={e => setCompetitor(e.target.value)}>
-                <option value="">{tt('pick', lang)}</option>
-                {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <CrmCompetitorSelect className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm" competitors={competitors} value={competitor} onChange={setCompetitor} language={uiLanguage} machine={lead.machine_types?.[0]} includeOther />
+              {competitorError && <p role="alert" className="text-xs text-red-700">{tt('close_err', lang)}</p>}
             </div>
-            {competitor === 'Andre' && (
+            {competitor === OTHER_COMPETITOR && (
               <div>
                 <label className="text-[12px] font-medium text-gray-700">{tt('lost_other', lang)}</label>
                 <input className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
@@ -1283,7 +1581,7 @@ function WonLostDialog({
               <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
                 value={reason} onChange={e => setReason(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{crmLostReasonLabel(o, lang)}</option>)}
               </select>
             </div>
             <div>
@@ -1299,7 +1597,7 @@ function WonLostDialog({
             {tt('cancel', lang)}
           </Button>
           {mode !== null && (
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || (mode === 'lost' && competitorError)}>
               {saving ? '…' : tt('save', lang)}
             </Button>
           )}
@@ -1308,3 +1606,5 @@ function WonLostDialog({
     </Dialog>
   );
 }
+import { crmDemoProgress } from '@/lib/crmDemoFlow';
+import { demoFlowText } from '@/lib/crmDemoFlowI18n';

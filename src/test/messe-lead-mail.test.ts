@@ -1,27 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { buildMesseLeadMailRecipients, MESSE_LEAD_BCC_EMAIL } from '@/lib/messeLeadMail';
+import { buildMesseLeadInternalMailRouting, MESSE_LEAD_BCC_EMAIL } from '@/lib/messeLeadMail';
 
-describe('Messe lead mail recipients', () => {
-  it.each([
-    ['EM', 'em@timan.dk'],
-    ['AKR', 'akr@timan.dk'],
-    ['JTN', 'jtn@timan.dk'],
-    ['BP', 'bp@timan.dk'],
-  ])('keeps %s as visible recipient and adds sales as BCC', (_initials, sellerEmail) => {
-    const result = buildMesseLeadMailRecipients(sellerEmail);
+describe('Messe lead internal mail routing', () => {
+  it.each(['em@timan.dk', 'akr@timan.dk', 'jtn@timan.dk', 'bp@timan.dk'])(
+    'sends only the selected seller to %s and sales as BCC',
+    (sellerEmail) => {
+      const result = buildMesseLeadInternalMailRouting(sellerEmail);
 
-    expect(result.to).toEqual([sellerEmail]);
-    expect(result.recipientEmail).toBe(sellerEmail);
-    expect(result.bcc).toEqual([MESSE_LEAD_BCC_EMAIL]);
-    expect(result.to).not.toContain(MESSE_LEAD_BCC_EMAIL);
+      expect(result.to).toEqual([sellerEmail]);
+      expect(result.bcc).toEqual([MESSE_LEAD_BCC_EMAIL]);
+      expect(result.to).not.toContain(MESSE_LEAD_BCC_EMAIL);
+    },
+  );
+
+  it('never accepts customer email as a recipient input', () => {
+    const customerEmail = 'customer-test@invalid.example';
+    const result = buildMesseLeadInternalMailRouting('jtn@timan.dk');
+
+    expect(result.to).toEqual(['jtn@timan.dk']);
+    expect([...result.to, ...result.bcc]).not.toContain(customerEmail);
   });
 
-  it('keeps extra visible recipient separate from the fixed BCC', () => {
-    const result = buildMesseLeadMailRecipients('em@timan.dk', 'kunde@example.dk');
-
-    expect(result.to).toEqual(['em@timan.dk', 'kunde@example.dk']);
-    expect(result.extraRecipientEmail).toBe('kunde@example.dk');
-    expect(result.bcc).toEqual([MESSE_LEAD_BCC_EMAIL]);
-    expect(result.to).not.toContain(MESSE_LEAD_BCC_EMAIL);
+  it.each([null, undefined, '', '   '])('fails safely when the selected seller email is missing', (sellerEmail) => {
+    expect(() => buildMesseLeadInternalMailRouting(sellerEmail)).toThrow(
+      'Messe lead mail requires a responsible Timan seller email.',
+    );
   });
 });

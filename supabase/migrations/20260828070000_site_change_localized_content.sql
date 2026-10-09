@@ -3,13 +3,10 @@
 
 alter table public.site_change_entries
   add column if not exists localized_content jsonb not null default '{}'::jsonb;
-
 alter table public.site_change_public_entries
   add column if not exists localized_content jsonb not null default '{}'::jsonb;
-
 create index if not exists site_change_entries_localized_content_gin
   on public.site_change_entries using gin (localized_content);
-
 create or replace function public.site_change_public_content(
   localized jsonb,
   title_fallback text,
@@ -32,7 +29,6 @@ as $$
     )
   );
 $$;
-
 update public.site_change_entries
 set localized_content = public.site_change_public_content(
   localized_content,
@@ -43,7 +39,6 @@ set localized_content = public.site_change_public_content(
 )
 where localized_content = '{}'::jsonb
    or not (localized_content ? 'da');
-
 update public.site_change_public_entries
 set localized_content = public.site_change_public_content(
   localized_content,
@@ -54,7 +49,6 @@ set localized_content = public.site_change_public_content(
 )
 where localized_content = '{}'::jsonb
    or not (localized_content ? 'da');
-
 create or replace function public.sync_site_change_public_entry()
 returns trigger
 language plpgsql
@@ -131,7 +125,6 @@ begin
   return new;
 end;
 $$;
-
 -- Backfill known week entries with reviewed public text in the languages
 -- currently needed by the portal front page. Missing languages stay visible in
 -- Marketing and fall back to English, then Danish/original.
@@ -154,7 +147,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:external-crm-scope';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -174,7 +166,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:crm-leads-overview';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -194,7 +185,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:messe-lead-flow';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -214,7 +204,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:news-cms-translation-typography';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -234,7 +223,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:site-feature-changelog';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -254,7 +242,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:partner-map-plz2';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -274,7 +261,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:partner-map-geocoding';
-
 update public.site_change_entries
 set localized_content = localized_content || jsonb_build_object(
   'en', jsonb_build_object(
@@ -294,7 +280,6 @@ set localized_content = localized_content || jsonb_build_object(
   )
 )
 where source_ref = 'week-2026-08-24:carto-runtime-config';
-
 update public.site_change_public_entries public_row
 set localized_content = entry.localized_content
 from public.site_change_entries entry

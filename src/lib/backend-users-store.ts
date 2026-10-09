@@ -15,11 +15,12 @@ import {
   DEFAULT_MODULE_ACCESS,
 } from "@/lib/portalAccess";
 import type { OrganizationAccessRole } from "@/lib/organizationAccess";
+import { PORTAL_ROLE_DEFAULT_QUICK_ACTIONS } from "../../supabase/functions/_shared/portalCapabilityContract";
 
 export type UserStatus = "active" | "pending" | "blocked";
-export type AreaKey = "teknik_service" | "salg_marketing" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
+export type AreaKey = "planning" | "loans" | "teknik_service" | "salg_marketing" | "calendar" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
 
-export const ALL_AREAS: AreaKey[] = ["salg_marketing", "marketing", "teknik_service", "dealer_data", "timan_crm", "timan_backend"];
+export const ALL_AREAS: AreaKey[] = ["salg_marketing", "planning", "loans", "marketing", "teknik_service", "dealer_data", "timan_crm", "calendar", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
   // Training
@@ -48,23 +49,11 @@ export type BackendMetaModule = typeof BACKEND_META_MODULES[number];
  * Portal front-page "Hurtige handlinger" / "Quick actions" keys.
  * Stored in app_users.quick_actions (jsonb). NULL = role defaults (fallback).
  */
-export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "warranty_registrations", "partner_map"] as const;
+export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "create_warranty_registration", "warranty_registrations", "partner_map"] as const;
 export type QuickActionKey = typeof QUICK_ACTION_KEYS[number];
 
 /** Default quick actions per portal role. Used when quick_actions is NULL. */
-export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
-  timan_backend: ["create_lead", "create_demo", "company_contact_info", "partner_map"],
-  timan_seller:  ["create_lead", "create_demo", "company_contact_info", "partner_map"],
-  timan_service: [],
-  timan_importer: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
-  timan_dealer: ["create_lead", "dealer_invoice_accept", "warranty_registrations"],
-  timan_service_partner: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
-  dealer_customer: [],
-  dealer_user: [],
-  private_end_user: [],
-  exhibition_user: [],
-  pending: [],
-};
+export const DEFAULT_QUICK_ACTIONS = PORTAL_ROLE_DEFAULT_QUICK_ACTIONS as Record<PortalRole, QuickActionKey[]>;
 
 /** Dealer actions are a fixed canonical flow, not an individually expanded menu. */
 export function configurableQuickActionsForRole(role: PortalRole): readonly QuickActionKey[] {
@@ -101,6 +90,9 @@ export interface BackendUser {
   backend_modules: BackendMetaModule[];
   organization_access_role: OrganizationAccessRole | null;
   perms: {
+    academy_track_sales?: boolean;
+    academy_track_service?: boolean;
+    support_access?: boolean;
     can_create_claims: boolean;
     can_approve_claims: boolean;
     can_create_tsb: boolean;
@@ -175,6 +167,7 @@ function seedUser(
       can_approve_claims: isInternal,
       can_create_tsb: isBackend,
       can_manage_users: isBackend,
+      support_access: false,
       can_manage_payment_terms: isBackend || role === "timan_seller",
       can_apply_extra_dealer_discount: isBackend,
       can_save_configurator_as_lead: isBackend || role === "timan_seller",

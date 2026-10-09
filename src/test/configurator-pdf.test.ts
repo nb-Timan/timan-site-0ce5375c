@@ -43,8 +43,11 @@ function makeCalcResult(machineCount: number, rowsPerMachine: number): CalcResul
   for (let machine = 1; machine <= machineCount; machine++) {
     const machinePrice = 100000;
     subtotal += machinePrice;
-    lineItems.push({
-      txt: `Maskine ${machine} (Timan 3330)`,
+      lineItems.push({
+        txt: `Maskine ${machine} (Timan 3330)`,
+        description: 'Timan 3330',
+        quantity: 1,
+        unitPrice: machinePrice,
       price: machinePrice,
       varenr: `M-${machine}`,
       bold: true,
@@ -57,6 +60,9 @@ function makeCalcResult(machineCount: number, rowsPerMachine: number): CalcResul
       subtotal += price;
       lineItems.push({
         txt: `- Lang tilvalgslinje ${row} med ekstra tekst, så beskrivelsen skal wrappe pænt i PDF-tabellen uden clipping`,
+        description: `Lang tilvalgslinje ${row} med ekstra tekst, så beskrivelsen skal wrappe pænt i PDF-tabellen uden clipping`,
+        quantity: 1,
+        unitPrice: price,
         price,
         varenr: `A-${machine}-${row}`,
         sub: true,
@@ -180,6 +186,102 @@ describe("configurator PDF generator", () => {
 
     expect(output).toContain("O-7004");
     expect(output).toContain("T-4003");
+  });
+
+  it('renders the physical sales-stock identity in the canonical PDF', () => {
+    const state: ConfiguratorState = {
+      ...baseState,
+      salesChannel: 'sales_stock_demo',
+      salesStockAssets: [{
+        sourceAssetId: '11111111-1111-4111-8111-111111111111',
+        assetInstanceId: 'SERIAL|DAT|410040-QA',
+        itemNumber: '410040',
+        itemText: 'RC-751 salgslager',
+        itemType: 'machine',
+        serialNumber: '410040-QA',
+        brikNumber: 82,
+        warehouseLocationCode: '2',
+        warehouseLocationName: 'Lager 2',
+        accountNumber: '1010',
+        sourceOrderNumber: '138063',
+        classification: 'LOAN_CANDIDATE',
+        configuratorUnitNumber: 1,
+        originalListPrice: 167500,
+        pricingCurrency: 'DKK',
+        pricingMethod: 'adjusted_base',
+        adjustedBasePrice: 150000,
+        salesStockDiscountPct: null,
+        pricingReason: 'QA-safe demo-pris',
+      }],
+    };
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state,
+      calcResult: makeCalcResult(1, 1),
+      flowType: 'quote',
+      quoteNumber: 'T-QA',
+      showPrices: true,
+      uiLanguage: 'da',
+      contentLanguage: 'da',
+      T: key => t(key, 'da'),
+      TC: key => t(key, 'da'),
+    });
+    const output = pdf.output();
+    expect(output).toContain('Salgslager / Demo');
+    expect(output).toContain('410040-QA');
+    expect(output).toContain('138063');
+    expect(output).toContain('150.000');
+  });
+
+  it.each([
+    ['da', 'Stk.', 'Stk. pris', 'I alt'],
+    ['de', 'Stk.', 'Stückpreis', 'Gesamt'],
+    ['en', 'Qty.', 'Unit price', 'Total'],
+  ] as const)('renders five localized line columns in %s', (language, quantity, unitPrice, total) => {
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state: { ...baseState, language },
+      calcResult: makeCalcResult(1, 1),
+      flowType: 'quote',
+      quoteNumber: 'T-QA',
+      showPrices: true,
+      uiLanguage: language,
+      contentLanguage: language,
+      T: key => t(key, language),
+      TC: key => t(key, language),
+    });
+    const output = pdf.output();
+    expect(output).toContain(quantity);
+    expect(output).toContain(unitPrice);
+    expect(output).toContain(total);
+  });
+
+  it("shows individual delivery dates per machine instead of a false common date", () => {
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state: {
+        ...baseState,
+        machineConfigs: [
+          { id: "m0", type: "Timan 3330", qty: 1, configMode: "shared", acc: [] },
+          { id: "m1", type: "RC-1000S", qty: 1, configMode: "shared", acc: [] },
+        ],
+        date: "2026-10-12",
+        machineDeliveryDates: { m1_1: "2027-01-21" },
+      },
+      calcResult: makeCalcResult(2, 1),
+      flowType: "order",
+      orderNumber: "O-DELIVERY-QA",
+      showPrices: true,
+      uiLanguage: "da",
+      contentLanguage: "da",
+      T: (key) => t(key, "da"),
+      TC: (key) => t(key, "da"),
+    });
+    const output = pdf.output();
+
+    expect(output).toContain("Individuelle datoer");
+    expect(output).toContain("12.10.2026");
+    expect(output).toContain("21.1.2027");
   });
 
   it("does not render a false quote reference when an order has no source quote", () => {

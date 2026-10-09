@@ -1,6 +1,6 @@
 type JsonPayload = Record<string, unknown>;
 
-const QUOTE_WEBHOOK_URL = 'https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-tilbud';
+const QUOTE_WEBHOOK_URL = 'https://timan.app.n8n.cloud/webhook/timan-portal-quote-email';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

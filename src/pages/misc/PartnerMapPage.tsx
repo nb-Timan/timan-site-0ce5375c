@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -7,23 +9,26 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 import { Search, ExternalLink, X, MapPin, User as UserIcon, AlertTriangle, Users, FileText, ShoppingCart, List, Phone, Mail, Navigation, Globe, Wrench, Facebook } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
+import { t as translate } from '@/lib/i18n/translations';
 import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
-import { fetchDealerAccounts, fetchDealerAccountStats, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
+import { fetchDealerAccounts, fetchDealerAccountStats, fetchPublicPartnerMapAccounts, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, hasAreaAccess, isMesseRouteContext, isMesseVariantUser } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerInitials } from '@/lib/activeMode';
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
+import { ACADEMY_PARTNER_MAP, academySandbox } from '@/lib/academySandbox';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
 import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type WarrantyMachinePin, type WarrantyMachineMissing } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { timanCompanyAddress } from '../../../supabase/functions/_shared/timanCompanyProfile';
 import {
   PARTNER_ACCOUNT_MAP_TYPE_IDS,
   getPartnerAccountTypeColor,
@@ -97,7 +102,7 @@ interface Partner {
 const TIMAN_GREEN = '#2d5a27';
 const TIMAN_GOLD = '#c9a227';
 const TIMAN_HQ_COORDS: [number, number] = [56.1986, 8.3032];
-const TIMAN_HQ_ADDRESS = 'Osvald Pedersens Vej 2A-D, 6980 Tim';
+const TIMAN_HQ_ADDRESS = timanCompanyAddress();
 // Esri's reference layer provides zoom-aware country and city labels for its
 // imagery basemap. It stays below Leaflet's marker pane, so partner pins are
 // always rendered above the labels.
@@ -1230,7 +1235,15 @@ function ClusterLayer({
 }
 
 // Machine/warranty cluster layer — separate from dealer pins, smaller amber icons.
-function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
+function MachineLayer({
+  pins,
+  onOpen,
+  onOpenServiceDetail,
+}: {
+  pins: WarrantyMachinePin[];
+  onOpen?: (pin: WarrantyMachinePin) => void;
+  onOpenServiceDetail?: (pin: WarrantyMachinePin) => void;
+}) {
   const map = useMap();
   const clusterRef = useRef<any>(null);
 
@@ -1264,6 +1277,7 @@ function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
       const m = L.marker(p.coords, { icon });
       const cityLine = [p.customerCity, p.customerCountry].filter(Boolean).map(escapeHtml).join(', ');
       const dd = p.deliveryDate ? new Date(p.deliveryDate).toLocaleDateString('da-DK') : '';
+      const canOpenServiceDetail = Boolean(onOpenServiceDetail && p.machineSerial && !p.id.startsWith('academy-warranty-'));
       const html = `
         <div style="font-family:inherit; min-width:200px;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px;">
@@ -1277,13 +1291,38 @@ function MachineLayer({ pins }: { pins: WarrantyMachinePin[] }) {
             ${p.dealerNameSnapshot ? `<div><span style="color:#6b7280">Forhandler:</span> ${escapeHtml(p.dealerNameSnapshot)}${p.dealerAccountNumber ? ` <span style="color:#9ca3af; font-family:ui-monospace,monospace">#${escapeHtml(p.dealerAccountNumber)}</span>` : ''}</div>` : ''}
             ${cityLine ? `<div><span style="color:#6b7280">Kunde:</span> ${cityLine}</div>` : ''}
           </div>
+          ${canOpenServiceDetail ? '<button type="button" data-academy-service-detail style="margin-top:9px;border:0;border-radius:6px;padding:6px 8px;background:#166534;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Åbn i Teknik & Service</button>' : ''}
         </div>`;
       m.bindPopup(html, { closeButton: true, maxWidth: 280 });
+      m.on('popupopen', () => {
+        onOpen?.(p);
+        if (!canOpenServiceDetail) return;
+        const popup = m.getPopup().getElement();
+        popup?.querySelector('[data-academy-service-detail]')?.addEventListener('click', () => onOpenServiceDetail?.(p), { once: true });
+      });
       cluster.addLayer(m);
     }
-  }, [pins]);
+  }, [pins, onOpen, onOpenServiceDetail]);
 
   return null;
+}
+
+function buildAcademyWarrantyPins(dealer: DealerAccount | undefined): WarrantyMachinePin[] {
+  if (!dealer || dealer.latitude == null || dealer.longitude == null) return [];
+  const models = ['Timan 3330', 'RC-1000s', 'RC-751', 'Tool-Trac', 'Timan 2620'];
+  return Array.from({ length: 10 }, (_, index) => ({
+    id: `academy-warranty-${dealer.id}-${index + 1}`,
+    spId: `ACADEMY-${String(index + 1).padStart(2, '0')}`,
+    dealerAccountId: dealer.id,
+    dealerAccountNumber: dealer.account_number,
+    dealerNameSnapshot: dealer.company_name,
+    machineSerial: `ACADEMY-${dealer.account_number}-${String(index + 1).padStart(3, '0')}`,
+    machineModel: models[index % models.length],
+    deliveryDate: null,
+    customerCity: dealer.city,
+    customerCountry: dealer.country,
+    coords: [dealer.latitude + ((index % 5) - 2) * 0.006, dealer.longitude + (Math.floor(index / 5) - 0.5) * 0.009],
+  }));
 }
 
 
@@ -1344,9 +1383,18 @@ function SelectedVisibilityGuard({
 
 export default function PartnerMapPage() {
   const { language: lang, uiLanguage } = useLanguage();
+  const tr = (key: string) => translate(key, uiLanguage);
   const { formatCountry } = useCountryFormatter();
-  const { appUser } = useAppUser();
+  const { appUser: sessionUser } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const academyPartnerMap = academySandbox.getActiveCase() === ACADEMY_PARTNER_MAP;
+  // The Academy case renders the actual map. A local fallback only keeps
+  // unauthenticated local development usable; signed-in users retain their
+  // effective identity and RLS-scoped data.
+  const academyFallback = academyPartnerMap && !sessionUser;
+  const appUser = academyFallback ? ACADEMY_PARTNER_USER : sessionUser;
   const location = useLocation();
+  const navigate = useNavigate();
   const effectiveUser = useEffectivePortalUser(appUser);
   const portalRole = derivePortalRole(effectiveUser);
   const messePreviewVersion = useMessePreviewVersion();
@@ -1354,8 +1402,9 @@ export default function PartnerMapPage() {
     () => isMessePreviewActive(appUser?.email),
     [appUser?.email, messePreviewVersion],
   );
-  const onMesseRoute = location.pathname.includes('/messe');
+  const onMesseRoute = isMesseRouteContext(location.pathname);
   const isPublicMesseMapView =
+    onMesseRoute ||
     portalRole === 'exhibition_user' ||
     isMessePreview ||
     isMesseVariantUser(appUser) ||
@@ -1377,9 +1426,17 @@ export default function PartnerMapPage() {
     portalRole === 'dealer_user' ||
     portalRole === 'timan_service_partner' ||
     portalRole === 'timan_importer';
-  const canSeeMachineLayer = canSeeMachineStats;
+  const canSeeMachineLayer = !isPublicMesseMapView && (canSeeMachineStats || isDealerSide || academyPartnerMap);
   const canSeeDemoLocations = canSeeInternalMapFeatures;
   const ownDealerNumber = (effectiveUser?.dealer_number ?? '').trim().toUpperCase();
+  const canOpenAcademyServiceDetail = academyPartnerMap && hasAreaAccess(effectiveUser, 'teknik_service');
+  const [, refreshAcademyProgress] = useState(0);
+  useEffect(() => {
+    if (!academyPartnerMap) return;
+    const refresh = () => refreshAcademyProgress((version) => version + 1);
+    window.addEventListener('timan:academy-progress-changed', refresh);
+    return () => window.removeEventListener('timan:academy-progress-changed', refresh);
+  }, [academyPartnerMap]);
   const sellerDir = useSellerDirectory();
   const currentSellerInitials = useMemo(() => {
     // In "view as <seller>" mode this resolves to the previewed seller's
@@ -1434,7 +1491,7 @@ export default function PartnerMapPage() {
       maxZoom: 19,
     },
   };
-  const MAP_STYLE_STORAGE_KEY = 'timan.partnerMap.baseStyle.v2';
+  const MAP_STYLE_STORAGE_KEY = academyMode ? 'timan.academy.partnerMap.baseStyle.v1' : 'timan.partnerMap.baseStyle.v2';
   const [mapStyle, setMapStyle] = useState<MapStyleId>(() => {
     if (typeof window === 'undefined') return 'satellite';
     const saved = window.localStorage.getItem(MAP_STYLE_STORAGE_KEY);
@@ -1457,7 +1514,7 @@ export default function PartnerMapPage() {
   const [machineMissingAll, setMachineMissingAll] = useState<WarrantyMachineMissing[]>([]);
   // Layer visibility — partners always on; machine layer opt-in (and role-gated).
   const [showPartnerLayer, setShowPartnerLayer] = useState(true);
-  const [showMachineLayer, setShowMachineLayer] = useState(() => showsWarrantyLayerByDefault(portalRole, isPublicMesseMapView));
+  const [showMachineLayer, setShowMachineLayer] = useState(() => academyPartnerMap ? false : showsWarrantyLayerByDefault(portalRole, isPublicMesseMapView));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -1466,18 +1523,29 @@ export default function PartnerMapPage() {
   const [fitTo, setFitTo] = useState<[number, number][] | null>(null);
 
   useEffect(() => {
-    const mapRoleKey = `${portalRole ?? 'unknown'}:${isPublicMesseMapView}`;
+    const mapRoleKey = `${portalRole ?? 'unknown'}:${isPublicMesseMapView}:${academyPartnerMap}`;
     if (appliedMapRoleRef.current === mapRoleKey) return;
     appliedMapRoleRef.current = mapRoleKey;
     setActiveTypes(getDefaultPartnerMapTypes(portalRole));
-    setShowMachineLayer(showsWarrantyLayerByDefault(portalRole, isPublicMesseMapView));
-  }, [portalRole, isPublicMesseMapView]);
+    setShowMachineLayer(academyPartnerMap ? false : showsWarrantyLayerByDefault(portalRole, isPublicMesseMapView));
+  }, [portalRole, isPublicMesseMapView, academyPartnerMap]);
 
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (academyFallback) {
+        setDealers(academyPartnerDataSandbox.listDealers());
+        setStats({}); setMachineStats({}); setMachinePinsAll([]); setMachineMissingAll([]);
+        setLoadError(null); setLoading(false);
+        return;
+      }
       setLoading(true);
-      const [dRes, sRes] = await Promise.all([fetchDealerAccounts({}), fetchDealerAccountStats().catch(() => ({ rows: [] as DealerAccountStats[] }))]);
+      const [dRes, sRes] = await Promise.all([
+        isPublicMesseMapView ? fetchPublicPartnerMapAccounts() : fetchDealerAccounts({}),
+        isPublicMesseMapView
+          ? Promise.resolve({ rows: [] as DealerAccountStats[] })
+          : fetchDealerAccountStats().catch(() => ({ rows: [] as DealerAccountStats[] })),
+      ]);
       if (!alive) return;
       if (dRes.error) setLoadError(dRes.error);
       setDealers(dRes.rows);
@@ -1502,7 +1570,7 @@ export default function PartnerMapPage() {
       }
     })();
     return () => { alive = false; };
-  }, [canSeeMachineLayer, canSeeMachineStats]);
+  }, [academyFallback, canSeeMachineLayer, canSeeMachineStats, isPublicMesseMapView]);
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
@@ -1586,6 +1654,12 @@ export default function PartnerMapPage() {
 
   const visibleMachinePins = useMemo(() => {
     if (!canSeeMachineLayer) return [];
+    if (academyPartnerMap) {
+      const ownDealer = dealers.find((dealer) => (dealer.account_number ?? '').trim().toUpperCase() === ownDealerNumber);
+      if (!ownDealer || !ownDealerNumber) return [];
+      return machinePinsAll.filter((pin) => pin.dealerAccountId === ownDealer.id
+        || (pin.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+    }
     if (portalRole === 'timan_seller') {
       const { ids, accountNumbers, names } = sellerScopedDealers;
       if (ids.size === 0 && accountNumbers.size === 0) return [];
@@ -1618,10 +1692,16 @@ export default function PartnerMapPage() {
       });
     }
     return machinePinsAll;
-  }, [machinePinsAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
+  }, [machinePinsAll, canSeeMachineLayer, academyPartnerMap, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
 
   const visibleMachineMissing = useMemo(() => {
     if (!canSeeMachineLayer) return [];
+    if (academyPartnerMap) {
+      const ownDealer = dealers.find((dealer) => (dealer.account_number ?? '').trim().toUpperCase() === ownDealerNumber);
+      if (!ownDealer || !ownDealerNumber) return [];
+      return machineMissingAll.filter((row) => row.dealerAccountId === ownDealer.id
+        || (row.dealerAccountNumber ?? '').trim().toUpperCase() === ownDealerNumber);
+    }
     if (portalRole === 'timan_seller') {
       const { ids, accountNumbers, names } = sellerScopedDealers;
       if (ids.size === 0 && accountNumbers.size === 0) return [];
@@ -1654,7 +1734,30 @@ export default function PartnerMapPage() {
       });
     }
     return machineMissingAll;
-  }, [machineMissingAll, canSeeMachineLayer, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
+  }, [machineMissingAll, canSeeMachineLayer, academyPartnerMap, canSeeMachineStats, portalRole, sellerScopedDealers, ownDealerNumber, dealers]);
+
+  const academyOwnDealer = useMemo(
+    () => academyPartnerMap
+      ? dealers.find((dealer) => (dealer.account_number ?? '').trim().toUpperCase() === ownDealerNumber)
+      : undefined,
+    [academyPartnerMap, dealers, ownDealerNumber],
+  );
+  const academySyntheticPins = useMemo(
+    () => academyPartnerMap && visibleMachinePins.length === 0 ? buildAcademyWarrantyPins(academyOwnDealer) : [],
+    [academyPartnerMap, academyOwnDealer, visibleMachinePins.length],
+  );
+  const academyMachinePins = academyPartnerMap ? [...visibleMachinePins, ...academySyntheticPins] : visibleMachinePins;
+  const academyHasServiceDetail = canOpenAcademyServiceDetail && academySyntheticPins.length === 0 && academyMachinePins.some((pin) => Boolean(pin.machineSerial));
+
+  useEffect(() => {
+    if (!academyPartnerMap || academyOwnDealer?.latitude == null || academyOwnDealer.longitude == null) return;
+    academySandbox.trackPartnerMapOwnDealer();
+    setFitTo([[academyOwnDealer.latitude, academyOwnDealer.longitude]]);
+  }, [academyPartnerMap, academyOwnDealer?.id, academyOwnDealer?.latitude, academyOwnDealer?.longitude]);
+
+  useEffect(() => {
+    if (academyPartnerMap) academySandbox.configurePartnerMapServiceDetail(academyHasServiceDetail);
+  }, [academyPartnerMap, academyHasServiceDetail]);
 
   const sellerOptions = useMemo(() => {
     const s = new Set<string>();
@@ -1752,6 +1855,7 @@ export default function PartnerMapPage() {
         // @ts-ignore - vendor prefix
         || document.webkitExitFullscreen)?.call(document);
     } else {
+      if (academyPartnerMap) academySandbox.trackPartnerMapFullscreen();
       (el.requestFullscreen
         // @ts-ignore - vendor prefix
         || el.webkitRequestFullscreen)?.call(el);
@@ -1805,6 +1909,27 @@ export default function PartnerMapPage() {
 
   return (
     <MiscPageShell title={T.title[lang]} hideHeader changelogModule="partner_map">
+      {academyPartnerMap && (() => {
+        const progress = academySandbox.getPartnerMap();
+        const tasks = [
+          { label: tr('academyMapOwnDealer'), complete: progress.ownDealerShown },
+          { label: tr('academyMapFullscreen'), complete: progress.fullscreenUsed },
+          { label: tr('academyMapWarrantyLayer'), complete: progress.warrantyLayerShown },
+          { label: tr('academyMapWarrantyOpen'), complete: progress.warrantyOpened },
+          ...(progress.requiresServiceDetail ? [{ label: tr('academyMapServiceOpen'), complete: progress.serviceDetailOpened }] : []),
+        ];
+        const next = !progress.ownDealerShown ? tr('academyMapNext1')
+          : !progress.fullscreenUsed ? tr('academyMapNext2')
+            : !progress.warrantyLayerShown ? tr('academyMapNext3')
+              : !progress.warrantyOpened ? tr('academyMapNext4')
+                : progress.requiresServiceDetail && !progress.serviceDetailOpened ? tr('academyMapNext5')
+                  : tr('academyMapComplete');
+        return <div id="academy-guidance"><AcademyGuidancePanel title={tr('academyPartnerMapTitle')} description={tr('academyMapDescription')}
+          tasks={tasks} next={next} /></div>;
+      })()}
+      {academyMode && !academyPartnerMap && <AcademyGuidancePanel title={tr('academyPortalBasicsMapTitle')} description={tr('academyPortalBasicsMapDescription')}
+        tasks={[{ label: tr('academyPortalBasicsMapTask'), complete: academySandbox.getPortalBasics().mapAreaChanged }]}
+        next={tr('academyPortalBasicsMapNext')} />}
       <style>{`
         .pm-pin-wrap { background:transparent !important; border:none !important; }
         .pm-pin { position:relative; width:36px; height:44px; transition:transform .15s ease; cursor:pointer; }
@@ -1907,8 +2032,16 @@ export default function PartnerMapPage() {
 
           {/* Map area */}
           <section className="flex-1 min-w-0">
-            {/* Topbar */}
-            <div className="bg-white rounded-t-2xl border border-b-0 border-gray-100 shadow-sm px-3 py-2 flex flex-wrap items-center gap-2">
+            <div
+              ref={mapWrapperRef}
+              className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${
+                isFullscreen ? 'flex h-screen w-screen flex-col rounded-none' : 'rounded-2xl'
+              }`}
+            >
+              {/* The same controls stay inside the browser fullscreen element. */}
+              <div className={`bg-white px-3 py-2 flex flex-wrap items-center gap-2 ${
+                isFullscreen ? 'sticky top-0 z-[700] shrink-0 border-b border-gray-200 shadow-md' : 'rounded-t-2xl border-b border-gray-100'
+              }`}>
               <button
                 onClick={() => setResultsOpen((v) => !v)}
                 className={`hidden md:flex h-9 px-2.5 items-center gap-1.5 rounded-md text-xs font-medium border ${resultsOpen ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
@@ -1941,12 +2074,16 @@ export default function PartnerMapPage() {
                 })}
                 {canSeeMachineLayer && (
                   <button
-                    onClick={() => setShowMachineLayer((v) => !v)}
+                    onClick={() => setShowMachineLayer((v) => {
+                      const next = !v;
+                      if (next && academyPartnerMap) academySandbox.trackPartnerMapWarrantyLayer();
+                      return next;
+                    })}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${showMachineLayer ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-white text-gray-400 border-transparent hover:border-gray-200'}`}
                     title="Vis garantiregistreringer"
                   >
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: showMachineLayer ? MACHINE_PIN_COLOR : '#d1d5db' }} />
-                    Garantiregistreringer {showMachineLayer ? <span className="font-bold tabular-nums">({visibleMachinePins.length})</span> : null}
+                    Garantiregistreringer {showMachineLayer ? <span className="font-bold tabular-nums">({academyMachinePins.length})</span> : null}
                   </button>
                 )}
               </div>
@@ -2002,6 +2139,7 @@ export default function PartnerMapPage() {
                     onChange={(e) => {
                       const nextOverlay = e.target.value as AdministrativeOverlayId;
                       setAdministrativeOverlay(nextOverlay);
+                      if (academySandbox.isActive()) academySandbox.trackPortalBasicsMapArea(nextOverlay);
                       if (nextOverlay === 'de_plz2' || nextOverlay === 'dk_municipalities' || nextOverlay === 'se_municipalities') setMapStyle('standard');
                     }}
                     title={T.area[lang]}
@@ -2016,7 +2154,9 @@ export default function PartnerMapPage() {
                 {fullscreenSupported && (
                   <button
                     onClick={toggleFullscreen}
-                    className="h-9 px-2.5 hidden md:flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
+                    className={`h-9 px-2.5 items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white ${
+                      isFullscreen ? 'flex' : 'hidden md:flex'
+                    }`}
                     title={isFullscreen ? T.exitFullscreen[lang] : T.fullscreen[lang]}
                   >
                     <span aria-hidden>⛶</span> {isFullscreen ? T.exitFullscreen[lang] : T.fullscreen[lang]}
@@ -2026,8 +2166,7 @@ export default function PartnerMapPage() {
             </div>
 
             {/* Map + results panel */}
-            <div ref={mapWrapperRef} className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${isFullscreen ? 'rounded-none h-screen w-screen' : 'rounded-b-2xl'}`}>
-              <div className={isFullscreen ? 'flex h-screen' : 'flex h-[calc(100vh-15rem)] min-h-[520px]'}>
+              <div className={isFullscreen ? 'flex min-h-0 flex-1' : 'flex h-[calc(100vh-15rem)] min-h-[520px]'}>
                 {/* Results sidebar */}
                 {resultsOpen && (
                   <div className="hidden md:flex flex-col w-72 shrink-0 border-r border-gray-100 bg-gray-50/60">
@@ -2086,19 +2225,19 @@ export default function PartnerMapPage() {
                               <Wrench className="h-3 w-3" /> Garantiregistreringer
                             </div>
                             <span className="text-[10px] text-gray-400 font-medium tabular-nums">
-                              {visibleMachinePins.length + visibleMachineMissing.length}
+                              {academyMachinePins.length + visibleMachineMissing.length}
                             </span>
                           </div>
-                          {visibleMachinePins.length === 0 ? (
+                          {academyMachinePins.length === 0 ? (
                             <div className="text-[11px] text-gray-400 italic">{isDealerSide ? 'Ingen egne garantiregistreringer med koordinater.' : 'Ingen registreringer med koordinater.'}</div>
                           ) : (
                             <div className="max-h-72 overflow-y-auto -mx-1 divide-y divide-gray-100">
-                              {visibleMachinePins.slice(0, 200).map((r) => {
+                              {academyMachinePins.slice(0, 200).map((r) => {
                                 const cityLine = [r.customerCity, r.customerCountry ? formatCountry(r.customerCountry) : ''].filter(Boolean).join(', ');
                                 return (
                                   <button
                                     key={r.id}
-                                    onClick={() => { setFitTo([r.coords]); }}
+                                    onClick={() => { setFitTo([r.coords]); if (academyPartnerMap) academySandbox.trackPartnerMapWarrantyOpened(); }}
                                     className="w-full text-left px-2 py-1.5 hover:bg-amber-50 transition-colors flex items-start gap-2 rounded"
                                   >
                                     <span className="mt-1 w-2 h-2 rounded-full shrink-0" style={{ background: MACHINE_PIN_COLOR }} />
@@ -2115,8 +2254,8 @@ export default function PartnerMapPage() {
                                   </button>
                                 );
                               })}
-                              {visibleMachinePins.length > 200 && (
-                                <div className="px-2 py-1 text-[10px] text-gray-400 italic">+ {visibleMachinePins.length - 200} flere — brug kortet</div>
+                              {academyMachinePins.length > 200 && (
+                                <div className="px-2 py-1 text-[10px] text-gray-400 italic">+ {academyMachinePins.length - 200} flere — brug kortet</div>
                               )}
                             </div>
                           )}
@@ -2217,7 +2356,15 @@ export default function PartnerMapPage() {
                       />
                     )}
                     {canSeeMachineLayer && showMachineLayer && (
-                      <MachineLayer pins={visibleMachinePins} />
+                      <MachineLayer
+                        pins={academyMachinePins}
+                        onOpen={() => academyPartnerMap && academySandbox.trackPartnerMapWarrantyOpened()}
+                        onOpenServiceDetail={academyHasServiceDetail ? (pin) => {
+                          if (!pin.machineSerial) return;
+                          academySandbox.trackPartnerMapServiceDetail();
+                          navigate(`/portal/service/machines/${encodeURIComponent(pin.machineSerial)}?academy_mode=true`);
+                        } : undefined}
+                      />
                     )}
                   </MapContainer>
 
@@ -2226,19 +2373,6 @@ export default function PartnerMapPage() {
                       <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: TIMAN_GREEN }} />
                       <span className="text-[11px] font-bold tracking-wider text-gray-800">TIMAN <span className="text-gray-400 font-medium">PARTNER MAP</span></span>
                     </div>
-                    {isFullscreen && (
-                      <button
-                        onClick={() => {
-                          (document.exitFullscreen
-                            // @ts-ignore - vendor prefix
-                            || document.webkitExitFullscreen)?.call(document);
-                        }}
-                        className="bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 text-[11px] font-bold tracking-wider text-gray-700 hover:text-[#2d5a27] hover:border-[#2d5a27] transition-colors flex items-center gap-1.5"
-                        title={T.exitFullscreen[lang]}
-                      >
-                        <span aria-hidden>↙</span> {T.exitFullscreen[lang]}
-                      </button>
-                    )}
                   </div>
 
                   {administrativeOverlay !== 'none' && administrativeOverlayError && (
@@ -2317,6 +2451,7 @@ export default function PartnerMapPage() {
                     <div className="mt-1 text-amber-700">
                       {selected.geocodingStatus === "pending" && "Adressen afventer geokodning."}
                       {selected.geocodingStatus === "not_found" && "Geokodning fandt ikke adressen."}
+                      {selected.geocodingStatus === "rate_limited" && "Geocoderen er midlertidigt rate limited. Prøv igen senere."}
                       {selected.geocodingStatus === "error" && "Geokodning fejlede."}
                       {selected.geocodingStatus === "skipped" && "Geokodning blev sprunget over, fordi adressen mangler."}
                       {!selected.geocodingStatus && "Geokodning er ikke kørt endnu."}

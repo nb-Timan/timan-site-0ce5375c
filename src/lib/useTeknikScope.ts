@@ -31,6 +31,24 @@ const EMPTY_SCOPE: JournalScope = {
   unrestricted: false,
 };
 
+/**
+ * A View-as user keeps the backend email for the authenticated session, but
+ * changes the dealer identity used for presentation scope. Include that
+ * identity so changing between dealer previews always rebuilds the scope.
+ */
+export function teknikScopeIdentityKey(
+  user: Pick<SessionUser, "id" | "email" | "dealer_number" | "company_dealer"> | null | undefined,
+): string {
+  return [
+    user?.id ?? "",
+    user?.email ?? "",
+    user?.dealer_number ?? "",
+    user?.company_dealer ?? "",
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .join("|");
+}
+
 export interface UseTeknikScopeResult {
   scope: JournalScope;
   role: PortalRole | null;
@@ -49,7 +67,7 @@ export function useTeknikScope(): UseTeknikScopeResult {
   // so using it directly as a dependency would re-run the effect forever and
   // freeze the page when this hook is mounted on pages that re-render often
   // (e.g. WarrantyRegistrationsTable behind a navigation from Min Maskine).
-  const effectiveKey = effective?.email ?? null;
+  const effectiveScopeKey = teknikScopeIdentityKey(effective);
   useEffect(() => {
     let cancelled = false;
     if (!effective || !role) {
@@ -73,7 +91,7 @@ export function useTeknikScope(): UseTeknikScopeResult {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveKey, role]);
+  }, [effectiveScopeKey, role]);
 
   return { scope, role, loading };
 }

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Play, Star, X } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import {
   DEFAULT_VIDEO_FILTERS,
@@ -26,34 +27,57 @@ import {
   videoContentTypeLabel,
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
-import { academySandbox } from "@/lib/academySandbox";
+import { academySandbox, ACADEMY_CASE_2, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
+import { getAcademyVideoFallback, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
+import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
+import TimanVideoModal from "@/components/video/TimanVideoModal";
+import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 
 export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
   const { uiLanguage, language, setLanguage } = useLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<MarketingVideo[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState(DEFAULT_VIDEO_FILTERS);
+  const [filters, setFilters] = useState(() => academySandbox.isActive() ? readAcademyVideoPreferences().filters : DEFAULT_VIDEO_FILTERS);
+  const [, setAcademyRevision] = useState(0);
   const [active, setActive] = useState<MarketingVideo | null>(null);
   const localAcademySession = academySandbox.isActive();
-  const isAcademyCase2 = localAcademySession && searchParams.get("academy_case") === "2";
+  const requestedAcademyCase2 = localAcademySession && (academySandbox.getActiveCase() === 'sales.case_2_video_3330' || searchParams.get("academy_case") === "2");
+  const isAcademyCase2 = requestedAcademyCase2 && academySandbox.isCase2Unlocked();
+  // Academy training is intentionally local-only. It can render the normal gallery
+  // without creating an authenticated production portal session.
+  const portalUser = localAcademySession ? getLocalAcademyUser() : appUser;
+
+  useEffect(() => {
+    if (!localAcademySession) return;
+    const update = () => setAcademyRevision((revision) => revision + 1);
+    window.addEventListener('timan:academy-progress-changed', update);
+    return () => window.removeEventListener('timan:academy-progress-changed', update);
+  }, [localAcademySession]);
+
+  useEffect(() => {
+    if (localAcademySession) saveAcademyVideoPreferences({ filters });
+  }, [filters, localAcademySession]);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
+      // Academy deliberately reuses the public library. Only its preferences stay local.
       listPublishedMarketingVideos(uiLanguage),
       localAcademySession
-        ? Promise.resolve({ videoIds: new Set<string>(), error: null })
+        ? Promise.resolve({ videoIds: new Set(readAcademyVideoPreferences().favorites), error: null })
         : listMarketingVideoFavoriteIds(),
     ]).then(([videoResult, favoriteResult]) => {
       if (cancelled) return;
-      setRows(videoResult.rows);
+      const useAcademyFallback = localAcademySession && Boolean(videoResult.error);
+      setRows(useAcademyFallback ? getAcademyVideoFallback() : videoResult.rows);
       setFavoriteIds(favoriteResult.videoIds);
-      setError(videoResult.error || favoriteResult.error);
+      setError(useAcademyFallback ? favoriteResult.error : videoResult.error || favoriteResult.error);
     });
     return () => { cancelled = true; };
   }, [localAcademySession, uiLanguage]);
@@ -64,7 +88,8 @@ export default function VideoGalleryPage() {
     return filterAndSortVideos(rows, filters, uiLanguage, { favoriteIds });
   }, [favoriteIds, filters, rows, uiLanguage]);
 
-  const targetVisible = filteredRows.some((video) => video.youtube_video_id === "sxYALA86PaI");
+  const targetVisible = filteredRows.some((video) => video.youtube_video_id === ACADEMY_CASE_2_TARGET_VIDEO_ID);
+  const academyCase2 = academySandbox.getCase2();
 
   useEffect(() => {
     if (!isAcademyCase2) return;
@@ -88,8 +113,15 @@ export default function VideoGalleryPage() {
   };
 
   const toggleFavorite = async (video: MarketingVideo) => {
-    if (localAcademySession) return;
     const nextIsFavorite = !favoriteIds.has(video.id);
+    if (localAcademySession) {
+      const next = new Set(favoriteIds);
+      if (nextIsFavorite) next.add(video.id);
+      else next.delete(video.id);
+      saveAcademyVideoPreferences({ favorites: [...next] });
+      setFavoriteIds(next);
+      return;
+    }
 
     setFavoriteIds((current) => {
       const next = new Set(current);
@@ -118,12 +150,13 @@ export default function VideoGalleryPage() {
   };
 
   if (loading) return <div className="min-h-screen bg-gray-50" />;
-  if (!appUser) return <Navigate to="/portal" replace />;
+  if (!portalUser) return <Navigate to="/portal" replace />;
+  if (requestedAcademyCase2 && !academySandbox.isCase2Unlocked()) return <Navigate to="/academy?locked=sales.case_2_video_3330" replace />;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
-        user={appUser}
+        user={portalUser}
         language={language}
         onLanguageChange={setLanguage}
         onLogout={async () => {
@@ -133,6 +166,21 @@ export default function VideoGalleryPage() {
       />
 
       <main className="mx-auto flex-grow w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {isAcademyCase2 && (
+          <AcademyGuidancePanel
+            title={tr('academySalesCase2Title')}
+            description={tr('academyVideoDescription')}
+            steps={[
+              { title: tr('academyVideoFilterMachine'), tasks: [{ label: tr('academyVideoMachineFiltered'), complete: academyCase2.machineFiltered }] },
+              { title: tr('academyVideoFilterType'), tasks: [{ label: tr('academyVideoMaintenanceFiltered'), complete: academyCase2.maintenanceFiltered }] },
+              { title: tr('academyVideoFindTarget'), tasks: [{ label: tr('academyVideoTargetFound'), complete: academyCase2.targetFound }] },
+              { title: tr('academyVideoOpenTarget'), tasks: [{ label: tr('academyVideoTargetOpened'), complete: academyCase2.targetOpened }] },
+            ]}
+            next={!academyCase2.machineFiltered ? tr('academyVideoNext1') : !academyCase2.maintenanceFiltered ? tr('academyVideoNext2') : !academyCase2.targetFound ? tr('academyVideoNext3') : tr('academyVideoNext4')}
+            completion
+            caseId={ACADEMY_CASE_2}
+          />
+        )}
         <div className="mb-6 flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-slate-900">{tv("videoLibraryTitle", uiLanguage)}</h1>
           <p className="max-w-3xl text-sm text-slate-600">{tv("videoLibraryIntro", uiLanguage)}</p>
@@ -143,7 +191,7 @@ export default function VideoGalleryPage() {
           onChange={setFilters}
           machineOptions={machineOptions}
           language={uiLanguage}
-          showFavorites={!localAcademySession}
+          showFavorites
         />
 
         {error ? <p className="mb-4 text-sm font-semibold text-amber-700">{error}</p> : null}
@@ -161,7 +209,7 @@ export default function VideoGalleryPage() {
                 lang={uiLanguage}
                 isFavorite={favoriteIds.has(video.id)}
                 favoritePending={pendingFavoriteIds.has(video.id)}
-                allowFavorites={!localAcademySession}
+                allowFavorites
                 onFavoriteToggle={toggleFavorite}
                 onPlay={openVideo}
               />
@@ -170,7 +218,15 @@ export default function VideoGalleryPage() {
         )}
       </main>
 
-      {active && <VideoModal video={active} lang={uiLanguage} onClose={() => setActive(null)} />}
+      {active && (
+        <TimanVideoModal
+          language={uiLanguage}
+          title={active.title}
+          youtubeVideoId={active.youtube_video_id}
+          showExternalFallback
+          onClose={() => setActive(null)}
+        />
+      )}
       <PortalFooter language={language} />
     </div>
   );
@@ -239,62 +295,6 @@ function VideoCard({
         </div>
       </button>
     </article>
-  );
-}
-
-function VideoModal({ video, lang, onClose }: { video: MarketingVideo; lang: PortalUiLanguage; onClose: () => void }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
-
-  const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtube_video_id}`;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={video.title}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={tv("videoLibraryClosePlayer", lang)}
-        className="absolute right-3 top-3 z-10 rounded-full bg-white/15 p-2 text-white shadow-sm transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-4 sm:top-4"
-      >
-        <X className="h-6 w-6" />
-      </button>
-      <div
-        className="w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            className="h-full w-full"
-            src={`https://www.youtube.com/embed/${video.youtube_video_id}?autoplay=1&rel=0`}
-            title={video.title}
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-        <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <p>{tv("videoLibraryEmbedFallback", lang)}</p>
-          <a
-            href={youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-emerald-700 hover:text-emerald-900"
-          >
-            {tv("videoLibraryOpenOnYoutube", lang)}
-          </a>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -39,6 +39,49 @@ export interface SellerDirectoryEntry {
   phone: string | null;
 }
 
+/** Internal roles allowed by CRM's responsible-seller selection. */
+export const ASSIGNABLE_TIMAN_SELLER_ROLES = ['timan_seller', 'timan_backend'] as const;
+
+type MesseSellerCountry = 'denmark' | 'germany' | 'other';
+
+// This is a Messe follow-up assignment policy, not a replacement seller
+// directory. Entries always originate in the active canonical directory.
+const MESSE_COUNTRY_SELLER_INITIALS: Record<Exclude<MesseSellerCountry, 'other'>, readonly string[]> = {
+  germany: ['AKR', 'JTN'],
+  denmark: ['EM'],
+};
+
+export function isAssignableTimanSeller(entry: Pick<SellerDirectoryEntry, 'portal_role'>): boolean {
+  return ASSIGNABLE_TIMAN_SELLER_ROLES.includes(entry.portal_role as typeof ASSIGNABLE_TIMAN_SELLER_ROLES[number]);
+}
+
+export function normalizeMesseSellerCountry(country: string | null | undefined): MesseSellerCountry {
+  const normalized = country?.trim().toLowerCase() || '';
+  if (['germany', 'deutschland', 'tyskland', 'de'].includes(normalized)) return 'germany';
+  if (['denmark', 'danmark', 'dk'].includes(normalized)) return 'denmark';
+  return 'other';
+}
+
+/** Country eligibility applied to the canonical active Messe seller directory. */
+export function isMesseSellerEligibleForCountry(
+  seller: Pick<SellerDirectoryEntry, 'initials' | 'portal_role'>,
+  country: string | null | undefined,
+): boolean {
+  if (!isAssignableTimanSeller(seller)) return false;
+  const normalizedCountry = normalizeMesseSellerCountry(country);
+  const allowedInitials = normalizedCountry === 'other'
+    ? undefined
+    : MESSE_COUNTRY_SELLER_INITIALS[normalizedCountry];
+  return !allowedInitials || allowedInitials.includes(seller.initials.trim().toUpperCase());
+}
+
+export function filterMesseAssignableTimanSellersForCountry(
+  sellers: SellerDirectoryEntry[],
+  country: string | null | undefined,
+): SellerDirectoryEntry[] {
+  return sellers.filter((seller) => isMesseSellerEligibleForCountry(seller, country));
+}
+
 export interface SellerDirectory {
   list: SellerDirectoryEntry[];
   byEmail: Map<string, SellerDirectoryEntry>;
@@ -138,6 +181,71 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
   return inflight;
 }
 
+/**
+ * Read the same active internal seller model used by CRM for an authenticated
+ * Messe session. The dedicated RPC only exposes the display fields needed by
+ * the form, because external Messe users cannot read the staff directory view.
+ */
+export async function loadMesseAssignableTimanSellers(): Promise<SellerDirectoryEntry[]> {
+  const { data, error } = await supabase.rpc('list_messe_assignable_timan_sellers');
+  if (error) throw error;
+  return ((data || []) as Record<string, unknown>[])
+    .map((row) => ({
+      id: String(row.id || ''),
+      email: String(row.email || '').toLowerCase(),
+      initials: String(row.initials || '').toUpperCase(),
+      full_name: String(row.full_name || ''),
+      portal_role: (row.portal_role as string | null) || null,
+      company: null,
+      phone: null,
+    }))
+    .filter((entry) => entry.id && entry.email && entry.initials && isAssignableTimanSeller(entry));
+}
+
+/** Resolve a dealer's canonical account owner against the live CRM seller list. */
+export function resolveDealerAssignableTimanSeller(
+  dealer: {
+    assigned_seller_id?: string | null;
+    assigned_seller_email?: string | null;
+    assigned_seller_initials?: string | null;
+    assigned_seller_name?: string | null;
+  } | null | undefined,
+  sellers: SellerDirectoryEntry[],
+): SellerDirectoryEntry | null {
+  if (!dealer) return null;
+  const assignable = sellers.filter(isAssignableTimanSeller);
+  const sellerId = dealer.assigned_seller_id?.trim();
+  if (sellerId) {
+    const match = assignable.find((seller) => seller.id === sellerId);
+    if (match) return match;
+  }
+  const sellerEmail = dealer.assigned_seller_email?.trim().toLowerCase();
+  if (sellerEmail) {
+    const match = assignable.find((seller) => seller.email === sellerEmail);
+    if (match) return match;
+  }
+  const sellerInitials = dealer.assigned_seller_initials?.trim().toUpperCase();
+  if (sellerInitials) {
+    const match = assignable.find((seller) => seller.initials === sellerInitials);
+    if (match) return match;
+  }
+  const sellerName = dealer.assigned_seller_name?.trim().toLocaleLowerCase();
+  return sellerName
+    ? assignable.find((seller) => seller.full_name.trim().toLocaleLowerCase() === sellerName) || null
+    : null;
+}
+
+/**
+ * The canonical dealer-to-seller invariant used by CRM and Partnerdata is the
+ * stable assigned_seller_id relation, not historical name or email snapshots.
+ */
+export function dealerIsAssignedToTimanSeller(
+  dealer: Pick<{ assigned_seller_id: string | null }, 'assigned_seller_id'> | null | undefined,
+  seller: Pick<SellerDirectoryEntry, 'id'> | null | undefined,
+): boolean {
+  return Boolean(dealer?.assigned_seller_id && seller?.id && dealer.assigned_seller_id === seller.id);
+}
+
 export function invalidateSellerDirectory(): void {
   memCache = null;
   try {
@@ -183,6 +291,24 @@ export interface SellerDisplay {
   initials: string;
   full_name: string;
   matched: boolean;
+}
+
+export interface ReferencedUserInitialsInput {
+  userId?: string | null;
+  legacyLabel?: string | null;
+}
+
+/**
+ * Resolve initials only through a stable app_users reference. Legacy rows
+ * without that relation keep their stored label unchanged; we never guess an
+ * identity from a historical name or email.
+ */
+export function resolveReferencedUserInitials(
+  input: ReferencedUserInitialsInput,
+  dir: SellerDirectory,
+): string {
+  const referencedUser = input.userId ? dir.byId.get(String(input.userId)) : undefined;
+  return referencedUser?.initials || input.legacyLabel?.trim() || "";
 }
 
 /**

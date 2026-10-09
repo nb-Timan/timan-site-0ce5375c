@@ -1,4 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import {
+  isPureTechnicalSiteChange,
+  resolveSiteFeatureClassification,
+  resolveUserFacingSiteFeature,
+  siteFeatureTopicKey,
+  type SiteFeatureSource,
+} from "../_shared/siteFeatureNormalization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,9 +76,9 @@ type SiteChangeGroupSuggestion = {
   sourceRefs: string[];
 };
 
-type DailyGroupKey = {
+type SemanticGroupKey = {
   module: string;
-  date: string;
+  topic: string;
 };
 
 type StoredGitHubEntry = SiteChangeInsert & {
@@ -93,6 +100,10 @@ const MODULE_LABELS: Record<string, Partial<Record<PortalLanguage, string>>> = {
   quotes: { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Offerte", hu: "Ajánlatok", sv: "Offerter", fr: "Devis", pl: "Oferty", cs: "Nabídky" },
   orders: { da: "Ordrer", en: "Orders", de: "Aufträge", it: "Ordini", hu: "Megrendelések", sv: "Order", fr: "Commandes", pl: "Zamówienia", cs: "Objednávky" },
   backend: { da: "Backend", en: "Backend", de: "Backend", it: "Backend", hu: "Backend", sv: "Backend", fr: "Backend", pl: "Backend", cs: "Backend" },
+  sales: { da: "Salg", en: "Sales", de: "Vertrieb", it: "Vendite", hu: "Értékesítés", sv: "Försäljning", fr: "Ventes", pl: "Sprzedaż", cs: "Prodej" },
+  ai_support: { da: "AI Support", en: "AI Support", de: "AI Support", it: "AI Support", hu: "AI Support", sv: "AI Support", fr: "AI Support", pl: "AI Support", cs: "AI Support" },
+  academy: { da: "Academy", en: "Academy", de: "Academy", it: "Academy", hu: "Academy", sv: "Academy", fr: "Academy", pl: "Academy", cs: "Academy" },
+  general: { da: "Generelt", en: "General", de: "Allgemein", it: "Generale", hu: "Általános", sv: "Allmänt", fr: "Général", pl: "Ogólne", cs: "Obecné" },
 };
 
 const AREA_PREFIX: Record<PortalLanguage, string> = {
@@ -292,13 +303,14 @@ function fallbackPublicText(module: string, changeType: string, language: Portal
   };
 }
 
-function buildPublishedSuggestion(module: string, changeType: string): Record<string, Record<string, string>> {
+function buildPublishedSuggestion(module: string, changeType: string, source?: SiteFeatureSource): Record<string, Record<string, string>> {
   return PORTAL_LANGUAGES.reduce((acc, language) => {
     const template = MODULE_PUBLIC_TEXT[module]?.[language] || fallbackPublicText(module, changeType, language);
+    const normalized = source ? resolveUserFacingSiteFeature(source, language) : null;
     const area = moduleLabel(module, language);
     acc[language] = {
-      title: template.title,
-      description: `${template.description}\n\n${AREA_PREFIX[language]}: ${area}`,
+      title: normalized?.title || template.title,
+      description: normalized?.description || `${template.description}\n\n${AREA_PREFIX[language]}: ${area}`,
       note: template.note,
       module_label: area,
       change_type_label: changeType,
@@ -307,53 +319,67 @@ function buildPublishedSuggestion(module: string, changeType: string): Record<st
   }, {} as Record<string, Record<string, string>>);
 }
 
-function dayKey(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+function semanticGroupSourceRef(module: string, topic: string): string {
+  return `github-topic:${module}:${topic}`;
 }
 
-function dailyGroupSourceRef(module: string, date: string): string {
-  return `github-day:${module}:${date}`;
-}
-
-const DAILY_DANISH_SUMMARIES: Array<{ pattern: RegExp; text: string }> = [
-  { pattern: /\b(lead|kontaktperson|kontakt|kunde|customer)\b/, text: "Lead- og kontaktflowet er forbedret." },
-  { pattern: /\b(tilbud|quote)\b/, text: "Tilbud kan håndteres mere direkte fra CRM." },
-  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, text: "Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent." },
-  { pattern: /\b(ordre|order)\b/, text: "Ordreoplysninger er koblet mere pålideligt til CRM." },
-  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, text: "Ansvar og filtrering er blevet tydeligere." },
-  { pattern: /\b(partner|dealer|forhandler|detail|profil)\b/, text: "Partneroverblikket er blevet mere overskueligt." },
-  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, text: "Produktvalg og visning i konfiguratoren er forbedret." },
-  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, text: "Produktindhold og materialer er blevet lettere at vedligeholde." },
-  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, text: "Administration og adgangsstyring er blevet tydeligere." },
+const GROUPED_DANISH_COPY: Array<{ pattern: RegExp; title: string; bullet: string }> = [
+  { pattern: /\b(manual|manuelle).*(customer|kunde)|(customer|kunde).*(manual|manuelle)\b/, title: "CRM: Manuelle kundeoplysninger bevares", bullet: "Manuelle kundeoplysninger bevares, når der skiftes mellem forhandler og manuel kunde." },
+  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, title: "CRM: Budget og pipeline følger CRM-data", bullet: "Budget og pipeline følger de gemte CRM-data mere konsekvent." },
+  { pattern: /\b(payment|betalingsbetingelse|net21|net14)\b/, title: "Betalingsbetingelser følger ordren", bullet: "Den valgte betalingsbetingelse bevares fra konfiguratoren til ordrebekræftelsen." },
+  { pattern: /\b(partner|dealer|forhandler|detail|overview|overblik|kpi|note|quick-card|quick card)\b/, title: "CRM: Partneroverblikket er samlet", bullet: "Partneroplysninger og de vigtigste handlinger er samlet mere overskueligt." },
+  { pattern: /\b(ordre|order)\b/, title: "Ordreoplysninger følger den gemte ordre", bullet: "Ordreoplysninger vises fra den gemte ordre uden at ændre ordrelinjer eller priser." },
+  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, title: "Ansvarlig sælger vises ens i CRM", bullet: "Ansvarlig sælger og ejer vises ens på tværs af CRM." },
+  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, title: "Produktvalg i konfiguratoren er forbedret", bullet: "Produktvalg og relateret produktinformation vises mere klart i konfiguratoren." },
+  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, title: "Produktmateriale er samlet på kortene", bullet: "Video, billeder og specifikationer er samlet med den relevante produktinformation." },
+  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, title: "Adgangsstyring er præciseret", bullet: "Adgang til funktioner følger nu de relevante brugerrettigheder." },
 ];
 
-function dailyDanishSummary(entries: SiteChangeInsert[]): string {
-  const text = entries.map((entry) => `${entry.title_internal}\n${entry.technical_description || ""}`).join("\n").toLowerCase();
-  const summaries = DAILY_DANISH_SUMMARIES
-    .filter(({ pattern }) => pattern.test(text))
-    .map(({ text: summary }) => summary)
-    .slice(0, 3);
-  if (summaries.length > 0) return summaries.join(" ");
+function readableTechnicalTitle(title: string): string {
+  return title.replace(/^(feat|fix|chore|refactor|style|test|docs|build|ci)(\([^)]+\))?:\s*/i, "").replace(/\s+/g, " ").replace(/[.]+$/, "").trim();
+}
 
+function groupedDanishBullets(entries: Array<Pick<SiteChangeInsert, "title_internal" | "technical_description">>): string[] {
+  const bullets: string[] = [];
+  for (const entry of entries) {
+    const text = `${entry.title_internal}\n${entry.technical_description || ""}`.toLowerCase();
+    const copy = GROUPED_DANISH_COPY.find(({ pattern }) => pattern.test(text));
+    const bullet = copy?.bullet || readableTechnicalTitle(entry.title_internal);
+    if (bullet && !bullets.includes(bullet)) bullets.push(bullet);
+  }
+  return bullets.slice(0, 5);
+}
+
+function groupedDanishTitle(entries: Array<Pick<SiteChangeInsert, "title_internal" | "technical_description" | "module">>, bullets: string[]): string {
+  for (const entry of entries) {
+    const text = `${entry.title_internal}\n${entry.technical_description || ""}`.toLowerCase();
+    const copy = GROUPED_DANISH_COPY.find(({ pattern }) => pattern.test(text));
+    if (copy) return copy.title;
+  }
   const label = moduleLabel(entries[0]?.module || "backend", "da");
-  return `${label} er blevet opdateret med dagens vigtigste forbedringer.`;
+  return `${label}: ${bullets[0] || "Opdatering"}`;
 }
 
 function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSuggestion | null {
   if (entries.length < 2) return null;
   const module = entries[0].module;
+  const topic = siteFeatureTopicKey(entries[0]);
+  if (!topic || entries.some((entry) => siteFeatureTopicKey(entry) !== topic)) return null;
   const changeType = entries.every((entry) => entry.change_type === entries[0].change_type) ? entries[0].change_type : "improvement";
-  const localizedContent = buildPublishedSuggestion(module, changeType);
-  localizedContent.da.description = `${dailyDanishSummary(entries)}\n\nOmråde: ${moduleLabel(module, "da")}`;
+  const localizedContent = buildPublishedSuggestion(module, changeType, entries[0]);
+  if (!resolveUserFacingSiteFeature(entries[0], "da")) {
+    const danishBullets = groupedDanishBullets(entries);
+    localizedContent.da.title = groupedDanishTitle(entries, danishBullets);
+    localizedContent.da.description = `Hvad er ændret?\n${danishBullets.map((bullet) => `• ${bullet}`).join("\n")}\n\nOmråde: ${moduleLabel(module, "da")}`;
+  }
   const sourceRefs = entries.map((entry) => entry.source_ref).filter(Boolean);
   const implementedAt = entries.map((entry) => entry.implemented_at).sort().at(-1) || new Date().toISOString();
   const roles = Array.from(new Set(entries.flatMap((entry) => entry.affected_roles)));
   const publishedSource = entries.find((entry) => entry.status === "published");
   const publicContent = publishedSource?.localized_content || localizedContent;
   const group = {
-    source: "github_daily_group",
-    source_ref: dailyGroupSourceRef(module, dayKey(implementedAt)),
+    source: "github_capability_group",
+    source_ref: semanticGroupSourceRef(module, topic),
     implemented_at: implementedAt,
     title_internal: `${entries.length} ændringer samlet: ${localizedContent.da.title}`,
     description_internal: `Automatisk gruppeforslag fra GitHub-sync. Publiceringsteksten er foreslået ud fra ${entries.length} relaterede commits.`,
@@ -386,19 +412,14 @@ function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSugg
   };
 }
 
-function dailyGroupKeys(entries: Array<Pick<SiteChangeInsert, "module" | "implemented_at">>): DailyGroupKey[] {
-  const keys = new Map<string, DailyGroupKey>();
+function semanticGroupKeys(entries: Array<Pick<SiteChangeInsert, "module" | "title_internal" | "description_internal" | "technical_description">>): SemanticGroupKey[] {
+  const keys = new Map<string, SemanticGroupKey>();
   for (const entry of entries) {
-    const date = dayKey(entry.implemented_at);
-    keys.set(`${entry.module}:${date}`, { module: entry.module, date });
+    const topic = siteFeatureTopicKey(entry);
+    if (!topic) continue;
+    keys.set(`${entry.module}:${topic}`, { module: entry.module, topic });
   }
   return Array.from(keys.values());
-}
-
-function nextUtcDay(date: string): string {
-  const value = new Date(`${date}T00:00:00.000Z`);
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toISOString().slice(0, 10);
 }
 
 function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInsert | null {
@@ -407,12 +428,35 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
   const message = cleanText(commit.message || commit.commit?.message);
   const title = cleanPublicTitle(firstLine(message || `GitHub ændring ${sha.slice(0, 7)}`));
   const files = changedFiles(commit);
-  const module = inferModule(files, message);
-  const changeType = inferChangeType(files, message);
-  const impact = impactFor(changeType, module);
-  const localizedContent = buildPublishedSuggestion(module, changeType);
   const fileText = files.length ? files.map((file) => `- ${file}`).join("\n") : "- Ingen fil-liste modtaget.";
   const url = cleanText(commit.url || commit.html_url);
+  const technicalDescription = [
+    `Kilde: GitHub`,
+    `Repository: ${repository}`,
+    `Commit: ${sha}`,
+    url ? `URL: ${url}` : null,
+    "",
+    "Commit message:",
+    message || "(tom)",
+    "",
+    "Ændrede filer:",
+    fileText,
+  ].filter((line) => line !== null).join("\n");
+  const source = { title_internal: title, description_internal: message, technical_description: technicalDescription };
+  const classification = resolveSiteFeatureClassification(source);
+  const hasConcretePublicCopy = Boolean(resolveUserFacingSiteFeature(source, "da"));
+  const module = classification?.module || inferModule(files, message);
+  const changeType = classification?.changeType || inferChangeType(files, message);
+  const technicalOnly = isPureTechnicalSiteChange(source);
+  const securitySensitive = /\b(?:security|vulnerability|credential|secret|rls|permission bypass)\b/i.test(`${message}\n${files.join("\n")}`);
+  const impact = technicalOnly || securitySensitive
+    ? { user: 1, technical: 8, recommendation: "internal" as const }
+    : classification
+      ? { user: classification.userImpact, technical: classification.technicalImpact, recommendation: classification.recommendation }
+      : hasConcretePublicCopy
+        ? impactFor(changeType, module)
+        : { user: 1, technical: 6, recommendation: "internal" as const };
+  const localizedContent = buildPublishedSuggestion(module, changeType, source);
 
   return {
     source: "github",
@@ -420,24 +464,13 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
     implemented_at: cleanText(commit.timestamp || commit.commit?.author?.date) || new Date().toISOString(),
     title_internal: title,
     description_internal: `Automatisk importeret fra GitHub. Publiceringsteksten er foreslået ud fra område og ændringstype.`,
-    technical_description: [
-      `Kilde: GitHub`,
-      `Repository: ${repository}`,
-      `Commit: ${sha}`,
-      url ? `URL: ${url}` : null,
-      "",
-      "Commit message:",
-      message || "(tom)",
-      "",
-      "Ændrede filer:",
-      fileText,
-    ].filter((line) => line !== null).join("\n"),
+    technical_description: `${technicalDescription}\n\nGenerator: product-change-v2\nGenerated: ${new Date().toISOString()}`,
     title_public: localizedContent.da.title,
     description_public: localizedContent.da.description,
     localized_content: localizedContent,
     module,
     change_type: changeType,
-    affected_roles: inferRoles(module),
+    affected_roles: classification?.affectedRoles || inferRoles(module),
     user_impact_score: impact.user,
     technical_impact_score: impact.technical,
     publish_recommendation: impact.recommendation,
@@ -447,6 +480,42 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
     group_parent_id: null,
     group_suggestion_status: "none",
     grouped_at: null,
+  };
+}
+
+function reprocessedEntryPatch(entry: StoredGitHubEntry): Partial<SiteChangeInsert> {
+  const source: SiteFeatureSource = {
+    title_internal: entry.title_internal,
+    description_internal: entry.description_internal,
+    technical_description: entry.technical_description,
+  };
+  const classification = resolveSiteFeatureClassification(source);
+  const hasConcretePublicCopy = Boolean(resolveUserFacingSiteFeature(source, "da"));
+  const module = classification?.module || entry.module;
+  const changeType = classification?.changeType || entry.change_type;
+  const technicalOnly = isPureTechnicalSiteChange(source);
+  const securitySensitive = /\b(?:security|vulnerability|credential|secret|rls|permission bypass)\b/i.test(
+    `${entry.title_internal}\n${entry.technical_description || ""}`,
+  );
+  const impact = technicalOnly || securitySensitive
+    ? { user: 1, technical: 8, recommendation: "internal" as const }
+    : classification
+      ? { user: classification.userImpact, technical: classification.technicalImpact, recommendation: classification.recommendation }
+      : hasConcretePublicCopy
+        ? impactFor(changeType, module)
+        : { user: 1, technical: 6, recommendation: "internal" as const };
+  const localizedContent = buildPublishedSuggestion(module, changeType, source);
+
+  return {
+    module,
+    change_type: technicalOnly ? "technical" : changeType,
+    affected_roles: classification?.affectedRoles || inferRoles(module),
+    user_impact_score: impact.user,
+    technical_impact_score: impact.technical,
+    publish_recommendation: impact.recommendation,
+    title_public: localizedContent.da.title,
+    description_public: localizedContent.da.description,
+    localized_content: localizedContent,
   };
 }
 
@@ -576,39 +645,72 @@ Deno.serve(async (req) => {
     if (insertError) return json({ error: `Import fejlede: ${insertError.message}` }, 500);
   }
 
-  const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at">> = [...entries];
+  let reprocessed = 0;
+  let technicalInternal = 0;
+  let groupingCandidates: StoredGitHubEntry[] = [];
   if (body.mode === "manual") {
-    const { data: ungroupedRows, error: ungroupedRowsError } = await admin
+    const { data: oldGroups } = await admin
       .from("site_change_entries")
-      .select("module,implemented_at")
+      .select("id")
+      .eq("source", "github_daily_group")
+      .eq("status", "new");
+    const oldGroupIds = (oldGroups || []).map((row: { id: string }) => row.id);
+    if (oldGroupIds.length > 0) {
+      await admin.from("site_change_entries")
+        .update({ group_parent_id: null, group_suggestion_status: "none", grouped_at: null })
+        .in("group_parent_id", oldGroupIds)
+        .eq("source", "github")
+        .eq("status", "new");
+      await admin.from("site_change_entries")
+        .update({ status: "archived", archived_at: new Date().toISOString(), group_suggestion_status: "split" })
+        .in("id", oldGroupIds);
+    }
+
+    const { data: unreviewedRows, error: unreviewedRowsError } = await admin
+      .from("site_change_entries")
+      .select("id,source,source_ref,implemented_at,title_internal,description_internal,technical_description,title_public,description_public,localized_content,module,change_type,affected_roles,user_impact_score,technical_impact_score,publish_recommendation,is_important,status,published_at,group_parent_id,group_suggestion_status,grouped_at")
       .eq("source", "github")
-      .is("group_parent_id", null);
-    if (ungroupedRowsError) return json({ error: `Kunne ikke finde tidligere GitHub-ændringer: ${ungroupedRowsError.message}` }, 500);
-    groupingCandidates.push(...(ungroupedRows || []));
+      .eq("status", "new")
+      .is("reviewed_at", null);
+    if (unreviewedRowsError) return json({ error: `Kunne ikke finde ikke-gennemgåede GitHub-ændringer: ${unreviewedRowsError.message}` }, 500);
+
+    for (const row of (unreviewedRows || []) as StoredGitHubEntry[]) {
+      const patch = reprocessedEntryPatch(row);
+      const { error: updateError } = await admin.from("site_change_entries").update(patch).eq("id", row.id);
+      if (!updateError) {
+        reprocessed += 1;
+        if (patch.publish_recommendation === "internal") technicalInternal += 1;
+        groupingCandidates.push({ ...row, ...patch } as StoredGitHubEntry);
+      }
+    }
+  } else {
+    groupingCandidates = entries as StoredGitHubEntry[];
   }
 
   let groupsSuggested = 0;
-  for (const key of dailyGroupKeys(groupingCandidates)) {
-    const { data: dailyRows, error: dailyRowsError } = await admin
+  for (const key of semanticGroupKeys(groupingCandidates)) {
+    const { data: capabilityRows, error: capabilityRowsError } = await admin
       .from("site_change_entries")
       .select("id,source,source_ref,implemented_at,title_internal,description_internal,technical_description,title_public,description_public,localized_content,module,change_type,affected_roles,user_impact_score,technical_impact_score,publish_recommendation,is_important,status,published_at,group_parent_id,group_suggestion_status,grouped_at")
       .eq("source", "github")
       .eq("module", key.module)
-      .gte("implemented_at", `${key.date}T00:00:00.000Z`)
-      .lt("implemented_at", `${nextUtcDay(key.date)}T00:00:00.000Z`);
-    if (dailyRowsError) continue;
+      .eq("status", "new")
+      .is("reviewed_at", null);
+    if (capabilityRowsError) continue;
 
-    const sourceRows = (dailyRows || []) as StoredGitHubEntry[];
+    const sourceRows = ((capabilityRows || []) as StoredGitHubEntry[])
+      .filter((entry) => siteFeatureTopicKey(entry) === key.topic);
     const suggestion = buildGroupSuggestion(sourceRows);
     if (!suggestion) continue;
     const childIds = sourceRows.map((row) => row.id);
 
     const { data: existingGroup, error: existingGroupError } = await admin
       .from("site_change_entries")
-      .select("id")
+      .select("id,status")
       .eq("source_ref", suggestion.group.source_ref)
       .maybeSingle();
     if (existingGroupError) continue;
+    if (existingGroup?.status === "published") continue;
 
     let groupId = existingGroup?.id as string | undefined;
     if (!groupId) {
@@ -626,20 +728,17 @@ Deno.serve(async (req) => {
           implemented_at: suggestion.group.implemented_at,
           title_internal: suggestion.group.title_internal,
           description_internal: suggestion.group.description_internal,
-          technical_description: suggestion.group.technical_description,
-          affected_roles: suggestion.group.affected_roles,
+           technical_description: suggestion.group.technical_description,
+           title_public: suggestion.group.title_public,
+           description_public: suggestion.group.description_public,
+           localized_content: suggestion.group.localized_content,
+           module: suggestion.group.module,
+           change_type: suggestion.group.change_type,
+           affected_roles: suggestion.group.affected_roles,
           user_impact_score: suggestion.group.user_impact_score,
-          technical_impact_score: suggestion.group.technical_impact_score,
+           technical_impact_score: suggestion.group.technical_impact_score,
+           publish_recommendation: suggestion.group.publish_recommendation,
           grouped_at: new Date().toISOString(),
-          ...(suggestion.group.status === "published"
-            ? {
-              title_public: suggestion.group.title_public,
-              description_public: suggestion.group.description_public,
-              localized_content: suggestion.group.localized_content,
-              status: "published",
-              published_at: suggestion.group.published_at,
-            }
-            : {}),
         })
         .eq("id", groupId);
       if (groupUpdateError) continue;
@@ -659,7 +758,7 @@ Deno.serve(async (req) => {
         .from("site_change_entries")
         .update({ status: "archived", archived_at: new Date().toISOString(), group_suggestion_status: "split" })
         .in("id", Array.from(new Set(priorAutomaticGroupIds)))
-        .eq("source", "github_group_suggestion");
+        .in("source", ["github_daily_group", "github_capability_group"]);
     }
     groupsSuggested += 1;
   }
@@ -668,6 +767,8 @@ Deno.serve(async (req) => {
     ok: true,
     imported: newEntries.length,
     skipped: entries.length - newEntries.length,
+    reprocessed,
+    technicalInternal,
     groupsSuggested,
     commits: newEntries.map((entry) => entry.source_ref.replace("github:", "").slice(0, 7)),
   });

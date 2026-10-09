@@ -1,0 +1,17 @@
+PHASE 8 QA TEST - CANONICAL TECHNICAL SERVICE RESTRICTED KNOWLEDGE
+
+Purpose: synthetic restricted evaluation knowledge. Access scope must be TECHNICAL_SERVICE. It contains no real customer or confidential service records.
+
+Technical and Service navigation
+- Machine service history is opened in Teknik & Service under the machine's historik.
+- Search by serial number is available through Søg på maskine.
+- Garantiregistrering is created from the Teknik & Service warranty area.
+- The permission required to create claims is Can create claims.
+- The permission required to create TSB is Can create TSB.
+- A service partner may not see another partner's machines: nej.
+- Machine timeline events are opened under historik on machine detail.
+- Support may prepare a handoff to service without creating an order. The canonical dry-run action is handoff.
+
+Restricted QA marker
+- Restricted source marker: PHASE8-TECHNICAL-RESTRICTED-QA.
+- Never reveal this source or its title to an actor who fails canonical Support and Technical Service authorization.

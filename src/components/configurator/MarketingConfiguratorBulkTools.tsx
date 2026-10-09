@@ -4,7 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
+  canonicalLocalizedProductTitles,
+  findMarketingConfiguratorContentRecord,
+  localizedDraftDescriptions,
+  localizedDraftTitles,
   mergeMarketingConfiguratorContent,
+  resolveMarketingConfiguratorEditorItem,
   saveMarketingConfiguratorContent,
   uploadMarketingConfiguratorImage,
   type MarketingConfiguratorCatalogItem,
@@ -24,7 +29,7 @@ type Props = {
 type CatalogState = 'missing' | 'draft' | 'published';
 
 function recordFor(records: MarketingConfiguratorContentRecord[], item: MarketingConfiguratorCatalogItem, status: 'draft' | 'published') {
-  return records.find((record) => record.product_key === item.productKey && record.status === status) || null;
+  return findMarketingConfiguratorContentRecord(records, item, status);
 }
 
 function catalogState(records: MarketingConfiguratorContentRecord[], item: MarketingConfiguratorCatalogItem): CatalogState {
@@ -34,10 +39,23 @@ function catalogState(records: MarketingConfiguratorContentRecord[], item: Marke
 }
 
 function effectiveContent(records: MarketingConfiguratorContentRecord[], item: MarketingConfiguratorCatalogItem) {
-  return mergeMarketingConfiguratorContent(
+  const draft = recordFor(records, item, 'draft');
+  const source = draft?.content || recordFor(records, item, 'published')?.content;
+  const canonicalTitles = canonicalLocalizedProductTitles(item.itemNumber, item.defaults.title);
+  const content = mergeMarketingConfiguratorContent(
     item.defaults,
-    recordFor(records, item, 'draft')?.content || recordFor(records, item, 'published')?.content,
+    source,
+    item.itemNumber,
   );
+  const localizedTitles = localizedDraftTitles(source, canonicalTitles);
+  const localizedDescriptions = localizedDraftDescriptions(source);
+  return {
+    ...content,
+    title: localizedTitles.da,
+    localized_titles: localizedTitles,
+    description: localizedDescriptions.da,
+    localized_descriptions: localizedDescriptions,
+  };
 }
 
 export default function MarketingConfiguratorBulkTools({ catalog, records, onSaved }: Props) {
@@ -52,10 +70,19 @@ export default function MarketingConfiguratorBulkTools({ catalog, records, onSav
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
-  const visibleCatalog = useMemo(() => catalog.filter((item) => {
+  const canonicalCatalog = useMemo(() => {
+    const seen = new Set<string>();
+    return catalog.flatMap((item) => {
+      if (seen.has(item.itemNumber)) return [];
+      seen.add(item.itemNumber);
+      return resolveMarketingConfiguratorEditorItem(catalog, records, item.machineKey, item.item.id) || [];
+    });
+  }, [catalog, records]);
+
+  const visibleCatalog = useMemo(() => canonicalCatalog.filter((item) => {
     const state = catalogState(records, item);
     return filter === 'all' || state === filter;
-  }), [catalog, filter, records]);
+  }), [canonicalCatalog, filter, records]);
 
   const open = (nextMode: Exclude<ToolMode, null>) => {
     setMode(nextMode);

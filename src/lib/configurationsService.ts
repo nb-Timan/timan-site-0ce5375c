@@ -1,12 +1,16 @@
 import { supabase } from '@/lib/supabase';
+import { getAccessoriesFlat } from '@/data/machines';
+import { isProductActive } from '@/lib/publishedProductMaster';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
-import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { assertValidConfiguratorCommercialState, assertValidSalesStockState, createEmptyConfiguratorState, normalizeConfiguratorState, transitionConfiguratorFlowType } from '@/lib/configuratorState';
+import { configuratorCurrency, configuratorPricingSignature, configuratorSnapshotCurrency, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 import { generateLocalCrmDocumentNumber, getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
+import { isCurrency } from '@/lib/currency';
 
 async function recordConfiguratorUsage(activeSeconds = 0): Promise<void> {
   try {
@@ -226,6 +230,8 @@ export async function resolveHideScopeForCurrentUser(
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
 export interface SavedConfiguration {
+  confirmation_revision_number?: number;
+  confirmation_revision_id?: string | null;
   id: string;
   created_by_user_id: string | null;
   created_by_email: string;
@@ -272,13 +278,14 @@ export function generateReferenceNumber(prefix: 'Q' | 'T' | 'O'): string {
 export async function ensureReferenceNumbers(
   configId: string,
   isOrder: boolean,
+  options?: { pricingMode?: ConfigurationPricingMode },
 ): Promise<{ quote_number: string | null; order_number: string | null }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { quote_number: null, order_number: null };
 
   const { data: row } = await supabase
     .from('configurations')
-    .select('quote_number, order_number')
+    .select('*')
     .eq('id', configId)
     .maybeSingle();
 
@@ -297,43 +304,57 @@ export async function ensureReferenceNumbers(
     const qn = await getNextCrmDocumentNumber('quote');
     patch.quote_number = qn;
     result.quote_number = qn;
+
+    // A T-number is the commercial boundary. Capture the frozen quote
+    // snapshot here, never during an ordinary editable case/lead save.
+    const storedPayload = parseStoredConfigurationPayload(row.note);
+    const state = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
+    const quotedState = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(quotedState, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+    patch.state_json = quotedState;
+    patch.note = serializeStoredConfigurationPayload(
+      quotedState,
+      row.internal_note ?? storedPayload?.internalNote ?? '',
+      Boolean(row.pdf_downloaded ?? storedPayload?.pdf_downloaded),
+      row.pdf_downloaded_at ?? storedPayload?.pdf_downloaded_at ?? null,
+    );
+    patch.subtotal = Math.round(totals.subtotal || 0);
+    patch.total_price = Math.round(totals.finalPrice || 0);
+    patch.last_saved_at = new Date().toISOString();
   }
-  await updateConfigurationRow(configId, patch);
+  const { error } = await updateConfigurationRow(configId, patch);
+  if (error) throw new Error(formatSupabaseError(error));
+
+  if (needsQuote) {
+    try {
+      const { logActivity } = await import('@/lib/crmActivitiesService');
+      await logActivity({
+        activity_type: 'quote_created',
+        configuration_id: configId,
+        quote_id: configId,
+        title: result.quote_number || row.title || 'Tilbud oprettet',
+        description: 'Tilbud oprettet',
+        status: 'aktiv',
+        created_by_user_id: row.created_by_user_id ?? user.id,
+        created_by_name: row.created_by_email ?? user.email ?? null,
+        assigned_owner_user_id: row.assigned_seller_id ?? null,
+        assigned_owner_name: row.seller_name ?? row.seller_initials ?? null,
+        meta: {
+          seller_initials: row.seller_initials ?? null,
+          seller_email: row.seller_email ?? null,
+          dealer_number: row.dealer_number ?? null,
+          dealer_name: row.dealer_name ?? null,
+          dealer_account_id: row.dealer_account_id ?? null,
+          document_type: 'quote',
+        },
+      });
+    } catch (error) {
+      console.warn('[ensureReferenceNumbers] quote activity log failed (ignored):', error);
+    }
+  }
   return result;
 }
-
-/**
- * Reserve the canonical order reference at the beginning of an explicit order
- * submission. The actual submitted status is still written only after delivery.
- */
-export async function ensureOrderReferenceNumber(configId: string): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: row, error: loadError } = await supabase
-    .from('configurations')
-    .select('order_number')
-    .eq('id', configId)
-    .maybeSingle();
-
-  if (loadError || !row) return null;
-  if (row.order_number) return row.order_number as string;
-
-  const orderNumber = await getNextCrmDocumentNumber('order');
-  const { error } = await updateConfigurationRow(configId, {
-    order_number: orderNumber,
-    last_saved_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    console.error('Failed to reserve order reference number:', error);
-    return null;
-  }
-
-  return orderNumber;
-}
-
-
 
 type StoredConfigurationPayload = {
   __kind: 'configurator_state';
@@ -586,6 +607,7 @@ function buildRestoredState(
     ...baseState,
     flowType,
     language,
+    currency: isCurrency(row.currency) ? row.currency : baseState.currency,
     date: typeof row.delivery_date === 'string' ? row.delivery_date.slice(0, 10) : baseState.date,
     deliveryMethod,
     deliveryDeliverStartup: typeof row.delivery_startup_option === 'string'
@@ -608,7 +630,7 @@ function buildRestoredState(
   });
 
   return {
-    state: restoredState,
+    state: protectLegacySentPricing(restoredState, row),
     hasFullState: Boolean(parsedState || payloadState || restoredState.machineConfigs.length > 0),
   };
 }
@@ -984,6 +1006,15 @@ export async function saveConfiguration(
     ownerEmail,
     machineCount: state.machineConfigs.length,
   });
+  try {
+    assertValidConfiguratorCommercialState(state);
+    assertValidSalesStockState(state);
+  } catch (error) {
+    return {
+      data: null, id: null, error: error instanceof Error ? error.message : 'INVALID_CONFIGURATOR_STATE', itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
+    };
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -1022,6 +1053,9 @@ export async function saveConfiguration(
   }
 
   const now = new Date().toISOString();
+  // A saved case remains editable catalogue state. The frozen commercial
+  // snapshot is created only when the first real quote/order is produced.
+  state = { ...refreshConfiguratorProductDescriptions(state), pricingSnapshot: undefined };
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
 
   // Pre-compute subtotal/total_price so even drafts and the initial save carry
@@ -1047,6 +1081,7 @@ export async function saveConfiguration(
     subtotal: initialSubtotal,
     total_price: initialTotal,
     language: state.language,
+    currency: configuratorCurrency(state),
     delivery_date: state.date || null,
     delivery_method: state.deliveryMethod || null,
     delivery_startup_option: state.deliveryDeliverStartup,
@@ -1060,7 +1095,7 @@ export async function saveConfiguration(
     created_case_at: now,
     quote_sent_at: null,
     order_sent_at: null,
-    quote_number: isOrder ? null : await getNextCrmDocumentNumber('quote'),
+    quote_number: null,
     // O-numbers are assigned only by markAsOrderSubmitted after the order
     // has been successfully sent. An editable order draft has no O-number.
     order_number: null,
@@ -1103,34 +1138,6 @@ export async function saveConfiguration(
   const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
   const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
 
-  // CRM: log quote_created / order_created on first save (best-effort).
-  try {
-    const { logActivity } = await import('@/lib/crmActivitiesService');
-    await logActivity({
-      activity_type: isOrder ? 'order_created' : 'quote_created',
-      configuration_id: data.id,
-      quote_id: isOrder ? null : data.id,
-      order_id: isOrder ? data.id : null,
-      title: (isOrder ? savedOrderNumber : savedQuoteNumber) || label,
-      description: isOrder ? 'Ordre oprettet' : 'Tilbud oprettet',
-      status: 'aktiv',
-      created_by_user_id: user.id,
-      created_by_name: user.email ?? null,
-      assigned_owner_user_id: options?.ownership?.assigned_seller_id ?? null,
-      assigned_owner_name: options?.ownership?.seller_name ?? options?.ownership?.seller_initials ?? null,
-      meta: {
-        seller_initials: options?.ownership?.seller_initials ?? null,
-        seller_email: options?.ownership?.seller_email ?? null,
-        dealer_number: options?.ownership?.dealer_number ?? null,
-        dealer_name: options?.ownership?.dealer_name ?? null,
-        dealer_account_id: options?.ownership?.dealer_account_id ?? null,
-        document_type: documentType,
-      },
-    });
-  } catch (e) {
-    console.warn('[saveConfiguration] crm log failed (ignored):', e);
-  }
-
   return {
     data: mapConfigurationRow({
       ...data,
@@ -1171,16 +1178,32 @@ export async function updateConfiguration(
   state: ConfiguratorState,
   options?: { ownership?: SaveOwnership; leadId?: string | null; pricingMode?: ConfigurationPricingMode },
 ): Promise<{ error: string | null; itemsError: string | null }> {
+  try {
+    assertValidConfiguratorCommercialState(state);
+    assertValidSalesStockState(state);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'INVALID_CONFIGURATOR_STATE', itemsError: null };
+  }
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
     return { error: authError ? formatSupabaseError(authError) : 'No authenticated user', itemsError: null };
+  }
+
+  let stateForPersistence = refreshConfiguratorProductDescriptions(state);
+  if (state.pricingSnapshot) {
+    try {
+      stateForPersistence = await finalizeConfiguratorPricingSnapshot(stateForPersistence, options?.pricingMode);
+    } catch (error) {
+      console.warn('[updateConfiguration] pricing snapshot finalization failed:', error);
+      return { error: error instanceof Error ? error.message : 'Pris-snapshot kunne ikke valideres', itemsError: null };
+    }
   }
 
   let subtotal = 0;
   let totalPrice = 0;
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+    const totals = calcConfigurationTotals(stateForPersistence, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
     subtotal = Math.round(totals.subtotal || 0);
     totalPrice = Math.round(totals.finalPrice || 0);
   } catch { /* ignore */ }
@@ -1192,10 +1215,12 @@ export async function updateConfiguration(
   let pdfDownloaded = false;
   let pdfDownloadedAt: string | null = null;
   let persistedLeadId: string | null = null;
+  let submittedOrder = false;
+  let existingQuote = false;
   try {
     const { data: row } = await supabase
       .from('configurations')
-      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id')
+      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, quote_number, submitted_at, order_sent_at, subtotal, total_price')
       .eq('id', id)
       .maybeSingle();
     if (row) {
@@ -1209,23 +1234,52 @@ export async function updateConfiguration(
         ?? storedPayload?.pdf_downloaded_at
         ?? null;
       persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null;
+      existingQuote = Boolean((row as Record<string, unknown>).quote_number);
+      submittedOrder = Boolean((row as Record<string, unknown>).submitted_at || (row as Record<string, unknown>).order_sent_at);
+      // Legacy submitted orders predate per-item price snapshots. Do not let a
+      // contact-only correction replace their persisted commercial total with
+      // today's catalogue calculation. The Backend dialog requires explicit
+      // repricing before it supplies a new snapshot.
+      if (submittedOrder && !stateForPersistence.pricingSnapshot) {
+        const persistedSubtotal = Number((row as Record<string, unknown>).subtotal);
+        const persistedTotal = Number((row as Record<string, unknown>).total_price);
+        if (Number.isFinite(persistedSubtotal)) subtotal = persistedSubtotal;
+        if (Number.isFinite(persistedTotal)) totalPrice = persistedTotal;
+      }
     }
   } catch { /* ignore */ }
 
+  // Once the case has crossed the explicit T-number boundary, edits remain
+  // revisions of that same quote. Refresh its current snapshot without ever
+  // allocating another number. Numberless cases stay snapshot-free.
+  if (existingQuote && !submittedOrder && !stateForPersistence.pricingSnapshot) {
+    try {
+      stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const totals = calcConfigurationTotals(stateForPersistence, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+      subtotal = Math.round(totals.subtotal || 0);
+      totalPrice = Math.round(totals.finalPrice || 0);
+    } catch (error) {
+      console.warn('[updateConfiguration] quote snapshot refresh failed:', error);
+      return { error: error instanceof Error ? error.message : 'Pris-snapshot kunne ikke valideres', itemsError: null };
+    }
+  }
+
   const now = new Date().toISOString();
-  const storedNote = serializeStoredConfigurationPayload(state, internalNote, pdfDownloaded, pdfDownloadedAt);
+  const storedNote = serializeStoredConfigurationPayload(stateForPersistence, internalNote, pdfDownloaded, pdfDownloadedAt);
 
   const patch: Record<string, unknown> = {
-    document_type: state.flowType,
-    case_type: state.flowType,
-    state_json: state,
+    document_type: stateForPersistence.flowType,
+    case_type: stateForPersistence.flowType,
+    state_json: stateForPersistence,
     note: storedNote,
     internal_note: internalNote,
-    language: state.language,
-    delivery_date: state.date || null,
-    delivery_method: state.deliveryMethod || null,
-    delivery_startup_option: state.deliveryDeliverStartup,
-    payment_terms: state.paymentTerms ?? null,
+    language: stateForPersistence.language,
+    currency: configuratorCurrency(stateForPersistence),
+    delivery_date: stateForPersistence.date || null,
+    delivery_method: stateForPersistence.deliveryMethod || null,
+    delivery_startup_option: stateForPersistence.deliveryDeliverStartup,
+    payment_terms: stateForPersistence.paymentTerms ?? null,
     subtotal,
     total_price: totalPrice,
     last_saved_at: now,
@@ -1308,14 +1362,13 @@ export async function updateConfigurationFlowType(
   }
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const baseState = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
-  const nextState = normalizeConfiguratorState({ ...baseState, flowType });
+  const nextState = transitionConfiguratorFlowType(baseState, flowType);
 
-  let quoteNumber: string | null = row.quote_number ?? null;
-  let orderNumber: string | null = row.order_number ?? null;
+  const quoteNumber: string | null = row.quote_number ?? null;
+  const orderNumber: string | null = row.order_number ?? null;
 
-  if (!isOrder && !quoteNumber) quoteNumber = await getNextCrmDocumentNumber('quote');
-  // Do not allocate an O-number for a draft or merely switching the flow.
-  // markAsOrderSubmitted() assigns it with submitted_at/order_sent_at.
+  // Merely switching the editable flow never allocates a T/O-number.
+  // The explicit quote/order action owns the commercial transition.
 
   const patch: Record<string, unknown> = {
     case_type: flowType,
@@ -1407,6 +1460,248 @@ export interface OwnershipPatch {
   dealer_account_id: string | null;
 }
 
+export async function loadSubmittedOrderConfirmation(id: string, ownerEmail: string, effectiveUserId?: string | null): Promise<SavedConfiguration> {
+  const { data, error } = await supabase.rpc('read_submitted_order_confirmation', {
+    p_configuration_id: id,
+    p_effective_user_id: effectiveUserId ?? null,
+  });
+  if (error) throw new Error(error.message);
+  const snapshot = data?.snapshot;
+  if (!snapshot?.configuration?.state_json || snapshot.configuration.id !== id) {
+    throw new Error('Ordrebekræftelsens gemte snapshot mangler.');
+  }
+  const saved = mapConfigurationRowWithItems(snapshot.configuration, ownerEmail, snapshot.items ?? []);
+  return {
+    ...saved,
+    // Do not merge current row columns, items or catalogue choices into a revision.
+    state_json: normalizeConfiguratorState(snapshot.configuration.state_json),
+    confirmation_revision_number: data.revision_number,
+    confirmation_revision_id: data.revision_id,
+  };
+}
+
+export async function finalizeConfiguratorPricingSnapshot(
+  state: ConfiguratorState,
+  pricingMode?: ConfigurationPricingMode,
+): Promise<ConfiguratorState> {
+  assertValidConfiguratorCommercialState(state);
+  assertValidSalesStockState(state);
+  if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler; ingen automatisk genberegning.');
+  if (hasFrozenConfiguratorPricing(state)) return state;
+
+  for (const machine of state.machineConfigs) {
+    const selected = machine.configMode === 'shared' ? machine.acc : Array.from({ length: machine.qty }, (_, index) =>
+      state.individualUnitConfigs?.[`${machine.id}_${index + 1}`]?.acc || []).flat();
+    const retired = getAccessoriesFlat(machine.type).find(item => selected.includes(item.id)
+      && !isProductActive(item.varenr)
+      && !state.pricingSnapshot?.lines?.some(line => line.itemNo === item.varenr));
+    if (retired) throw new Error(`Varenr. ${retired.varenr} er udgået og kan ikke vælges i et nyt tilbud eller en ny ordre.`);
+  }
+
+  const currentSnapshot = createConfiguratorPricingSnapshot(state);
+  const snapshotCurrency = configuratorSnapshotCurrency(state);
+  const sameCurrency = snapshotCurrency === currentSnapshot.currency;
+  // Existing prices only win inside their original currency. A currency switch
+  // starts from the canonical target-currency catalogue and cannot relabel the
+  // old numeric values.
+  const snapshot = {
+    ...state.pricingSnapshot,
+    version: 1 as const,
+    capturedAt: sameCurrency ? state.pricingSnapshot?.capturedAt ?? currentSnapshot.capturedAt : currentSnapshot.capturedAt,
+    currency: currentSnapshot.currency,
+    discountEngineVersion: state.pricingSnapshot ? state.pricingSnapshot.discountEngineVersion : 2 as const,
+    nettoPricingVersion: 1 as const,
+    prices: sameCurrency ? { ...currentSnapshot.prices, ...state.pricingSnapshot?.prices } : currentSnapshot.prices,
+    names: sameCurrency ? { ...currentSnapshot.names, ...state.pricingSnapshot?.names } : currentSnapshot.names,
+    signature: configuratorPricingSignature(state),
+    lines: undefined,
+  };
+  const stateWithSnapshot = { ...state, pricingSnapshot: snapshot };
+  const { calculateConfiguration } = await import('@/lib/calcConfiguration');
+  const calculation = calculateConfiguration(
+    { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals: undefined } },
+    { grossManualDiscountOnly: pricingMode === 'messe' },
+  );
+  const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
+  const lines = buildAccountCaseLines(stateWithSnapshot, state.language).map((line, index) => {
+    const commercialLine = calculation.commercialLines?.[index];
+    if (!commercialLine
+      || commercialLine.itemNo !== line.itemNo
+      || commercialLine.quantity !== line.quantity
+      || commercialLine.grossAmount !== line.total) {
+      throw new Error(`Ordrelinje ${index + 1} kunne ikke afstemmes med den canonical prisberegning.`);
+    }
+    return {
+      ...line,
+      finalNetAmount: commercialLine.finalNetAmount,
+      discountApplications: commercialLine.discountApplications,
+    };
+  });
+  const totals = { subtotal: calculation.subtotal, totalDiscount: calculation.totalDiscount, finalPrice: calculation.currentPrice };
+  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines, discountDetails: calculation.discountDetails, deliveryDiscounts: calculation.deliveryDiscounts, campaignLines: calculation.campaignLines } };
+}
+
+export interface SubmittedOrderContactDetails {
+  firmanavn: string;
+  kontaktperson: string;
+  telefon: string;
+  email: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  comment: string;
+  alternativeDeliveryAddress: string;
+  purchaseOrderNumber: string;
+  date: string;
+}
+
+export interface SubmittedOrderTimelineDetails {
+  createdDate: string;
+  sentDate: string;
+}
+
+const submittedOrderContactKeys = [
+  'firmanavn',
+  'kontaktperson',
+  'telefon',
+  'email',
+  'address',
+  'postalCode',
+  'city',
+  'country',
+  'comment',
+  'alternativeDeliveryAddress',
+  'purchaseOrderNumber',
+  'date',
+] as const;
+
+export function getSubmittedOrderContactDetails(state: Partial<ConfiguratorState> | null | undefined): SubmittedOrderContactDetails {
+  const details = submittedOrderContactKeys.reduce((result, key) => {
+    result[key] = typeof state?.[key] === 'string' ? state[key] : '';
+    return result;
+  }, {} as SubmittedOrderContactDetails);
+  // Older Configurator snapshots can contain the contact address only in the
+  // existing recipient field. This mirrors the read fallback used elsewhere
+  // in Configurator without changing that recipient field on save.
+  if (!details.email && typeof state?.emailRecipient === 'string') {
+    details.email = state.emailRecipient;
+  }
+  return details;
+}
+
+export function validateSubmittedOrderContactDetails(details: SubmittedOrderContactDetails): string | null {
+  if (!details.firmanavn.trim() || !details.kontaktperson.trim() || !details.email.trim()) {
+    return 'Udfyld firmanavn, kontaktperson og e-mail.';
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email.trim())) {
+    return 'Indtast en gyldig e-mailadresse.';
+  }
+  return null;
+}
+
+/**
+ * Backend-only read model for the constrained contact editor on submitted
+ * orders. The Configurator state remains the one canonical contact snapshot.
+ */
+export async function loadSubmittedOrderContactDetails(
+  id: string,
+): Promise<{ details: SubmittedOrderContactDetails | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('configurations')
+    .select('id, state_json, delivery_date')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { details: null, error: error ? formatSupabaseError(error) : 'Ordren blev ikke fundet.' };
+  }
+
+  const state = parseStateJson((data as Record<string, unknown>).state_json);
+  const details = getSubmittedOrderContactDetails(state);
+  const deliveryDate = (data as Record<string, unknown>).delivery_date;
+  if (typeof deliveryDate === 'string') details.date = deliveryDate.slice(0, 10);
+  return { details, error: null };
+}
+
+/**
+ * The RPC only permits the administrative contact snapshot and requested
+ * delivery date. It deliberately cannot patch ownership, order lines, totals,
+ * payment terms, identifiers or sending history.
+ */
+export async function updateSubmittedOrderContactDetails(
+  id: string,
+  details: SubmittedOrderContactDetails,
+): Promise<{ ok: boolean; error: string | null }> {
+  const validationError = validateSubmittedOrderContactDetails(details);
+  if (validationError) return { ok: false, error: validationError };
+
+  const { error } = await supabase.rpc('update_submitted_order_contact_details', {
+    p_configuration_id: id,
+    p_contact: details,
+  });
+  if (error) {
+    console.error('[updateSubmittedOrderContactDetails] error:', error);
+    return { ok: false, error: formatSupabaseError(error) };
+  }
+  return { ok: true, error: null };
+}
+
+function isoToDateInput(value: unknown): string {
+  return typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : '';
+}
+
+/** Backend-only read model for the two administrative order timeline dates. */
+export async function loadSubmittedOrderTimelineDetails(
+  id: string,
+): Promise<{ details: SubmittedOrderTimelineDetails | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('configurations')
+    .select('id, created_at, order_sent_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { details: null, error: error ? formatSupabaseError(error) : 'Ordren blev ikke fundet.' };
+  }
+
+  return {
+    details: {
+      createdDate: isoToDateInput((data as Record<string, unknown>).created_at),
+      sentDate: isoToDateInput((data as Record<string, unknown>).order_sent_at),
+    },
+    error: null,
+  };
+}
+
+/**
+ * Edits only the two administrative timeline dates through the Backend-only
+ * RPC. The server preserves each timestamp's time-of-day and audits the
+ * before/after values; it never sends or re-submits the order.
+ */
+export async function updateSubmittedOrderTimelineDetails(
+  id: string,
+  details: SubmittedOrderTimelineDetails,
+): Promise<{ ok: boolean; error: string | null }> {
+  if (!details.createdDate || !details.sentDate) {
+    return { ok: false, error: 'Udfyld både oprettet- og sendt-dato.' };
+  }
+  if (details.createdDate > details.sentDate) {
+    return { ok: false, error: 'Sendt-dato kan ikke ligge før oprettet-dato.' };
+  }
+
+  const { error } = await supabase.rpc('update_submitted_order_timeline_dates', {
+    p_configuration_id: id,
+    p_created_date: details.createdDate,
+    p_order_sent_date: details.sentDate,
+  });
+  if (error) {
+    console.error('[updateSubmittedOrderTimelineDetails] error:', error);
+    return { ok: false, error: formatSupabaseError(error) };
+  }
+  return { ok: true, error: null };
+}
+
 export async function updateConfigurationOwnership(
   id: string,
   patch: OwnershipPatch,
@@ -1439,12 +1734,16 @@ export async function deleteConfiguration(id: string) {
 }
 
 /** Mark configuration as order submitted */
-export async function markAsOrderSubmitted(id: string, options?: { pricingMode?: ConfigurationPricingMode }): Promise<string | null> {
+export async function markAsOrderSubmitted(
+  id: string,
+  options?: { pricingMode?: ConfigurationPricingMode; orderNumber?: string | null; resend?: boolean },
+): Promise<string | null> {
   const nowIso = new Date().toISOString();
   // Unscoped row read so backend/CRM users can convert a quote they did
   // NOT originally create (e.g. backend reopens Birger's quote). RLS still
   // guards the actual UPDATE below.
   let orderSentAt: string | null = nowIso;
+  let submittedAt: string | null = nowIso;
   let rowSnapshot: Record<string, unknown> | null = null;
   try {
     const { data: row } = await supabase
@@ -1454,24 +1753,39 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
       .maybeSingle();
     rowSnapshot = (row as Record<string, unknown> | null) ?? null;
     const existingOrderSentAt = rowSnapshot?.order_sent_at;
-    if (typeof existingOrderSentAt === 'string' && existingOrderSentAt) {
+    if (!options?.resend && typeof existingOrderSentAt === 'string' && existingOrderSentAt) {
       orderSentAt = existingOrderSentAt;
+    }
+    const existingSubmittedAt = rowSnapshot?.submitted_at;
+    if (typeof existingSubmittedAt === 'string' && existingSubmittedAt) {
+      submittedAt = existingSubmittedAt;
     }
   } catch (e) {
     console.warn('[markAsOrderSubmitted] row snapshot read failed (ignored):', e);
   }
 
-  // Compute totals from the persisted state so subtotal/total_price stay in
-  // sync with what the user actually saw. Falls back gracefully if the
-  // state can't be parsed.
+  // New orders capture their actual unit prices at the commercial boundary.
+  // Historical orders are never silently repriced here: a legacy order can
+  // only reach this resend path after Backend explicitly opted into current
+  // pricing in the correction dialog.
   let subtotal = 0;
   let totalPrice = 0;
+  let persistedState: ConfiguratorState | null = null;
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
     const storedPayload = parseStoredConfigurationPayload(rowSnapshot?.note);
     const state = parseStateJson(rowSnapshot?.state_json) ?? storedPayload?.state ?? null;
     if (state) {
-      const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+      if (state.pricingMode === 'direct') {
+        console.error('[markAsOrderSubmitted] ORDER_DIRECT_NOT_ALLOWED');
+        return null;
+      }
+      persistedState = transitionConfiguratorFlowType(state, 'order');
+      const isInitialOrderSubmission = !rowSnapshot?.submitted_at && !rowSnapshot?.order_sent_at;
+      if (isInitialOrderSubmission && !persistedState.pricingSnapshot) {
+        persistedState = await finalizeConfiguratorPricingSnapshot(persistedState, options?.pricingMode);
+      }
+      const totals = calcConfigurationTotals(persistedState, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
       subtotal = Math.round(totals.subtotal || 0);
       totalPrice = Math.round(totals.finalPrice || 0);
     }
@@ -1482,7 +1796,7 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
   // Ensure the row has an order_number. Converted quotes may not have one
   // yet — without it CRM → Ordrer would show a blank reference.
   const existingOrderNumber = (rowSnapshot?.order_number as string | null) ?? null;
-  const orderNumber = existingOrderNumber || await getNextCrmDocumentNumber('order');
+  const orderNumber = existingOrderNumber || options?.orderNumber || await getNextCrmDocumentNumber('order');
 
   const { error } = await updateConfigurationRow(id, {
     // CRITICAL: crm_configurations_view returns
@@ -1497,7 +1811,18 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
     order_number: orderNumber,
     subtotal,
     total_price: totalPrice,
-    submitted_at: nowIso,
+    ...(persistedState ? {
+      state_json: persistedState,
+      note: serializeStoredConfigurationPayload(
+        persistedState,
+        parseStoredConfigurationPayload(rowSnapshot?.note)?.internalNote ?? '',
+        Boolean(rowSnapshot?.pdf_downloaded),
+        (rowSnapshot?.pdf_downloaded_at as string | null) ?? null,
+      ),
+    } : {}),
+    // Re-sending a corrected order updates only the explicit sent timestamp.
+    // The original submission remains the canonical lifecycle transition.
+    submitted_at: submittedAt,
     order_sent_at: orderSentAt,
     last_saved_at: nowIso,
   });
@@ -1572,15 +1897,19 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     last_saved_at: downloadedAt,
   };
 
-  // Keep subtotal/total_price up-to-date on every PDF save (orders + quotes).
-  // Unknown columns are stripped by updateConfigurationRow's retry.
-  try {
-    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
-    patch.subtotal = Math.round(totals.subtotal || 0);
-    patch.total_price = Math.round(totals.finalPrice || 0);
-  } catch (e) {
-    console.warn('[markPdfDownloaded] totals calc failed (ignored):', e);
+  const isLegacySubmittedOrder = Boolean(row.submitted_at || row.order_sent_at) && !state.pricingSnapshot;
+  // A PDF action must never be an implicit commercial repricing operation.
+  // Legacy submitted orders have only their persisted aggregate total, so keep
+  // it untouched until Backend explicitly chooses the current-price revision.
+  if (!isLegacySubmittedOrder) {
+    try {
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+      patch.subtotal = Math.round(totals.subtotal || 0);
+      patch.total_price = Math.round(totals.finalPrice || 0);
+    } catch (e) {
+      console.warn('[markPdfDownloaded] totals calc failed (ignored):', e);
+    }
   }
 
   // Stamp quote_sent_at only for quotes, and only the first time
@@ -1672,6 +2001,7 @@ export async function uploadSentPdf(
   configurationId: string,
   pdfBlob: Blob,
   filename: string,
+  options?: { persistOnConfiguration?: boolean },
 ): Promise<{ path: string | null; error: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -1695,6 +2025,8 @@ export async function uploadSentPdf(
     console.error('[uploadSentPdf] upload failed:', uploadError);
     return { path: null, error: uploadError.message };
   }
+
+  if (options?.persistOnConfiguration === false) return { path, error: null };
 
   const { error: updateError } = await updateConfigurationRow(configurationId, {
     sent_pdf_path: path,

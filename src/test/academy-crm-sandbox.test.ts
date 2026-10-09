@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { academyCrmSandbox, ACADEMY_CRM_PARTNER } from '@/lib/academyCrmSandbox';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { academySandbox } from '@/lib/academySandbox';
 
 describe('Academy CRM lead sandbox', () => {
   beforeEach(() => {
@@ -28,7 +29,7 @@ describe('Academy CRM lead sandbox', () => {
     academyCrmSandbox.shareLead('academy-demo-lead', ACADEMY_CRM_PARTNER.id);
     expect(academyCrmSandbox.getProgress().part2Completed).toBe(false);
 
-    academyCrmSandbox.convertToDemo('academy-demo-lead');
+    academyCrmSandbox.createCrmDemoLead({ source_lead_id: 'academy-demo-lead', title: 'Academy demo' } as never);
     expect(academyCrmSandbox.getProgress()).toMatchObject({
       part1Completed: true,
       part2Completed: true,
@@ -44,6 +45,7 @@ describe('Academy CRM lead sandbox', () => {
     expect(academyCrmSandbox.getState().leads.find((lead) => lead.id === 'academy-overdue-lead')?.saved).toBe(true);
 
     window.history.replaceState({}, '', '/portal/crm/leads');
+    academySandbox.leaveSession();
     expect(() => academyCrmSandbox.saveLead('academy-overdue-lead', { activity: 'Production must not run' })).toThrow('Academy CRM writes must never use production persistence.');
   });
 

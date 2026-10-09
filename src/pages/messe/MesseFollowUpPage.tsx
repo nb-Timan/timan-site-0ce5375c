@@ -2,26 +2,38 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ClipboardList, Loader2, Mail } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
-import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { toast } from 'sonner';
 import { createLead, formatLeadNo, getLeadAttachmentSignedUrl, updateLead, uploadLeadAttachments } from '@/lib/crmLeadsService';
-import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
-import { resolveSellerId } from '@/lib/resolveSellerId';
-import { loadSellerDirectory, type SellerDirectoryEntry } from '@/lib/sellerDirectory';
+import {
+  fetchMesseDealerAccountsForSeller,
+  fetchMesseDealerCountries,
+  type MesseDealerAccount,
+} from '@/lib/dealerAccountsService';
+import { isMesseSelectablePartner } from '@/lib/partnerAccountTypes';
+import {
+  loadMesseAssignableTimanSellers,
+  resolveDealerAssignableTimanSeller,
+  filterMesseAssignableTimanSellersForCountry,
+  dealerIsAssignedToTimanSeller,
+  type SellerDirectoryEntry,
+} from '@/lib/sellerDirectory';
 import { getMesseLeadWebhookUrl } from '@/lib/webhookUrls';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
+import { parseStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
-import { buildMesseLeadMailRecipients } from '@/lib/messeLeadMail';
+import { buildMesseLeadInternalMailRouting } from '@/lib/messeLeadMail';
+import { logMailAuditEvent } from '@/lib/mailAuditService';
 import { messeFormSectionStatusClass } from '@/lib/messeFormStatus';
 import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
-type FormSectionKey = 'country' | 'dealerCustomer' | 'customerInfo' | 'businessCard' | 'product' | 'demo' | 'responsible';
+type SellerSelectionMode = 'initial' | 'auto' | 'manual';
+type FormSectionKey = 'country' | 'dealerCustomer' | 'customerInfo' | 'product' | 'demo' | 'responsible';
 type FormSectionErrors = Partial<Record<FormSectionKey, string>>;
 type MesseMailAttachment = CrmLeadAttachment & {
   signed_url: string | null;
@@ -159,6 +171,7 @@ const FORM_TEXT = {
   choose: { da: 'Vælg', en: 'Choose', de: 'Wählen', it: 'Scegli', hu: 'Válasszon' },
   responsible: { da: '6. Timan sælger', en: '6. Timan seller', de: '6. Timan Verkäufer', it: '6. Venditore Timan', hu: '6. Timan értékesítő' },
   dealerSelect: { da: 'Vælg forhandler', en: 'Choose dealer', de: 'Händler wählen', it: 'Scegli rivenditore', hu: 'Kereskedő kiválasztása' },
+  chooseSellerFirst: { da: 'Vælg først Timan sælger', en: 'Choose a Timan seller first', de: 'Zuerst Timan Verkäufer wählen', it: 'Scegli prima un venditore Timan', hu: 'Először válasszon Timan értékesítőt' },
   mailTo: { da: 'Mail sendes til', en: 'Mail is sent to', de: 'E-Mail wird gesendet an', it: 'Mail inviata a', hu: 'Email címzettje' },
   chooseResponsible: { da: 'vælg Timan sælger', en: 'choose Timan seller', de: 'Timan Verkäufer wählen', it: 'scegli venditore Timan', hu: 'válasszon Timan értékesítőt' },
   customerInfo: { da: '3. Kundeinformation', en: '3. Customer information', de: '3. Kundeninformationen', it: '3. Informazioni cliente', hu: '3. Ügyféladatok' },
@@ -169,13 +182,15 @@ const FORM_TEXT = {
   phonePlaceholder: { da: 'Telefon nr.', en: 'Phone no.', de: 'Telefonnummer', it: 'Telefono', hu: 'Telefonszám' },
   emailPlaceholder: { da: 'E-mail', en: 'E-mail', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
   commentPlaceholder: { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
-  businessCard: { da: '3a. Visitkort / billeder (maks. 3)', en: '3a. Business card / images (max. 3)', de: '3a. Visitenkarte / Bilder (max. 3)', it: '3a. Biglietto da visita / immagini (max. 3)', hu: '3a. Névjegykártya / képek (max. 3)' },
+  businessCard: { da: '3a. Visitkort / billeder (valgfrit, maks. 3)', en: '3a. Business card / images (optional, max. 3)', de: '3a. Visitenkarte / Bilder (optional, max. 3)', it: '3a. Biglietto da visita / immagini (facoltativo, max. 3)', hu: '3a. Névjegykártya / képek (opcionális, max. 3)' },
+  addBusinessCard: { da: 'Jeg vil tilføje visitkort/billeder', en: 'I want to add a business card/images', de: 'Ich möchte eine Visitenkarte/Bilder hinzufügen', it: 'Voglio aggiungere biglietto da visita/immagini', hu: 'Névjegykártyát/képeket szeretnék hozzáadni' },
+  businessCardHint: { da: 'Valgfrit supplement til de manuelle kundeoplysninger.', en: 'Optional supplement to the manual customer information.', de: 'Optionale Ergänzung zu den manuellen Kundendaten.', it: 'Integrazione facoltativa alle informazioni cliente inserite manualmente.', hu: 'Opcionális kiegészítés a manuálisan megadott ügyféladatokhoz.' },
   submit: { da: 'Gem lead og send mail', en: 'Save lead and send mail', de: 'Lead speichern und E-Mail senden', it: 'Salva lead e invia mail', hu: 'Lead mentése és email küldése' },
   sending: { da: 'Sender...', en: 'Sending...', de: 'Sendet...', it: 'Invio...', hu: 'Küldés...' },
   errCountry: { da: 'Mangler valg af land', en: 'Choose a country', de: 'Land auswählen', it: 'Scegli un paese', hu: 'Válasszon országot' },
   errDealerCustomer: { da: 'Vælg forhandler eller kunde', en: 'Choose dealer or customer', de: 'Händler oder Kunde auswählen', it: 'Scegli rivenditore o cliente', hu: 'Válasszon kereskedőt vagy ügyfelet' },
-  errCustomerInfo: { da: 'Udfyld kundeoplysninger eller vedhæft visitkort/billede', en: 'Fill in customer information or attach a business card/image', de: 'Kundendaten ausfüllen oder Visitenkarte/Bild anhängen', it: 'Compila i dati cliente oppure allega biglietto da visita/immagine', hu: 'Töltse ki az ügyféladatokat, vagy csatoljon névjegykártyát/képet' },
-  errBusinessCard: { da: 'Vedhæft visitkort/billede eller udfyld kundeoplysninger', en: 'Attach a business card/image or fill in customer information', de: 'Visitenkarte/Bild anhängen oder Kundendaten ausfüllen', it: 'Allega biglietto da visita/immagine oppure compila i dati cliente', hu: 'Csatoljon névjegykártyát/képet, vagy töltse ki az ügyféladatokat' },
+  errDealerSeller: { da: 'Den valgte forhandler hører ikke til Timan sælgeren', en: 'The selected dealer is not assigned to the Timan seller', de: 'Der gewählte Händler ist dem Timan Verkäufer nicht zugeordnet', it: 'Il rivenditore selezionato non è assegnato al venditore Timan', hu: 'A kiválasztott kereskedő nincs a Timan értékesítőhöz rendelve' },
+  errCustomerInfo: { da: 'Udfyld de obligatoriske kundeoplysninger', en: 'Fill in the required customer information', de: 'Erforderliche Kundendaten ausfüllen', it: 'Compila le informazioni cliente obbligatorie', hu: 'Töltse ki a kötelező ügyféladatokat' },
   errProduct: { da: 'Vælg mindst ét produkt', en: 'Choose at least one product', de: 'Mindestens ein Produkt auswählen', it: 'Scegli almeno un prodotto', hu: 'Válasszon legalább egy terméket' },
   errEquipment: { da: 'Vælg mindst ét redskab', en: 'Choose at least one equipment item', de: 'Mindestens ein Anbaugerät auswählen', it: 'Scegli almeno un accessorio', hu: 'Válasszon legalább egy eszközt' },
   errDemo: { da: 'Vælg ja eller nej', en: 'Choose yes or no', de: 'Ja oder Nein auswählen', it: 'Scegli sì o no', hu: 'Válasszon igen vagy nem' },
@@ -185,10 +200,6 @@ const FORM_TEXT = {
 
 function clean(value: string): string {
   return value.trim();
-}
-
-function same(value: string | null | undefined, target: string): boolean {
-  return (value || '').toLowerCase() === target.toLowerCase();
 }
 
 function normalizeCountry(value: string | null | undefined): string {
@@ -212,26 +223,14 @@ function alphaCompare(a: string | null | undefined, b: string | null | undefined
   return (a || '').localeCompare(b || '', 'da', { sensitivity: 'base' });
 }
 
-function dealerBelongsToSeller(dealer: DealerAccount, seller: SellerDirectoryEntry | null): boolean {
-  if (!seller) return false;
-  const sellerEmail = seller.email?.trim().toLowerCase();
-  const sellerInitials = seller.initials?.trim().toLowerCase();
-  const sellerName = seller.full_name?.trim().toLowerCase();
-  return Boolean(
-    (sellerEmail && dealer.assigned_seller_email?.trim().toLowerCase() === sellerEmail) ||
-    (sellerInitials && dealer.assigned_seller_initials?.trim().toLowerCase() === sellerInitials) ||
-    (sellerName && dealer.assigned_seller_name?.trim().toLowerCase() === sellerName),
-  );
-}
-
-function dealerSellerSortKey(dealer: DealerAccount): string {
+function dealerSellerSortKey(dealer: MesseDealerAccount): string {
   return dealer.assigned_seller_name || dealer.assigned_seller_initials || dealer.assigned_seller_email || '';
 }
 
-function sortDealersForSeller(dealers: DealerAccount[], seller: SellerDirectoryEntry | null): DealerAccount[] {
+function sortDealersForSeller(dealers: MesseDealerAccount[], seller: SellerDirectoryEntry | null): MesseDealerAccount[] {
   return [...dealers].sort((a, b) => {
-    const aSelected = dealerBelongsToSeller(a, seller);
-    const bSelected = dealerBelongsToSeller(b, seller);
+    const aSelected = dealerIsAssignedToTimanSeller(a, seller);
+    const bSelected = dealerIsAssignedToTimanSeller(b, seller);
     if (aSelected !== bSelected) return aSelected ? -1 : 1;
 
     const aHasSeller = Boolean(dealerSellerSortKey(a));
@@ -316,28 +315,30 @@ function FlagIcon({ code, className }: { code: string; className?: string }) {
   );
 }
 
-function isGermanySeller(seller: SellerDirectoryEntry): boolean {
-  const haystack = [seller.full_name, seller.email, seller.initials].join(' ').toLowerCase();
-  return haystack.includes('jakob') ||
-    haystack.includes('alexander') ||
-    ['jtn', 'akr', 'ak'].includes(seller.initials.toLowerCase());
-}
+type MesseLeadMailWebhookResult = {
+  httpStatus: number;
+  providerMessageId: string | null;
+};
 
-function isDenmarkDefaultSeller(seller: SellerDirectoryEntry): boolean {
-  const haystack = [seller.full_name, seller.email, seller.initials].join(' ').toLowerCase();
-  return seller.initials.toLowerCase() === 'em' || haystack.includes('esben');
-}
-
-async function sendLeadMail(payload: Record<string, unknown>): Promise<void> {
+async function sendLeadMail(payload: Record<string, unknown>): Promise<MesseLeadMailWebhookResult> {
   const response = await fetch(getMesseLeadWebhookUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  const text = await response.text().catch(() => '');
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
     throw new Error(`HTTP ${response.status}${text ? ` - ${text}` : ''}`);
   }
+  let providerMessageId: string | null = response.headers.get('x-message-id');
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const candidate = parsed.message_id || parsed.messageId || parsed.provider_message_id;
+    if (typeof candidate === 'string' && candidate.trim()) providerMessageId = candidate.trim();
+  } catch {
+    // n8n commonly returns an empty or text response; no provider id is still a valid send result.
+  }
+  return { httpStatus: response.status, providerMessageId };
 }
 
 function localDateIso(date: Date): string {
@@ -360,7 +361,6 @@ function addYearsIso(date: Date, years: number): string {
 }
 
 export default function MesseFollowUpPage() {
-  const { appUser } = useAppUser();
   const { uiLanguage, setAutoLanguage } = useLanguage();
   const now = new Date();
   const today = localDateIso(now);
@@ -374,7 +374,8 @@ export default function MesseFollowUpPage() {
     if (product === 'All') return f('productAll');
     return product;
   };
-  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealers, setDealers] = useState<MesseDealerAccount[]>([]);
+  const [dealerCountries, setDealerCountries] = useState<string[]>([]);
   const [sellers, setSellers] = useState<SellerDirectoryEntry[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -387,6 +388,7 @@ export default function MesseFollowUpPage() {
   const [equipmentItems, setEquipmentItems] = useState<string[]>([]);
   const [wantsDemo, setWantsDemo] = useState<YesNo>('');
   const [sellerEmail, setSellerEmail] = useState('');
+  const [sellerSelectionMode, setSellerSelectionMode] = useState<SellerSelectionMode>('initial');
   const [dealerNumber, setDealerNumber] = useState('');
   const [company, setCompany] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -395,13 +397,13 @@ export default function MesseFollowUpPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [wantsBusinessCardUpload, setWantsBusinessCardUpload] = useState(false);
   const [businessCardFiles, setBusinessCardFiles] = useState<File[]>([]);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const countrySectionRef = useRef<HTMLElement>(null);
   const dealerCustomerSectionRef = useRef<HTMLElement>(null);
   const customerInfoSectionRef = useRef<HTMLElement>(null);
-  const businessCardSectionRef = useRef<HTMLElement>(null);
   const productSectionRef = useRef<HTMLElement>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
   const responsibleSectionRef = useRef<HTMLElement>(null);
@@ -416,7 +418,7 @@ export default function MesseFollowUpPage() {
   const firstProductInputRef = useRef<HTMLInputElement>(null);
   const firstEquipmentInputRef = useRef<HTMLInputElement>(null);
   const demoFirstButtonRef = useRef<HTMLButtonElement>(null);
-  const firstSellerButtonRef = useRef<HTMLButtonElement>(null);
+  const sellerSelectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -434,11 +436,7 @@ export default function MesseFollowUpPage() {
   function handleCountryChoice(value: Exclude<CountryQuickChoice, ''>) {
     setCountryQuickChoice(value);
     if (value === 'de') setAutoLanguage('de');
-    if (value === 'dk') {
-      setAutoLanguage('da');
-      const esben = sellers.find(isDenmarkDefaultSeller);
-      if (esben) setSellerEmail(esben.email);
-    }
+    if (value === 'dk') setAutoLanguage('da');
     if (value === 'other') setAutoLanguage('en');
   }
 
@@ -447,28 +445,19 @@ export default function MesseFollowUpPage() {
     (async () => {
       setLoadingData(true);
       try {
-        const [dealerResult, sellerList] = await Promise.all([
-          fetchDealerAccounts({ includeDeleted: false }),
-          loadSellerDirectory(),
+        const [countries, sellerList] = await Promise.all([
+          fetchMesseDealerCountries(),
+          loadMesseAssignableTimanSellers(),
         ]);
         if (cancelled) return;
-        setDealers(dealerResult.rows);
-        const activeSellers = sellerList
-          .filter((seller) => seller.email && seller.initials)
-          .sort((a, b) => a.initials.localeCompare(b.initials));
-        setSellers(activeSellers);
-        const current = appUser?.email
-          ? activeSellers.find((seller) => same(seller.email, appUser.email))
-          : null;
-        if (current) {
-          setSellerEmail(current.email);
-        }
+        setDealerCountries(countries);
+        setSellers(sellerList);
       } finally {
         if (!cancelled) setLoadingData(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email]);
+  }, []);
 
   const selectedDealer = useMemo(
     () => dealers.find((dealer) => dealer.account_number === dealerNumber) || null,
@@ -476,45 +465,63 @@ export default function MesseFollowUpPage() {
   );
 
   const countryOptions = useMemo(() => {
-    const countries = new Set<string>();
-    dealers.forEach((dealer) => {
-      if (dealer.country) countries.add(dealer.country);
-    });
-    return Array.from(countries).sort((a, b) => a.localeCompare(b));
-  }, [dealers]);
+    return Array.from(new Set(dealerCountries)).sort((a, b) => a.localeCompare(b));
+  }, [dealerCountries]);
 
   const otherCountryOptions = useMemo(() => (
     countryOptions.filter((country) => !isDenmarkOrGermany(country))
   ), [countryOptions]);
 
-  const sellerOptions = useMemo(() => (
-    countryQuickChoice === 'de'
-      ? sellers.filter(isGermanySeller)
-      : sellers
-  ), [countryQuickChoice, sellers]);
+  const sellerOptions = useMemo(
+    () => filterMesseAssignableTimanSellersForCountry(sellers, selectedLeadCountry),
+    [sellers, selectedLeadCountry],
+  );
 
   const responsibleSeller = useMemo(() => {
     return sellerOptions.find((seller) => seller.email === sellerEmail) || null;
   }, [sellerEmail, sellerOptions]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!responsibleSeller) {
+      setDealers([]);
+      return () => { cancelled = true; };
+    }
+
+    setDealers([]);
+    fetchMesseDealerAccountsForSeller(responsibleSeller.id)
+      .then((rows) => {
+        if (!cancelled) setDealers(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setDealers([]);
+      });
+
+    return () => { cancelled = true; };
+  }, [responsibleSeller]);
+
   const filteredDealers = useMemo(() => {
-    const countryFiltered = dealers.filter((dealer) => countryMatches(dealer.country, selectedLeadCountry));
-    return sortDealersForSeller(countryFiltered, responsibleSeller);
+    if (!responsibleSeller) return [];
+    const eligibleDealers = dealers.filter((dealer) => (
+      countryMatches(dealer.country, selectedLeadCountry)
+      && dealerIsAssignedToTimanSeller(dealer, responsibleSeller)
+      && isMesseSelectablePartner(dealer)
+    ));
+    return sortDealersForSeller(eligibleDealers, responsibleSeller);
   }, [dealers, selectedLeadCountry, responsibleSeller]);
 
   useEffect(() => {
-    if (countryQuickChoice !== 'de') return;
-    if (sellerOptions.length === 0) return;
-    if (!sellerOptions.some((seller) => seller.email === sellerEmail)) {
-      setSellerEmail(sellerOptions[0].email);
-    }
-  }, [countryQuickChoice, sellerEmail, sellerOptions]);
+    if (!sellerEmail || sellerOptions.some((seller) => seller.email === sellerEmail)) return;
+    setSellerEmail('');
+    setSellerSelectionMode('initial');
+  }, [sellerEmail, sellerOptions]);
 
   useEffect(() => {
-    if (countryQuickChoice !== 'dk' || sellerEmail) return;
-    const esben = sellers.find(isDenmarkDefaultSeller);
-    if (esben) setSellerEmail(esben.email);
-  }, [countryQuickChoice, sellerEmail, sellers]);
+    if (sellerSelectionMode === 'manual') return;
+    const dealerSeller = resolveDealerAssignableTimanSeller(selectedDealer, sellerOptions);
+    setSellerEmail(dealerSeller?.email || '');
+    setSellerSelectionMode('auto');
+  }, [selectedDealer, sellerOptions, sellerSelectionMode]);
 
   useEffect(() => {
     if (leadType === 'dealer' && dealerNumber) {
@@ -550,6 +557,14 @@ export default function MesseFollowUpPage() {
     ));
   }
 
+  function toggleBusinessCardUpload(enabled: boolean) {
+    setWantsBusinessCardUpload(enabled);
+    if (!enabled) {
+      setBusinessCardFiles([]);
+      if (businessCardInputRef.current) businessCardInputRef.current.value = '';
+    }
+  }
+
   const hasCustomerInfo = useMemo(
     () => Boolean(clean(company) && clean(contactPerson) && clean(address) && clean(phone)),
     [address, company, contactPerson, phone],
@@ -576,9 +591,11 @@ export default function MesseFollowUpPage() {
       errors.country = f('errCountry');
     }
     if (!leadType) errors.dealerCustomer = f('errDealerCustomer');
-    if (!hasCustomerInfo && !hasBusinessCard) {
+    if (dealerNumber && !filteredDealers.some((dealer) => dealer.account_number === dealerNumber)) {
+      errors.dealerCustomer = f('errDealerSeller');
+    }
+    if (!hasCustomerInfo) {
       errors.customerInfo = f('errCustomerInfo');
-      errors.businessCard = f('errBusinessCard');
     }
     if (products.length === 0) {
       errors.product = f('errProduct');
@@ -599,11 +616,12 @@ export default function MesseFollowUpPage() {
       specificCountry,
       leadType,
       hasCustomerInfo,
-      hasBusinessCard,
       products,
       hasRequiredEquipment,
       wantsDemo,
       responsibleSeller,
+      dealerNumber,
+      filteredDealers,
       textLanguage,
     ],
   );
@@ -612,13 +630,12 @@ export default function MesseFollowUpPage() {
     country: countrySectionRef,
     dealerCustomer: dealerCustomerSectionRef,
     customerInfo: customerInfoSectionRef,
-    businessCard: businessCardSectionRef,
     product: productSectionRef,
     demo: demoSectionRef,
     responsible: responsibleSectionRef,
   };
 
-  const sectionOrder: FormSectionKey[] = ['country', 'dealerCustomer', 'customerInfo', 'businessCard', 'product', 'demo', 'responsible'];
+  const sectionOrder: FormSectionKey[] = ['country', 'dealerCustomer', 'customerInfo', 'product', 'demo', 'responsible'];
 
   function focusFirstField(section: FormSectionKey) {
     if (section === 'country') {
@@ -638,10 +655,6 @@ export default function MesseFollowUpPage() {
       else companyInputRef.current?.focus();
       return;
     }
-    if (section === 'businessCard') {
-      businessCardInputRef.current?.focus();
-      return;
-    }
     if (section === 'product') {
       if (products.length === 0) firstProductInputRef.current?.focus();
       else firstEquipmentInputRef.current?.focus();
@@ -651,7 +664,7 @@ export default function MesseFollowUpPage() {
       demoFirstButtonRef.current?.focus();
       return;
     }
-    firstSellerButtonRef.current?.focus();
+    sellerSelectRef.current?.focus();
   }
 
   function scrollToFirstError(errors: FormSectionErrors) {
@@ -663,7 +676,7 @@ export default function MesseFollowUpPage() {
     });
   }
 
-  const hasCustomerInfoError = Boolean(formErrors.customerInfo && !hasBusinessCard);
+  const hasCustomerInfoError = Boolean(formErrors.customerInfo);
   const fieldClass = (invalid: boolean) => `rounded-lg border px-3 py-2 text-sm outline-none transition ${
     invalid
       ? 'border-rose-300 bg-rose-50 focus:border-rose-400 focus:ring-2 focus:ring-rose-100'
@@ -686,13 +699,17 @@ export default function MesseFollowUpPage() {
     if (!validate() || !responsibleSeller) return;
     setSubmitting(true);
     try {
-      const ownerId = await resolveSellerId(responsibleSeller.email);
+      const ownerId = responsibleSeller.id;
       const cleanCompany = clean(company);
       const cleanContactPerson = clean(contactPerson);
       const cleanAddress = clean(address);
       const cleanZipCity = clean(zipCity);
       const cleanPhone = clean(phone);
       const cleanEmail = clean(email);
+      const selectedAllowedDealer = selectedDealer
+        && filteredDealers.some((dealer) => dealer.id === selectedDealer.id)
+        ? selectedDealer
+        : null;
       const contactInformation = [
         cleanCompany ? `Firma/CVR: ${cleanCompany}` : null,
         cleanContactPerson ? `Kontaktperson: ${cleanContactPerson}` : null,
@@ -702,8 +719,11 @@ export default function MesseFollowUpPage() {
         cleanEmail ? `E-mail: ${cleanEmail}` : null,
         selectedLeadCountry ? `Land: ${selectedLeadCountry}` : null,
       ].filter(Boolean).join('\n');
-      const dealerText = selectedDealer
-        ? `${selectedDealer.company_name} (${selectedDealer.account_number})`
+      const structuredContactColumns = structuredCrmLeadContactColumns(
+        parseStructuredContactInformation(contactInformation, selectedLeadCountry),
+      );
+      const dealerText = selectedAllowedDealer
+        ? `${selectedAllowedDealer.company_name} (${selectedAllowedDealer.account_number})`
         : 'Ingen forhandler valgt';
       const selectedProductList = [
         ...products,
@@ -732,7 +752,7 @@ export default function MesseFollowUpPage() {
         owner_user_id: ownerId,
         owner_name: responsibleSeller.full_name || responsibleSeller.initials,
         owner_email: responsibleSeller.email,
-        linked_dealer_id: selectedDealer?.id || null,
+        linked_dealer_id: selectedAllowedDealer?.id || null,
         first_contact_date: today,
         expected_close_date: expectedCloseDate,
         next_followup_date: followUpDate,
@@ -742,11 +762,12 @@ export default function MesseFollowUpPage() {
         contact_type: 'Trade fair',
         customer_type: leadType === 'dealer' ? 'Dealer/Demo machine' : 'Company',
         contact_information: contactInformation,
+        ...structuredContactColumns,
         trade_fair: 'Messe / Exhibition',
-        country: selectedLeadCountry || selectedDealer?.country || null,
+        country: selectedLeadCountry || selectedAllowedDealer?.country || null,
         notes: leadNotes,
         estimated_value: estimatedLeadValue > 0 ? estimatedLeadValue : null,
-        probability: wantsDemo === 'yes' ? 50 : 25,
+        probability: wantsDemo === 'yes' ? 40 : 25,
         pipeline_stage: 'Lead',
         lost_competitor: null,
         lost_reason: null,
@@ -760,9 +781,11 @@ export default function MesseFollowUpPage() {
       let leadAttachments: CrmLeadAttachment[] = [];
       let attachmentError: unknown = null;
       try {
-        leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
-        if (leadAttachments.length > 0) {
-          await updateLead(lead.id, { attachments: leadAttachments });
+        if (businessCardFiles.length > 0) {
+          leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
+          if (leadAttachments.length > 0) {
+            await updateLead(lead.id, { attachments: leadAttachments });
+          }
         }
       } catch (error) {
         attachmentError = error;
@@ -783,19 +806,14 @@ export default function MesseFollowUpPage() {
             console.error('[messe lead attachment links] failed:', error);
           }
         }
-        const mailRecipients = buildMesseLeadMailRecipients(responsibleSeller.email, email);
-        await sendLeadMail({
+        const mailRouting = buildMesseLeadInternalMailRouting(responsibleSeller.email);
+        const webhookResult = await sendLeadMail({
           source: 'messe_follow_up_form',
           lead_id: lead.id,
           lead_no: lead.lead_no,
           created_at: new Date().toISOString(),
-          recipient_email: mailRecipients.recipientEmail,
-          extra_recipient_email: mailRecipients.extraRecipientEmail,
-          recipient_emails: mailRecipients.to,
-          to: mailRecipients.to,
-          bcc: mailRecipients.bcc,
-          bcc_recipients: mailRecipients.bcc,
-          bccRecipients: mailRecipients.bcc,
+          to: mailRouting.to,
+          bcc: mailRouting.bcc,
           responsible_seller: {
             id: ownerId,
             name: responsibleSeller.full_name || responsibleSeller.initials,
@@ -827,6 +845,30 @@ export default function MesseFollowUpPage() {
           attachment_links: mailAttachmentFiles,
           attachment_files: mailAttachmentFiles,
         });
+        try {
+          await logMailAuditEvent({
+            sent_at: new Date().toISOString(),
+            category: 'messe_lead',
+            source_module: 'messe',
+            source_action: 'follow_up_submit',
+            subject: `Nyt messe lead fra Timan Portal - ${leadTitle}`,
+            to_addresses: mailRouting.to,
+            cc_addresses: [],
+            bcc_addresses: mailRouting.bcc,
+            responsible_user_id: ownerId,
+            responsible_seller_id: ownerId,
+            related_entity_type: 'crm_lead',
+            related_entity_id: lead.id,
+            related_entity_label: formatLeadNo(lead.lead_no),
+            status: 'sent',
+            provider: 'n8n:timan-messe-lead',
+            provider_message_id: webhookResult.providerMessageId,
+            attachment_count: leadAttachments.length,
+            error_message: null,
+          });
+        } catch (auditError) {
+          console.error('[messe lead mail audit] failed:', auditError);
+        }
         if (attachmentError) {
           toast.warning('Lead gemt og mail sendt, men billede kunne ikke vedhæftes');
         } else {
@@ -834,6 +876,30 @@ export default function MesseFollowUpPage() {
         }
       } catch (mailError) {
         console.error('[messe lead webhook] failed:', mailError);
+        try {
+          await logMailAuditEvent({
+            sent_at: null,
+            category: 'messe_lead',
+            source_module: 'messe',
+            source_action: 'follow_up_submit',
+            subject: `Nyt messe lead fra Timan Portal - ${leadTitle}`,
+            to_addresses: mailRouting.to,
+            cc_addresses: [],
+            bcc_addresses: mailRouting.bcc,
+            responsible_user_id: ownerId,
+            responsible_seller_id: ownerId,
+            related_entity_type: 'crm_lead',
+            related_entity_id: lead.id,
+            related_entity_label: formatLeadNo(lead.lead_no),
+            status: 'failed',
+            provider: 'n8n:timan-messe-lead',
+            provider_message_id: null,
+            attachment_count: leadAttachments.length,
+            error_message: mailError instanceof Error ? mailError.message : String(mailError),
+          });
+        } catch (auditError) {
+          console.error('[messe lead mail audit] failed:', auditError);
+        }
         toast.warning(attachmentError
           ? 'Lead gemt i CRM, men billede og mail kunne ikke færdiggøres'
           : 'Lead gemt i CRM, men mail kunne ikke sendes');
@@ -943,7 +1009,7 @@ export default function MesseFollowUpPage() {
               </div>
             </FormSection>
 
-            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo} complete={hasCustomerInfo || hasBusinessCard}>
+            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo} complete={hasCustomerInfo}>
               <RequiredHeading>{f('customerInfo')}</RequiredHeading>
               <SectionError message={formErrors.customerInfo} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -957,44 +1023,52 @@ export default function MesseFollowUpPage() {
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className={`w-full ${fieldClass(false)}`} />
             </FormSection>
 
-            <FormSection forwardedRef={businessCardSectionRef} error={formErrors.businessCard} complete={hasBusinessCard || hasCustomerInfo}>
-              <label className="text-sm font-bold">
-                {f('businessCard')}
-                <RequiredMark />
-              </label>
-              <SectionError message={formErrors.businessCard} />
+            <FormSection complete={hasBusinessCard}>
+              <h2 className="text-sm font-bold">{f('businessCard')}</h2>
               <p className="text-xs text-slate-500">
-                Vedhæft et visitkort, hvis du ikke udfylder kundeoplysningerne manuelt.
+                {f('businessCardHint')}
               </p>
-              <input
-                ref={businessCardInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                onChange={(e) => {
-                  const selectedFiles = Array.from(e.target.files || []);
-                  const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
-                  if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
-                  if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
-                  setBusinessCardFiles(imageFiles);
-                }}
-                className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
-              />
-              {businessCardFiles.length > 0 && (
-                <div className="space-y-1 text-xs text-slate-600">
-                  {businessCardFiles.map((file, index) => (
-                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
-                      <span>{index + 1}. {file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
-                        className="font-semibold text-red-600 hover:text-red-700"
-                      >
-                        Fjern
-                      </button>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={wantsBusinessCardUpload}
+                  onChange={(event) => toggleBusinessCardUpload(event.target.checked)}
+                  className="h-4 w-4 accent-emerald-700"
+                />
+                {f('addBusinessCard')}
+              </label>
+              {wantsBusinessCardUpload && (
+                <div className="space-y-3">
+                  <input
+                    ref={businessCardInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const selectedFiles = Array.from(e.target.files || []);
+                      const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
+                      if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
+                      if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
+                      setBusinessCardFiles(imageFiles);
+                    }}
+                    className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
+                  />
+                  {businessCardFiles.length > 0 && (
+                    <div className="space-y-1 text-xs text-slate-600">
+                      {businessCardFiles.map((file, index) => (
+                        <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                          <span>{index + 1}. {file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                            className="font-semibold text-red-600 hover:text-red-700"
+                          >
+                            Fjern
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </FormSection>
@@ -1133,31 +1207,32 @@ export default function MesseFollowUpPage() {
                 {loadingData && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
               </div>
               <SectionError message={formErrors.responsible} />
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {sellerOptions.map((seller, index) => (
-                  <button
-                    ref={index === 0 ? firstSellerButtonRef : undefined}
-                    type="button"
-                    key={seller.id}
-                    onClick={() => setSellerEmail(seller.email)}
-                    className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                      sellerEmail === seller.email
-                        ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
-                    }`}
-                  >
+              <select
+                ref={sellerSelectRef}
+                value={sellerEmail}
+                onChange={(event) => {
+                  setSellerEmail(event.target.value);
+                  setSellerSelectionMode('manual');
+                }}
+                className={fieldClass(Boolean(formErrors.responsible))}
+              >
+                <option value="">{f('chooseResponsible')}</option>
+                {sellerOptions.map((seller) => (
+                  <option key={seller.id} value={seller.email}>
                     {seller.initials} - {seller.full_name || seller.email}
-                    <span className="mt-1 block text-xs font-normal text-slate-500">
-                      {seller.email}
-                    </span>
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
               {leadType === 'customer' && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold">{f('dealerSelect')}</label>
-                  <select value={dealerNumber} onChange={(e) => setDealerNumber(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                    <option value="">{f('dealerSelect')}</option>
+                  <select
+                    value={dealerNumber}
+                    onChange={(e) => setDealerNumber(e.target.value)}
+                    disabled={!responsibleSeller}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                  >
+                    <option value="">{responsibleSeller ? f('dealerSelect') : f('chooseSellerFirst')}</option>
                     {filteredDealers.slice(0, 250).map((dealer) => (
                       <option key={dealer.id} value={dealer.account_number}>
                         {dealer.company_name} - {dealer.account_number}
@@ -1168,7 +1243,9 @@ export default function MesseFollowUpPage() {
                 </div>
               )}
               <p className="text-xs text-slate-500">
-                {f('mailTo')}: {responsibleSeller?.email || f('chooseResponsible')}
+                {f('mailTo')}: {responsibleSeller
+                  ? `${responsibleSeller.full_name || responsibleSeller.initials} · ${responsibleSeller.email}`
+                  : f('chooseResponsible')}
               </p>
             </FormSection>
 

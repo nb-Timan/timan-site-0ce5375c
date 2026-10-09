@@ -10,19 +10,23 @@ describe('Academy fullwidth dashboard layout', () => {
     expect(academyPage).toContain('max-w-[1600px]');
   });
 
-  it('uses the compact dashboard hierarchy while preserving Academy actions', () => {
-    expect(academyPage).toContain('Din progression');
-    expect(academyPage).toContain('Næste oplåsning');
-    expect(academyPage).toContain('Konfigurator');
-    expect(academyPage).toContain('Næste milepæl');
-    expect(academyPage).toContain('Badges');
-    expect(academyPage).toContain('Fortsæt hvor jeg slap');
-    expect(academyPage).toContain('Din Sales Academy');
+  it('keeps the canonical Academy journey in the top block without a duplicate continue card', () => {
+    expect(academyPage).toContain("tr('academyProgress')");
+    expect(academyPage).toContain("tr('academyNextUnlock')");
+    expect(academyPage).toContain('label="Basic"');
+    expect(academyPage).toContain("label={tr('academySales')}");
+    expect(academyPage).toContain("assignedTracks.includes('service') && <Journey");
+    expect(academyPage).toContain('hasSalesTrack && <Journey');
+    expect(academyPage).toContain("tr('academyNextMilestone')");
+    expect(academyPage).toContain("tr('academyBadges')");
+    expect(academyPage).toContain("tr('academyJourney')");
     expect(academyPage).toContain('sm:grid-cols-2 lg:grid-cols-4');
-    expect(academyPage).toContain('lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]');
+    expect(academyPage).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]');
+    expect(academyPage).not.toContain("tr('academyContinueWhere')");
+    expect(academyPage).not.toContain('rc-1000s-tile.png" alt="" className="pointer-events-none absolute');
     expect(academyPage).toContain('lg:grid-cols-2');
-    expect(academyPage).toContain('<LockedModule');
+    expect(academyPage).not.toContain('<LockedModule');
     expect(academyPage).toContain('startCase');
-    expect(academyPage).toContain('Tilbage til portalen');
+    expect(academyPage).toContain("tr('academyBackToPortal')");
   });
 });

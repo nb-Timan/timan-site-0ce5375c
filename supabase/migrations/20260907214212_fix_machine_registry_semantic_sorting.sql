@@ -86,4 +86,4 @@ select jsonb_build_object('total',coalesce((select max(filtered_total) from orde
 $$;
 
 revoke all on function public.machine_registry_page_scoped(text[],text,text,text,text,text,text,boolean,date,date,text,text,integer,integer) from public;
-grant execute on function public.machine_registry_page_scoped(text[],text,text,text,text,text,text,boolean,date,date,text,text,integer,integer) to authenticated;
+grant execute on function public.machine_registry_page_scoped(text[],text,text,text,text,text,text,boolean,date,date,text,text,integer,integer) to authenticated;;

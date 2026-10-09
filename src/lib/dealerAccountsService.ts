@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import { listScopedOrdersWithValue } from "@/lib/crmConfigurationsService";
 import { dealerKeyOf } from "@/lib/crmRelationsService";
-import { normalizePartnerAccountType, resolvePartnerAccountType } from "@/lib/partnerAccountTypes";
+import { isMesseSelectablePartner, normalizePartnerAccountType, resolvePartnerAccountType } from "@/lib/partnerAccountTypes";
 
 export interface DealerAccount {
   id: string;
@@ -47,6 +47,7 @@ export interface DealerAccount {
   deleted_at: string | null;
   deleted_by: string | null;
   parent_account_number: string | null;
+  billing_account_id: string | null;
   is_main_account: boolean;
   branch_name: string | null;
   director_name: string | null;
@@ -82,6 +83,8 @@ export interface DealerAccount {
   geocoded_at: string | null;
   geocoding_status: string | null;
   geocoding_error: string | null;
+  geocoding_address_hash: string | null;
+  geocoding_retry_after: string | null;
   google_place_id: string | null;
   // Phase 60 — successor / efterfølger-forhandler (portalstyret, ikke SharePoint).
   successor_dealer_id: string | null;
@@ -122,7 +125,75 @@ export interface DealerAccountsResult {
   error?: string;
 }
 
-function rowToDealer(row: Record<string, unknown>): DealerAccount {
+/** Minimal, read-only dealer projection used exclusively by Messe follow-up. */
+export interface MesseDealerAccount {
+  id: string;
+  account_number: string;
+  company_name: string;
+  country: string | null;
+  partner_type: string | null;
+  assigned_seller_id: string | null;
+  assigned_seller_initials: string | null;
+  assigned_seller_name: string | null;
+  assigned_seller_email: string | null;
+  is_active: boolean;
+  is_blocked: boolean;
+  is_deleted: boolean;
+}
+
+function rowToMesseDealer(row: Record<string, unknown>): MesseDealerAccount {
+  return {
+    id: String(row.id || ''),
+    account_number: String(row.account_number || ''),
+    company_name: String(row.company_name || ''),
+    country: (row.country as string | null) ?? null,
+    partner_type: (row.partner_type as string | null) ?? null,
+    assigned_seller_id: (row.assigned_seller_id as string | null) ?? null,
+    assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
+    assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
+    assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
+    is_active: Boolean(row.is_active),
+    is_blocked: Boolean(row.is_blocked),
+    is_deleted: Boolean(row.is_deleted),
+  };
+}
+
+/**
+ * Purpose-built RPC for Messe sessions. It cannot return contact, financial,
+ * CRM or Partnerdata fields and rejects any seller outside the active Timan
+ * seller directory in the database.
+ */
+export async function fetchMesseDealerAccountsForSeller(
+  sellerId: string | null | undefined,
+): Promise<MesseDealerAccount[]> {
+  if (!sellerId) return [];
+  const { data, error } = await supabase.rpc('list_messe_dealer_accounts_for_seller', {
+    p_seller_id: sellerId,
+  });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[])
+    .map(rowToMesseDealer)
+    .filter((dealer) => (
+      dealer.id
+      && dealer.account_number
+      && dealer.company_name
+      && dealer.is_active
+      && !dealer.is_blocked
+      && !dealer.is_deleted
+      && isMesseSelectablePartner(dealer)
+    ));
+}
+
+/** Distinct canonical dealer countries only; no dealer records are exposed. */
+export async function fetchMesseDealerCountries(): Promise<string[]> {
+  const { data, error } = await supabase.rpc('list_messe_dealer_countries');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[])
+    .map((row) => String(row.country || '').trim())
+    .filter(Boolean);
+}
+
+export function rowToDealer(row: Record<string, unknown>): DealerAccount {
   return {
     id: String(row.id),
     account_number: (row.account_number as string) || "",
@@ -156,6 +227,7 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     deleted_at: (row.deleted_at as string | null) ?? null,
     deleted_by: (row.deleted_by as string | null) ?? null,
     parent_account_number: (row.parent_account_number as string | null) ?? null,
+    billing_account_id: (row.billing_account_id as string | null) ?? null,
     is_main_account: Boolean(row.is_main_account ?? false),
     branch_name: (row.branch_name as string | null) ?? null,
     director_name: (row.director_name as string | null) ?? null,
@@ -191,6 +263,8 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     geocoded_at: (row.geocoded_at as string | null) ?? null,
     geocoding_status: (row.geocoding_status as string | null) ?? null,
     geocoding_error: (row.geocoding_error as string | null) ?? null,
+    geocoding_address_hash: (row.geocoding_address_hash as string | null) ?? null,
+    geocoding_retry_after: (row.geocoding_retry_after as string | null) ?? null,
     google_place_id: (row.google_place_id as string | null) ?? null,
     successor_dealer_id: (row.successor_dealer_id as string | null) ?? null,
     successor_dealer_account_number: (row.successor_dealer_account_number as string | null) ?? null,
@@ -271,6 +345,61 @@ export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {
       source: "fallback",
       rows: [],
       error: describeSupabaseError("Supabase fejl ved hentning af dealer_accounts", e),
+    };
+  }
+}
+
+/**
+ * Canonical Partnerdata account list for the current user or a Backend
+ * View-as identity. Account ownership is enforced inside the database RPC;
+ * callers never download the global catalogue and trim it in the browser.
+ */
+export async function fetchPartnerDataAccountsForEffectiveUser(
+  effectiveUserId: string | null,
+  opts: { includeDeleted?: boolean } = {},
+): Promise<DealerAccountsResult> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      return { source: "fallback", rows: [], error: "Supabase Auth session påkrævet." };
+    }
+
+    const { data, error } = await supabase.rpc("list_partnerdata_accounts", {
+      p_effective_user_id: effectiveUserId,
+      p_include_deleted: opts.includeDeleted === true,
+    });
+    if (error) throw error;
+    return {
+      source: "supabase",
+      rows: ((data ?? []) as Record<string, unknown>[]).map(rowToDealer),
+    };
+  } catch (error) {
+    return {
+      source: "fallback",
+      rows: [],
+      error: describeSupabaseError("Kunne ikke hente scoped Partnerdata", error),
+    };
+  }
+}
+
+/**
+ * Public, deliberately narrow partner-map read. The Messe route has no
+ * authenticated portal session, so it cannot use the Backend-only account
+ * listing. The RPC exposes only active, public partner map fields.
+ */
+export async function fetchPublicPartnerMapAccounts(): Promise<DealerAccountsResult> {
+  try {
+    const { data, error } = await supabase.rpc("list_public_partner_map_accounts");
+    if (error) throw error;
+    return {
+      source: "supabase",
+      rows: ((data ?? []) as Record<string, unknown>[]).map(rowToDealer),
+    };
+  } catch (error) {
+    return {
+      source: "fallback",
+      rows: [],
+      error: describeSupabaseError("Kunne ikke hente offentlige partnerkort-data", error),
     };
   }
 }
@@ -427,12 +556,14 @@ export interface UpdateDealerAccountPatch {
   geocoded_at?: string | null;
   geocoding_status?: string | null;
   geocoding_error?: string | null;
+  geocoding_address_hash?: string | null;
+  geocoding_retry_after?: string | null;
 }
 
 /**
- * Update editable dealer_accounts fields. Backend/Admin only — RLS on
- * dealer_accounts will reject non-backend callers and the error is
- * surfaced as a Danish permission message.
+ * Update editable dealer_accounts fields. Partnerdata passes an effective
+ * user id so the server can enforce Seller/View-as scope. Other established
+ * admin flows keep using the direct RLS-protected table path.
  *
  * Does NOT touch orders, quotes, activities, budget, users, prices or
  * configurator data.
@@ -440,8 +571,27 @@ export interface UpdateDealerAccountPatch {
 export async function updateDealerAccount(
   id: string,
   patch: UpdateDealerAccountPatch,
+  effectiveUserId?: string | null,
 ): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
   try {
+    if (effectiveUserId !== undefined) {
+      const { data, error } = await supabase.rpc("update_partnerdata_account_profile", {
+        p_dealer_account_id: id,
+        p_patch: patch,
+        p_effective_user_id: effectiveUserId,
+      });
+      if (error) {
+        const code = (error as { code?: string }).code;
+        const msg = (error as { message?: string }).message || "";
+        if (code === "42501" || /scope|permission|authorized/i.test(msg)) {
+          return { ok: false, error: "Du har ikke adgang til at rette denne partnerkonto." };
+        }
+        throw error;
+      }
+      const rpcRow = Array.isArray(data) ? data[0] : data;
+      return { ok: true, row: rpcRow ? rowToDealer(rpcRow as Record<string, unknown>) : undefined };
+    }
+
     const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) update[k] = v;
@@ -835,20 +985,29 @@ export async function fetchDealerAccountStatsForSeller(opts: {
  * see the same grouped structure as Timan Backend → Forhandlere.
  */
 export async function fetchDealerAccountsForSeller(opts: {
+  sellerId?: string | null;
   initials?: string | null;
   email?: string | null;
 }): Promise<{ dealers: DealerAccount[]; stats: Record<string, DealerAccountStats>; error?: string }> {
+  const sellerId = opts.sellerId?.trim() || null;
   const initials = opts.initials?.trim().toUpperCase() || null;
   const email = opts.email?.trim().toLowerCase() || null;
-  if (!initials && !email) return { dealers: [], stats: {} };
+  if (!sellerId && !initials && !email) return { dealers: [], stats: {} };
 
-  const [dRes, sRes] = await Promise.all([
-    fetchDealerAccounts({ includeDeleted: true }),
-    fetchDealerAccountStats(),
-  ]);
+  // Mine forhandlere and Partnerdata pass the stable seller id. In that path
+  // the canonical hierarchy is resolved server-side, including inherited
+  // branches, parent anchors and inactive predecessors.
+  const scopedDealerRequest = sellerId
+    ? fetchPartnerDataAccountsForEffectiveUser(sellerId, { includeDeleted: true })
+    : fetchDealerAccounts({ includeDeleted: true });
+  const dRes = await scopedDealerRequest;
   if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
+  const sRes = sellerId
+    ? await fetchDealerAccountStatsByNumbers(dRes.rows.map((dealer) => dealer.account_number))
+    : await fetchDealerAccountStats();
 
   const matches = (d: DealerAccount): boolean => {
+    if (sellerId) return d.assigned_seller_id === sellerId;
     const re = d.assigned_seller_email?.trim().toLowerCase() || null;
     return (initials != null && sellerInitialsMatch(d.assigned_seller_initials, initials))
       || (email != null && re === email);
@@ -888,7 +1047,10 @@ export async function fetchDealerAccountsForSeller(opts: {
     if (active && keep.has(active.id)) keep.add(d.id);
   }
 
-  const dealers = dRes.rows.filter((d) => keep.has(d.id));
+  const dealers = sellerId ? dRes.rows : dRes.rows.filter((d) => keep.has(d.id));
+  if (sellerId) {
+    for (const dealer of dealers) keep.add(dealer.id);
+  }
   const statsMap: Record<string, DealerAccountStats> = {};
   for (const s of sRes.rows) if (keep.has(s.id)) statsMap[s.id] = s;
   try {
@@ -1273,11 +1435,35 @@ export async function fetchDealerAccountFamilyByNumber(
       childrenQuery = childrenQuery.eq("is_deleted", false);
     }
 
-    const [rootRes, childrenRes] = await Promise.all([rootQuery, childrenQuery]);
+    const relationsRes = await supabase
+      .from("partner_account_relations")
+      .select("source_account_id, target_account_id")
+      .eq("active", true)
+      .or(`source_account_id.eq.${selected.row.id},target_account_id.eq.${selected.row.id}`);
+    const relatedIds = Array.from(new Set((relationsRes.data ?? []).flatMap((relation) => [
+      String(relation.source_account_id || ""),
+      String(relation.target_account_id || ""),
+    ]).filter((id) => id && id !== selected.row?.id)));
+    let relatedQuery = supabase
+      .from("dealer_accounts")
+      .select("*")
+      .in("id", relatedIds.length > 0 ? relatedIds : [selected.row.id])
+      .order("company_name", { ascending: true });
+    if (!opts.includeDeleted) relatedQuery = relatedQuery.eq("is_deleted", false);
+
+    const [rootRes, childrenRes, relatedRes] = await Promise.all([rootQuery, childrenQuery, relatedQuery]);
     if (rootRes.error) throw rootRes.error;
     if (childrenRes.error) throw childrenRes.error;
+    // Relation visibility is additive. A role without relation access keeps
+    // the established main/branch family instead of losing the whole page.
+    if (relationsRes.error) {
+      console.warn("[dealerAccountsService] partner family relation read failed", relationsRes.error.message);
+    }
+    if (relatedRes.error) {
+      console.warn("[dealerAccountsService] related partner account read failed", relatedRes.error.message);
+    }
     const rowsById = new Map<string, DealerAccount>();
-    for (const row of [...(rootRes.data ?? []), ...(childrenRes.data ?? [])]) {
+    for (const row of [...(rootRes.data ?? []), ...(childrenRes.data ?? []), ...(relatedRes.data ?? [])]) {
       const dealer = rowToDealer(row as Record<string, unknown>);
       rowsById.set(dealer.id, dealer);
     }
@@ -1645,21 +1831,27 @@ export interface DealerGroup {
  *     surfaced as standalone groups so they remain visible.
  *   • Dealers with is_main_account=true but no children still appear.
  */
-export function groupDealersByParent(rows: DealerAccount[]): DealerGroup[] {
+export function groupDealersByParent(
+  rows: DealerAccount[],
+  canonicalParentAccountNumbers: ReadonlyMap<string, string> = new Map(),
+): DealerGroup[] {
   const byAcct = new Map<string, DealerAccount>();
   for (const r of rows) byAcct.set(r.account_number, r);
+  const parentAccountNumberFor = (row: DealerAccount) =>
+    canonicalParentAccountNumbers.get(row.account_number) ?? row.parent_account_number;
 
   const groups = new Map<string, DealerGroup>();
   // First pass: create a group for every potential main account.
   for (const r of rows) {
-    if (!r.parent_account_number) {
+    if (!parentAccountNumberFor(r)) {
       groups.set(r.account_number, { main: r, branches: [] });
     }
   }
   // Second pass: attach branches to parents.
   for (const r of rows) {
-    if (!r.parent_account_number) continue;
-    const parent = byAcct.get(r.parent_account_number);
+    const parentAccountNumber = parentAccountNumberFor(r);
+    if (!parentAccountNumber) continue;
+    const parent = byAcct.get(parentAccountNumber);
     if (parent && groups.has(parent.account_number)) {
       groups.get(parent.account_number)!.branches.push(r);
     } else {

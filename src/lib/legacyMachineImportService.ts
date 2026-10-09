@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 import { serialKey } from "@/lib/machineJournalService";
+import { isExtendedWarrantyProductId } from "@/lib/extendedWarranty";
 
 export type LegacyMachineImportRow = {
   warrantyNumber: string | null;
@@ -10,6 +11,9 @@ export type LegacyMachineImportRow = {
   sourceRevenueAmount: string | null;
   costAmount: string | null;
   contributionMarginAmount: string | null;
+  portalOrderNumber?: string | null;
+  configurationUnitKey?: string | null;
+  extendedWarrantyItemNumber?: string | null;
   serial: string | null;
   model: string | null;
   dealerNumber: string | null;
@@ -40,6 +44,11 @@ const HEADER_MAP: Record<string, keyof LegacyMachineImportRow> = {
   "ordrenr. (number_)": "erpOrderNumber", "fakturanr. (invoicenumber)": "invoiceNumber",
   omsætning: "revenue", "amountmst netto (kilde)": "sourceRevenueAmount",
   "costamount netto (kilde)": "costAmount", dækningsbidrag: "contributionMarginAmount",
+  "portal-ordrenr.": "portalOrderNumber", "portal ordrenr.": "portalOrderNumber",
+  "konfigurationsenhed": "configurationUnitKey", "configuration unit": "configurationUnitKey",
+  "forlænget garanti varenr.": "extendedWarrantyItemNumber",
+  "udvidet garanti varenr.": "extendedWarrantyItemNumber",
+  "extended warranty item no.": "extendedWarrantyItemNumber",
 };
 
 function clean(value: unknown): string | null {
@@ -67,7 +76,7 @@ export async function parseLegacyMachineWorkbook(file: File): Promise<LegacyMach
     throw new Error("Filen skal mindst indeholde Serienr. og Forhandler nr.");
   }
   return values.slice(1).filter((row) => row.some((value) => clean(value))).map((row) => {
-    const record: LegacyMachineImportRow = { warrantyNumber: null, erpOrderNumber: null, invoiceNumber: null, revenue: null, sourceRevenueAmount: null, costAmount: null, contributionMarginAmount: null, serial: null, model: null, dealerNumber: null, dealerName: null, deliveryDate: null, hours: null, latestActivityAt: null, history: null };
+    const record: LegacyMachineImportRow = { warrantyNumber: null, erpOrderNumber: null, invoiceNumber: null, revenue: null, sourceRevenueAmount: null, costAmount: null, contributionMarginAmount: null, portalOrderNumber: null, configurationUnitKey: null, extendedWarrantyItemNumber: null, serial: null, model: null, dealerNumber: null, dealerName: null, deliveryDate: null, hours: null, latestActivityAt: null, history: null };
     columns.forEach((key, index) => {
       const value = row[index];
       record[key] = key === "deliveryDate" || key === "latestActivityAt" ? excelDateToIso(value) : clean(value);
@@ -134,7 +143,7 @@ export function toCommercialAmount(value: string | null): number | null {
 }
 
 export function hasLegacySalesData(rows: LegacyMachineImportRow[]): boolean {
-  return rows.some((row) => Boolean(row.erpOrderNumber || row.invoiceNumber || row.revenue || row.sourceRevenueAmount || row.costAmount || row.contributionMarginAmount));
+  return rows.some((row) => Boolean(row.erpOrderNumber || row.invoiceNumber || row.revenue || row.sourceRevenueAmount || row.costAmount || row.contributionMarginAmount || row.portalOrderNumber || row.extendedWarrantyItemNumber));
 }
 
 export async function enrichLegacyMachineSales(rows: LegacyMachineImportRow[]) {
@@ -148,8 +157,13 @@ export async function enrichLegacyMachineSales(rows: LegacyMachineImportRow[]) {
       revenue: toCommercialAmount(row.sourceRevenueAmount ?? row.revenue),
       costAmount: toCommercialAmount(row.costAmount),
       contributionMarginAmount: parseLegacySalesNumber(row.contributionMarginAmount),
+      portalOrderNumber: row.portalOrderNumber,
+      configurationUnitKey: row.configurationUnitKey,
+      extendedWarrantyItemNumber: isExtendedWarrantyProductId(row.extendedWarrantyItemNumber)
+        ? row.extendedWarrantyItemNumber.trim()
+        : row.extendedWarrantyItemNumber,
     }));
   const { data, error } = await supabase.rpc("enrich_legacy_machine_sales", { p_rows });
   if (error) throw error;
-  return data as { updated: number; unmatched: number };
+  return data as { updated: number; unmatched: number; warrantyMatched: number; warrantyAmbiguous: number };
 }

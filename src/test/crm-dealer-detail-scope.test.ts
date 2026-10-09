@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DealerAccount } from "@/lib/dealerAccountsService";
 import {
+  addRelatedDealerDetailRowsFromVisibleDealers,
   buildDealerDetailRowsFromVisibleDealers,
   canOpenDealerDetailFromVisibleDealers,
 } from "@/lib/dealerDetailScope";
@@ -112,6 +113,55 @@ describe("CRM dealer detail scope", () => {
 
     expect(canOpenDealerDetailFromVisibleDealers(bpVisibleDealers, "11913")).toBe(false);
     expect(buildDealerDetailRowsFromVisibleDealers(bpVisibleDealers, "11913")).toEqual([]);
+  });
+
+  it("adds active service-partner relations only from the seller's visible scope", () => {
+    const parent = dealer("10295", { id: "parent-id", assigned_seller_initials: "EM" });
+    const child = dealer("10285", {
+      id: "child-id",
+      dealer_type: "service_partner",
+      customer_type: "Servicepartner",
+      customer_type_label: "Servicepartner",
+      assigned_seller_initials: "EM",
+    });
+    const unrelated = dealer("11913", { id: "unrelated-id", assigned_seller_initials: "AKR" });
+    const rows = addRelatedDealerDetailRowsFromVisibleDealers(
+      [child],
+      [child, parent],
+      child.id,
+      [{
+        id: "relation-id",
+        source_account_id: parent.id,
+        target_account_id: child.id,
+        relation_type: "dealer_has_service_partner",
+        active: true,
+        created_at: "2026-09-22T00:00:00Z",
+        updated_at: "2026-09-22T00:00:00Z",
+      }],
+    );
+
+    expect(rows.map((row) => row.account_number)).toEqual(["10285", "10295"]);
+    expect(rows).not.toContainEqual(unrelated);
+  });
+
+  it("does not pull a related account that is outside the seller's visible scope", () => {
+    const child = dealer("10285", { id: "child-id", assigned_seller_initials: "EM" });
+    const rows = addRelatedDealerDetailRowsFromVisibleDealers(
+      [child],
+      [child],
+      child.id,
+      [{
+        id: "relation-id",
+        source_account_id: "hidden-parent-id",
+        target_account_id: child.id,
+        relation_type: "dealer_has_service_partner",
+        active: true,
+        created_at: "2026-09-22T00:00:00Z",
+        updated_at: "2026-09-22T00:00:00Z",
+      }],
+    );
+
+    expect(rows.map((row) => row.account_number)).toEqual(["10285"]);
   });
 
   it("maps account-number routes to the matching dealer record", () => {

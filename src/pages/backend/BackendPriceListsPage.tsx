@@ -8,8 +8,8 @@
  *  2. Upload prisliste — CSV import with field-by-field preview
  *  3. Eksportér prisliste — download current prices as CSV
  *
- * SAFETY: Does NOT touch configurator, quotes, orders, calc, PDFs, email, n8n, CRM.
- * No DELETE anywhere. Empty CSV cells never overwrite existing values.
+ * FULL imports remain staged until an explicit release. Existing commercial
+ * snapshots remain immutable. No DELETE; empty cells never overwrite values.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -28,34 +28,75 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { isBackendActor } from "@/lib/portalAccess";
 import {
   listPriceItems,
+  listActivePriceItems,
   listImportLogs,
+  listPriceItemHistory,
+  isPriceHistoryPriceField,
+  priceHistoryDelta,
   parsePriceCsv,
   parsePriceWorkbook,
   buildPreview,
+  mergeCanonicalPriceItems,
   runImport,
   updatePriceItem,
   type PriceListItem,
+  type ActivePriceListItem,
+  type PriceListHistoryEntry,
+  type PriceHistoryFilter,
   type PriceListImportLog,
   type PreviewRow,
   type ImportSummary,
   type CsvPriceRow,
+  type PriceImportMode,
 } from "@/lib/priceListService";
+import {
+  DEFAULT_PRICE_TOOL_SETTINGS,
+  PRICE_TOOL_MARKER,
+  calculatePriceToolValues,
+  priceToolFormulas,
+} from "@/lib/priceListWorkbook";
 import {
   buildConfiguratorSeed,
   buildVarenrGroupMap,
+  filterByProductGroup,
   PRODUCT_GROUP_ORDER,
   groupOrderIndex,
   type ProductGroupKey,
 } from "@/lib/configuratorPriceSeed";
+import { configuratorProductRelations } from '@/lib/configuratorProductHierarchy';
 import {
   buildPublishPreview,
+  listPriceListReleases,
   publishItems,
+  type PriceListRelease,
   type PublishPreviewRow,
   type PublishSummary,
 } from "@/lib/pricePublishService";
+import {
+  filterPriceListItems,
+  parsePriceListSkuTokens,
+} from "@/lib/priceListSearch";
+import { resolveUnpublishedPriceListItems } from '@/lib/priceListUnpublished';
+import {
+  PRODUCT_LANGUAGE_FIELDS,
+  PRODUCT_LANGUAGES,
+  productLanguageDisplayCode,
+  productLanguageLabel,
+  storedProductText,
+  type LocalizedProductText,
+} from '@/lib/productLanguages';
 
 const FIELD_LABEL: Record<string, string> = {
-  item_text_da: "Varetekst",
+  item_number: "Varenr.",
+  item_text_da: "Varetekst dansk",
+  item_text_de: "Varetekst tysk",
+  item_text_en: "Varetekst engelsk",
+  item_text_it: "Varetekst italiensk",
+  item_text_hu: "Varetekst ungarsk",
+  item_text_sv: "Varetekst svensk",
+  item_text_fr: "Varetekst fransk",
+  item_text_pl: "Varetekst polsk",
+  item_text_cs: "Varetekst tjekkisk",
   cost_price_dkk: "Kostpris DKK",
   price_dkk: "Pris DKK",
   price_sek: "Pris SEK",
@@ -69,35 +110,57 @@ const PRODUCT_SCOPE_GROUPS = PRODUCT_GROUP_ORDER.filter(
   (g) => g !== "Options/accessories/other",
 );
 
+const PRODUCT_GROUP_LABELS: Record<Exclude<ProductScope, "all">, string> = {
+  "RC-751": "RC-751",
+  "RC-1000s": "RC-1000s",
+  "Timan 3330": "Timan 3330",
+  "Timan 2620": "Timan 2620",
+  "Loader-Line and CS-200 Traktor": "Loader-Line & CS-200 Traktor",
+  "Løse redskaber / attachments": "Løse redskaber / attachments",
+  "Options/accessories/other": "Øvrige",
+};
+
 export default function BackendPriceListsPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
 
   const [tab, setTab] = useState<Tab>("list");
   const [items, setItems] = useState<PriceListItem[]>([]);
+  const [activeItems, setActiveItems] = useState<ActivePriceListItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [q, setQ] = useState("");
+  const [skuFilters, setSkuFilters] = useState<string[]>([]);
+  const [listCategory, setListCategory] = useState<ProductScope>("all");
   const [editing, setEditing] = useState<PriceListItem | null>(null);
 
   // Import state
   const [fileName, setFileName] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [importFormat, setImportFormat] = useState<"price_tool" | "standard" | null>(null);
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [logs, setLogs] = useState<PriceListImportLog[]>([]);
+  const [releases, setReleases] = useState<PriceListRelease[]>([]);
   const [filter, setFilter] = useState<"all" | "create" | "update" | "skip" | "error">("all");
   const [productScope, setProductScope] = useState<ProductScope>("all");
+  const [importMode, setImportMode] = useState<PriceImportMode>("COST_ONLY");
 
   async function reload() {
     setLoadingItems(true);
-    setItems(await listPriceItems());
+    const [nextItems, nextActiveItems] = await Promise.all([listPriceItems(), listActivePriceItems()]);
+    setItems(nextItems);
+    setActiveItems(nextActiveItems);
     setLoadingItems(false);
   }
-  async function reloadLogs() { setLogs(await listImportLogs()); }
+  async function reloadLogs() {
+    const [nextLogs, nextReleases] = await Promise.all([listImportLogs(), listPriceListReleases()]);
+    setLogs(nextLogs);
+    setReleases(nextReleases);
+  }
 
   useEffect(() => {
     if (!appUser || !isBackend) return;
@@ -118,33 +181,61 @@ export default function BackendPriceListsPage() {
     [configuratorSeedItems],
   );
 
+  const activeByItemNumber = useMemo(
+    () => new Map(activeItems.map((item) => [item.item_number, item])),
+    [activeItems],
+  );
+
+  const activeRelease = releases.find((release) => release.status === 'RELEASED') ?? null;
+
   const exportItems = useMemo(
-    () => mergeSeedAndStoredItems(configuratorSeedItems, items),
+    () => mergeCanonicalPriceItems(configuratorSeedItems, items),
     [configuratorSeedItems, items],
   );
 
+  const activeExportItems = useMemo(
+    () => exportItems.map((item) => {
+      const active = activeByItemNumber.get(item.item_number);
+      return active ? {
+        ...item,
+        ...Object.fromEntries(PRODUCT_LANGUAGES.map((language) => {
+          const field = PRODUCT_LANGUAGE_FIELDS[language];
+          return [field, active[field] ?? item[field]];
+        })),
+        price_dkk: active.price_dkk,
+        price_eur: active.price_eur,
+        price_sek: active.price_sek,
+      } : item;
+    }),
+    [activeByItemNumber, exportItems],
+  );
+
   const scopedExportItems = useMemo(
-    () => filterItemsByScope(exportItems, productScope, groupMap),
-    [exportItems, productScope, groupMap],
+    () => filterItemsByScope(activeExportItems, productScope, groupMap),
+    [activeExportItems, productScope, groupMap],
   );
 
   const filteredItems = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const base = !term
-      ? exportItems
-      : exportItems.filter((i) =>
-          i.item_number.toLowerCase().includes(term) ||
-          (i.renamed_from_item_number ?? "").toLowerCase().includes(term) ||
-          (i.item_text_da ?? "").toLowerCase().includes(term),
-        );
-    return [...base].sort((a, b) => {
+    const base = filterPriceListItems(exportItems, skuFilters, q);
+    const categoryItems = filterByProductGroup(base, listCategory, groupMap);
+    return [...categoryItems].sort((a, b) => {
       const ga = groupMap.get(a.item_number) ?? "Options/accessories/other";
       const gb = groupMap.get(b.item_number) ?? "Options/accessories/other";
       const oi = groupOrderIndex(ga as ProductGroupKey) - groupOrderIndex(gb as ProductGroupKey);
       if (oi !== 0) return oi;
       return a.item_number.localeCompare(b.item_number, "da", { numeric: true });
     });
-  }, [exportItems, q, groupMap]);
+  }, [exportItems, skuFilters, q, listCategory, groupMap]);
+
+  const listIsFiltered = listCategory !== "all" || skuFilters.length > 0 || q.trim().length > 0;
+
+  function addSkuFilters(value: string): boolean {
+    const tokens = parsePriceListSkuTokens(value);
+    if (tokens.length === 0) return false;
+    setSkuFilters((current) => [...new Set([...current, ...tokens])]);
+    setQ("");
+    return true;
+  }
 
   const counts = useMemo(() => {
     const c = { create: 0, update: 0, skip: 0, error: 0 };
@@ -163,10 +254,17 @@ export default function BackendPriceListsPage() {
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
 
-  const dirtyItems = useMemo(() => items.filter((i) => i.is_dirty), [items]);
+  const unpublishedItems = useMemo(
+    () => resolveUnpublishedPriceListItems(items, activeItems, configuratorSeedItems),
+    [activeItems, configuratorSeedItems, items],
+  );
+  const unpublishedItemNumbers = useMemo(
+    () => new Set(unpublishedItems.map((item) => item.item_number)),
+    [unpublishedItems],
+  );
   const publishPreview: PublishPreviewRow[] = useMemo(
-    () => buildPublishPreview(dirtyItems),
-    [dirtyItems],
+    () => buildPublishPreview(unpublishedItems),
+    [unpublishedItems],
   );
 
   // Early returns now happen AFTER all hooks have been called.
@@ -174,8 +272,19 @@ export default function BackendPriceListsPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
+  function openImportMode(mode: PriceImportMode) {
+    setImportMode(mode);
+    setSummary(null);
+    setPreview(null);
+    setFileName(null);
+    setParseErrors([]);
+    setImportFormat(null);
+    setFilter("all");
+    setTab("import");
+  }
+
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setSummary(null); setPreview(null); setParseErrors([]);
+    setSummary(null); setPreview(null); setParseErrors([]); setImportFormat(null);
     const f = e.target.files?.[0];
     if (!f) return;
     setFileName(f.name);
@@ -185,15 +294,26 @@ export default function BackendPriceListsPage() {
         const parsed = /\.(xlsx|xls)$/i.test(f.name)
           ? parsePriceWorkbook(reader.result as ArrayBuffer)
           : parsePriceCsv(String(reader.result ?? ""));
-        const { rows, parseErrors: pe } = parsed;
-        const scopedRows = filterCsvRowsByScope(rows, productScope, groupMap);
+        const { rows, parseErrors: pe, format } = parsed;
+        const canonicalRows = rows.map((row) => ({
+          ...row,
+          product_group: groupMap.get(row.item_number.trim()) ?? "Options/accessories/other",
+        }));
+        const scopedRows = filterCsvRowsByScope(canonicalRows, productScope, groupMap);
         setParseErrors(pe);
-        setPreview(buildPreview(scopedRows, items));
+        setImportFormat(format);
+        setPreview(buildPreview(
+          scopedRows,
+          exportItems,
+          importMode,
+          new Set(items.map((item) => item.item_number.trim())),
+          activeExportItems,
+        ));
         if (scopedRows.length !== rows.length) {
           toast.info(`${rows.length - scopedRows.length} rækker blev sprunget over pga. valgt maskine.`);
         }
       } catch (err) {
-        toast.error("Kunne ikke læse CSV: " + (err instanceof Error ? err.message : String(err)));
+        toast.error("Kunne ikke læse filen: " + (err instanceof Error ? err.message : String(err)));
       }
     };
     if (/\.(xlsx|xls)$/i.test(f.name)) {
@@ -205,10 +325,12 @@ export default function BackendPriceListsPage() {
 
   function loadFromConfigurator(scope: ProductScope = "all") {
     setSummary(null); setParseErrors([]);
+    setImportMode("FULL_PRICE_LIST");
     try {
       const seed = buildConfiguratorSeed().filter((s) => scope === "all" || s.group === scope);
       const rows: CsvPriceRow[] = seed.map((s) => ({
         item_number: s.item_number,
+        product_group: s.group,
         item_text_da: s.item_text_da,
         cost_price_dkk: "",
         price_dkk: s.price_dkk == null ? "" : String(s.price_dkk),
@@ -216,7 +338,14 @@ export default function BackendPriceListsPage() {
         price_eur: s.price_eur == null ? "" : String(s.price_eur),
       }));
       setFileName("konfigurator-seed");
-      setPreview(buildPreview(rows, items));
+      setImportFormat("standard");
+      setPreview(buildPreview(
+        rows,
+        exportItems,
+        "FULL_PRICE_LIST",
+        new Set(items.map((item) => item.item_number.trim())),
+        activeExportItems,
+      ));
       setTab("import");
       toast.success(`${rows.length} varer hentet fra konfiguratoren – tjek forhåndsvisning.`);
     } catch (err) {
@@ -227,7 +356,7 @@ export default function BackendPriceListsPage() {
   async function onConfirm() {
     if (!preview) return;
     setBusy(true);
-    const res = await runImport(preview, fileName);
+    const res = await runImport(preview, fileName, importMode, productScope);
     setBusy(false);
     if (!res.ok || !res.summary) { toast.error(res.error ?? "Import fejlede."); return; }
     setSummary(res.summary);
@@ -247,6 +376,14 @@ export default function BackendPriceListsPage() {
       group: groupMap.get(i.item_number) ?? "Options/accessories/other",
       item_number: i.item_number,
       item_text_da: i.item_text_da ?? "",
+      item_text_en: i.item_text_en ?? "",
+      item_text_de: i.item_text_de ?? "",
+      item_text_it: i.item_text_it ?? "",
+      item_text_hu: i.item_text_hu ?? "",
+      item_text_sv: i.item_text_sv ?? "",
+      item_text_fr: i.item_text_fr ?? "",
+      item_text_pl: i.item_text_pl ?? "",
+      item_text_cs: i.item_text_cs ?? "",
       cost_price_dkk: i.cost_price_dkk ?? "",
       price_dkk: i.price_dkk ?? 0,
       price_sek: i.price_sek ?? "",
@@ -255,6 +392,17 @@ export default function BackendPriceListsPage() {
     const wb = XLSX.utils.book_new();
     const ws = buildPriceWorkbookSheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, "Prisliste");
+    const hierarchyRows = configuratorProductRelations('Timan 3330').map((relation) => ({
+      Maskintype: relation.machine_type,
+      'Overordnet varenr.': relation.parent_item_number,
+      'Underordnet varenr.': relation.child_item_number,
+      Relation: relation.relation_type,
+      Valggruppe: relation.selection_group || '',
+      Sortering: relation.sort_order,
+    }));
+    if (hierarchyRows.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hierarchyRows), 'Produktstruktur');
+    }
     const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
@@ -270,16 +418,31 @@ export default function BackendPriceListsPage() {
     const nums = publishPreview.map((r) => r.item_number);
     if (nums.length === 0) return;
     setPublishBusy(true);
-    const res = await publishItems(nums);
+    const res = await publishItems(
+      nums,
+      Object.fromEntries(nums.map((itemNumber) => [
+        itemNumber,
+        groupMap.get(itemNumber) ?? "Options/accessories/other",
+      ])),
+      Object.fromEntries(nums.map((itemNumber) => [
+        itemNumber,
+        preview?.find((row) => row.item_number === itemNumber)?.raw.price_change_source ?? "",
+      ])),
+    );
     setPublishBusy(false);
     if (!res.ok || !res.summary) {
-      toast.error(res.error ?? "Publicering fejlede.");
+      toast.error(res.error ?? "Frigivelse fejlede.");
       return;
     }
     setPublishSummary(res.summary);
     const total = res.summary.created + res.summary.updated;
-    toast.success(`${total} vare(r) publiceret til konfigurator-overlay.`);
+    if (res.summary.errors.length > 0) {
+      toast.error(`${total} vare(r) frigivet, men ${res.summary.errors.length} vare(r) fejlede.`);
+    } else {
+      toast.success(`Prisliste version ${res.summary.versionNumber ?? '—'} er frigivet med ${total} vare(r).`);
+    }
     await reload();
+    await reloadLogs();
   }
 
   return (
@@ -295,8 +458,8 @@ export default function BackendPriceListsPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Prislister</h1>
             <p className="text-slate-500 mt-1 text-sm">
-              Backend-administration af varepriser. Konfiguratoren bruger ikke disse priser endnu —
-              eksisterende tilbud og ordrer er uændrede.
+              Den aktive prisliste bruges af Configuratoren. Nye priser træder først i kraft, når de frigives.
+              Eksisterende tilbud og ordrer bevarer deres prissnapshot.
             </p>
           </div>
         </div>
@@ -310,52 +473,116 @@ export default function BackendPriceListsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <FlowStepButton active={tab === "list"} onClick={() => setTab("list")}>
-              Se nuværende prisliste
+              Se aktiv prisliste og kladder
             </FlowStepButton>
-            <FlowStepButton active={tab === "import"} onClick={() => setTab("import")}>
+            <FlowStepButton active={tab === "import" && importMode === "COST_ONLY"} onClick={() => openImportMode("COST_ONLY")}>
               1. Upload kostpriser
             </FlowStepButton>
             <FlowStepButton active={tab === "export"} onClick={() => setTab("export")}>
               2. Eksportér prisliste
             </FlowStepButton>
-            <FlowStepButton active={tab === "import"} onClick={() => setTab("import")}>
-              3. Indlæs redigeret prisliste
+            <FlowStepButton active={tab === "import" && importMode === "FULL_PRICE_LIST"} onClick={() => openImportMode("FULL_PRICE_LIST")}>
+              3. Upload redigeret prisliste
             </FlowStepButton>
-            <button
-              type="button"
-              onClick={() => loadFromConfigurator("all")}
-              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
-              title="Bygger en forhåndsvisning fra konfiguratorens nuværende produkt- og tilbehørsdata. Konfiguratorens prislogik ændres ikke."
-            >
-              <Database className="h-3.5 w-3.5" />
-              Indlæs fra eksisterende konfigurator-data
-            </button>
           </div>
+          <details className="mt-4 border-t border-slate-200 pt-3">
+            <summary className="cursor-pointer text-xs font-semibold text-slate-600">Systemværktøjer</summary>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => loadFromConfigurator("all")}
+                className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
+                title="Bootstrapper prislisten fra Configuratorens nuværende produkt- og tilbehørsdata. Configuratorens prislogik ændres ikke."
+              >
+                <Database className="h-3.5 w-3.5" />
+                Indlæs fra eksisterende Configurator-data
+              </button>
+              <p className="max-w-2xl text-xs text-slate-500">
+                Backend-only bootstrap/synkronisering. Bruges ikke til den normale prisopdatering.
+              </p>
+            </div>
+          </details>
         </div>
 
         {tab === "list" && (
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="mb-4 border-b border-slate-200 pb-3 text-xs text-slate-600">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+                <span><strong className="text-slate-900">Aktiv version:</strong> {activeRelease ? `#${activeRelease.version_number}` : 'Eksisterende publiceret katalog'}</span>
+                <span><strong className="text-slate-900">Ikrafttrådt:</strong> {activeRelease?.effective_at ? new Date(activeRelease.effective_at).toLocaleString('da-DK') : '—'}</span>
+                <span><strong className="text-slate-900">Varer:</strong> {exportItems.length}</span>
+                {listIsFiltered && <span><strong className="text-slate-900">Vist:</strong> {filteredItems.length}</span>}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filtrér prisliste efter produktkategori">
+                <CategoryFilterButton active={listCategory === "all"} onClick={() => setListCategory("all")}>
+                  Alle
+                </CategoryFilterButton>
+                {PRODUCT_SCOPE_GROUPS.map((group) => (
+                  <CategoryFilterButton
+                    key={group}
+                    active={listCategory === group}
+                    onClick={() => setListCategory(group)}
+                  >
+                    {PRODUCT_GROUP_LABELS[group]}
+                  </CategoryFilterButton>
+                ))}
+              </div>
+            </div>
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-              <div className="relative flex-1 min-w-[260px] max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="search"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Søg varenr. eller varetekst…"
-                  className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm"
-                />
+              <div className="flex-1 min-w-[260px] max-w-2xl">
+                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 focus-within:ring-2 focus-within:ring-indigo-200">
+                  <Search className="ml-1 h-4 w-4 shrink-0 text-slate-400" />
+                  {skuFilters.map((sku) => (
+                    <span key={sku} className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 font-mono text-xs font-semibold text-indigo-800">
+                      {sku}
+                      <button
+                        type="button"
+                        onClick={() => setSkuFilters((current) => current.filter((value) => value !== sku))}
+                        className="rounded-sm text-indigo-600 hover:text-indigo-950"
+                        aria-label={`Fjern varenr. ${sku}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="search"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && addSkuFilters(q)) e.preventDefault();
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData("text");
+                      if (addSkuFilters(pasted)) e.preventDefault();
+                    }}
+                    placeholder={skuFilters.length > 0 ? "Søg videre…" : "Søg varenr. eller varetekst…"}
+                    className="min-w-[180px] flex-1 border-0 bg-transparent px-1 py-1 text-sm outline-none"
+                    aria-label="Søg varenr. eller varetekst"
+                  />
+                  {(skuFilters.length > 0 || q) && (
+                    <button
+                      type="button"
+                      onClick={() => { setSkuFilters([]); setQ(""); }}
+                      className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      aria-label="Ryd søgning"
+                      title="Ryd søgning"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={() => { setPublishSummary(null); setPublishOpen(true); }}
-                  disabled={dirtyItems.length === 0}
+                  disabled={unpublishedItems.length === 0}
                   className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Publicér ændrede prislistevarer til konfigurator-overlay (price_list_published). Konfiguratorens kode ændres ikke i denne fase."
+                  title="Frigiv de klargjorte priser som Configuratorens aktive prisliste."
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
-                  Upload ændringer til konfigurator{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
+                  Frigiv prisliste{unpublishedItems.length > 0 ? ` (${unpublishedItems.length})` : ""}
                 </button>
                 <span className="text-xs text-slate-500">
                   {loadingItems ? "Indlæser…" : `${filteredItems.length} af ${exportItems.length} varer`}
@@ -365,7 +592,7 @@ export default function BackendPriceListsPage() {
 
             <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
               <strong>DB/DG beregnes med 25% standardrabat.</strong>{" "}
-              Pilen ved DB vises på ændrede varer og sammenligner mod konfiguratorens nuværende pris.
+              Aktive priser bruges af Configurator og Support. Kladdepriser vises under den aktive pris, indtil de frigives.
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[640px] overflow-y-auto">
@@ -376,24 +603,29 @@ export default function BackendPriceListsPage() {
                     <th className="px-3 py-2 text-left">Varenr.</th>
                     <th className="px-3 py-2 text-left">Varetekst</th>
                     <th className="px-3 py-2 text-right">Kostpris DKK</th>
-                    <th className="px-3 py-2 text-right">Pris DKK</th>
+                    <th className="px-3 py-2 text-right">Aktiv pris DKK</th>
                     <th className="px-3 py-2 text-right">DB DKK<br /><span className="font-normal">(25%)</span></th>
                     <th className="px-3 py-2 text-right">DG %<br /><span className="font-normal">(25%)</span></th>
-                    <th className="px-3 py-2 text-right">Pris SEK</th>
-                    <th className="px-3 py-2 text-right">Pris EUR</th>
-                    <th className="px-3 py-2 text-left">Opdateret</th>
+                    <th className="px-3 py-2 text-right">Aktiv pris SEK</th>
+                    <th className="px-3 py-2 text-right">Aktiv pris EUR</th>
+                    <th className="px-3 py-2 text-left">Frigivet</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredItems.slice(0, 1000).map((i) => {
                     const grp = groupMap.get(i.item_number) ?? "Options/accessories/other";
-                    const marginDb = calcMarginDb(i.price_dkk, i.cost_price_dkk);
-                    const marginPct = calcMarginPct(i.price_dkk, marginDb);
                     const seedItem = configuratorSeedByItemNumber.get(i.renamed_from_item_number ?? i.item_number);
-                    const baseMarginDb = calcMarginDb(seedItem?.price_dkk ?? null, i.cost_price_dkk);
-                    const marginDelta = i.is_dirty && marginDb != null && baseMarginDb != null
-                      ? Math.round((marginDb - baseMarginDb) * 100) / 100
+                    const activeItem = activeByItemNumber.get(i.item_number);
+                    const activeDkk = activeItem?.price_dkk ?? seedItem?.price_dkk ?? null;
+                    const activeSek = activeItem?.price_sek ?? seedItem?.price_sek ?? null;
+                    const activeEur = activeItem?.price_eur ?? seedItem?.price_eur ?? null;
+                    const isUnpublished = unpublishedItemNumbers.has(i.item_number);
+                    const marginDb = calcMarginDb(activeDkk, i.cost_price_dkk);
+                    const marginPct = calcMarginPct(activeDkk, marginDb);
+                    const draftMarginDb = calcMarginDb(i.price_dkk, i.cost_price_dkk);
+                    const marginDelta = isUnpublished && marginDb != null && draftMarginDb != null
+                      ? Math.round((draftMarginDb - marginDb) * 100) / 100
                       : null;
                     return (
                       <tr key={i.id} className="border-t border-slate-100">
@@ -404,15 +636,15 @@ export default function BackendPriceListsPage() {
                         </td>
                         <td className="px-3 py-2 font-mono text-xs">
                           {i.item_number}
-                          {i.is_dirty && (
+                          {isUnpublished && (
                             <span className="ml-2 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
-                              Ændret – ikke publiceret
+                              Kladde – ikke frigivet
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2">{i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
+                        <td className="px-3 py-2">{storedProductText(activeItem || i, uiLanguage) || storedProductText(seedItem || i, uiLanguage) || activeItem?.item_text_da || seedItem?.item_text_da || i.item_text_da || <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPrice(i.cost_price_dkk)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_dkk)}</td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeDkk} draft={isUnpublished ? i.price_dkk : null} /></td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">
                           <div className="flex items-center justify-end gap-2">
                             <span>{fmtPrice(marginDb)}</span>
@@ -420,10 +652,14 @@ export default function BackendPriceListsPage() {
                           </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPercent(marginPct)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_sek)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeSek} draft={isUnpublished ? i.price_sek : null} /></td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeEur} draft={isUnpublished ? i.price_eur : null} /></td>
                         <td className="px-3 py-2 text-xs text-slate-500">
-                          {new Date(i.updated_at).toLocaleDateString("da-DK")}
+                          {activeItem?.published_at
+                            ? new Date(activeItem.published_at).toLocaleDateString('da-DK')
+                            : i.id.startsWith("configurator-")
+                            ? "Configurator-standard"
+                            : "Ikke frigivet"}
                         </td>
                         <td className="px-3 py-2 text-right">
                           <button
@@ -454,17 +690,29 @@ export default function BackendPriceListsPage() {
         {tab === "import" && (
           <>
             <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
-              <h2 className="font-bold text-slate-900 mb-2">Upload kostpriser</h2>
+              <h2 className="font-bold text-slate-900 mb-2">
+                {importMode === "COST_ONLY" ? "Upload kostpriser" : "Upload redigeret prisliste"}
+              </h2>
+              {importMode === "COST_ONLY" ? (
+                <p className="text-xs text-slate-600 mb-3">
+                  Upload Excel eller CSV med varenr. og kostpris. Denne arbejdsgang kan kun ændre kostpris DKK.
+                  Varetekst, salgspriser, kurser, rabatter og øvrige kolonner ignoreres ved import.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-600 mb-3">
+                  Upload en redigeret fuld prisliste. Den eksisterende round-trip validering viser ændringer i kostpris,
+                  varetekst og understøttede salgspriser, før de anvendes.
+                </p>
+              )}
               <p className="text-xs text-slate-600 mb-3">
-                Upload et Excel- eller CSV-ark med varenr. og kostpris. Hvis arket også indeholder varetekst eller salgspriser,
-                kan de felter også opdateres i samme forhåndsvisning.
-              </p>
-              <p className="text-xs text-slate-600 mb-3">
-                Understøttede kolonner (case-insensitive): varenr / item_number, varetekst_da / item_text_da,
-                kostpris_dkk / cost_price_dkk, pris_dkk / price_dkk, pris_sek / price_sek, pris_eur / price_eur. Tomme felter overskriver
-                aldrig eksisterende værdier, og ingen varer slettes.
+                Portalens prislistværktøj genkendes automatisk. Tomme felter overskriver aldrig eksisterende værdier,
+                og ingen varer slettes.
               </p>
               <ProductScopeSelect value={productScope} onChange={setProductScope} />
+              <p className="-mt-3 mb-4 text-[11px] text-slate-500">
+                Alle maskiner betyder, at filens varenr. kan matches på tværs af de 6 canonical produktgrupper.
+                Kun rækker i den uploadede fil kan indgå i importen.
+              </p>
               <div className="flex items-center gap-3 flex-wrap">
                 <input type="file" accept=".csv,text/csv,.xlsx,.xls" onChange={onFile} disabled={loadingItems} className="block text-sm" />
                 {fileName && (
@@ -472,10 +720,15 @@ export default function BackendPriceListsPage() {
                     <FileText className="h-3.5 w-3.5" /> {fileName}
                   </span>
                 )}
+                {importFormat && (
+                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                    Format: {importFormat === "price_tool" ? "Timan prislistværktøj" : "Standard prisimport"} · {importMode}
+                  </span>
+                )}
               </div>
               {parseErrors.length > 0 && (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  <p className="font-semibold mb-1">CSV-parse advarsler:</p>
+                  <p className="font-semibold mb-1">Fil-advarsler:</p>
                   <ul className="list-disc pl-5 max-h-32 overflow-y-auto space-y-0.5">
                     {parseErrors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
                   </ul>
@@ -485,12 +738,16 @@ export default function BackendPriceListsPage() {
 
             {preview && !summary && (
               <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
-                <h2 className="font-bold text-slate-900 mb-3">2. Forhåndsvisning</h2>
+                <h2 className="font-bold text-slate-900 mb-3">
+                  {importMode === "COST_ONLY" ? "Forhåndsvisning af kostpriser" : "Forhåndsvisning af fuld prisliste"}
+                </h2>
                 <div className="flex flex-wrap gap-2 mb-3">
                   <Bucket label="Alle" value={preview.length} active={filter === "all"} onClick={() => setFilter("all")} color="slate" />
-                  <Bucket label="Nye" value={counts.create} active={filter === "create"} onClick={() => setFilter("create")} color="emerald" />
+                  {importMode === "FULL_PRICE_LIST" && (
+                    <Bucket label="Nye" value={counts.create} active={filter === "create"} onClick={() => setFilter("create")} color="emerald" />
+                  )}
                   <Bucket label="Opdateres" value={counts.update} active={filter === "update"} onClick={() => setFilter("update")} color="amber" />
-                  <Bucket label="Sprunget over" value={counts.skip} active={filter === "skip"} onClick={() => setFilter("skip")} color="slate" />
+                  <Bucket label={importMode === "COST_ONLY" ? "Uændrede / springes over" : "Sprunget over"} value={counts.skip} active={filter === "skip"} onClick={() => setFilter("skip")} color="slate" />
                   <Bucket label="Fejl" value={counts.error} active={filter === "error"} onClick={() => setFilter("error")} color="rose" />
                 </div>
 
@@ -498,42 +755,72 @@ export default function BackendPriceListsPage() {
                   <table className="min-w-full text-xs">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr className="text-left text-slate-600">
-                        <th className="px-2 py-1.5">#</th>
+                        {importMode === "FULL_PRICE_LIST" && <th className="px-2 py-1.5">#</th>}
                         <th className="px-2 py-1.5">Status</th>
                         <th className="px-2 py-1.5">Produktgruppe</th>
                         <th className="px-2 py-1.5">Varenr.</th>
                         <th className="px-2 py-1.5">Varetekst</th>
-                        <th className="px-2 py-1.5 text-right">Kostpris DKK</th>
-                        <th className="px-2 py-1.5 text-right">Pris DKK</th>
-                        <th className="px-2 py-1.5 text-right">Pris SEK</th>
-                        <th className="px-2 py-1.5 text-right">Pris EUR</th>
+                        {importMode === "COST_ONLY" ? (
+                          <>
+                            <th className="px-2 py-1.5 text-right">Nuværende kostpris</th>
+                            <th className="px-2 py-1.5 text-right">Ny kostpris</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-2 py-1.5 text-right">Kostpris DKK</th>
+                            <th className="px-2 py-1.5 text-right">Pris DKK</th>
+                            <th className="px-2 py-1.5 text-right">Pris SEK</th>
+                            <th className="px-2 py-1.5 text-right">Pris EUR</th>
+                          </>
+                        )}
                         <th className="px-2 py-1.5">Ændringer / fejl</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredPreview.slice(0, 500).map((p) => {
                         const grp = p.item_number ? (groupMap.get(p.item_number) ?? "—") : "—";
-                        const nonPriceChanges = p.changes.filter((c) => c.field === "item_text_da");
+                        const nonPriceChanges = p.changes.filter((c) => c.field.startsWith("item_text_"));
                         return (
                         <tr key={p.rowIndex} className="border-t border-slate-100 align-top">
-                          <td className="px-2 py-1.5 font-mono text-slate-400">{p.rowIndex}</td>
+                          {importMode === "FULL_PRICE_LIST" && <td className="px-2 py-1.5 font-mono text-slate-400">{p.rowIndex}</td>}
                           <td className="px-2 py-1.5"><StatusPill bucket={p.bucket} /></td>
                           <td className="px-2 py-1.5">
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{grp}</span>
                           </td>
                           <td className="px-2 py-1.5 font-mono">{p.item_number ?? "—"}</td>
-                          <td className="px-2 py-1.5">{p.raw.item_text_da || p.existing?.item_text_da || "—"}</td>
-                          <PriceCell p={p} field="cost_price_dkk" />
-                          <PriceCell p={p} field="price_dkk" />
-                          <PriceCell p={p} field="price_sek" />
-                          <PriceCell p={p} field="price_eur" />
+                          <td className="px-2 py-1.5">
+                            {importMode === "COST_ONLY"
+                              ? (p.existing?.item_text_da || "—")
+                              : (p.raw.item_text_da || p.existing?.item_text_da || "—")}
+                          </td>
+                          {importMode === "COST_ONLY" ? (
+                            <>
+                              <td className="px-2 py-1.5 text-right font-mono text-slate-600">
+                                {fmtPrice(p.existing?.cost_price_dkk ?? null)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono font-semibold text-amber-800">
+                                {fmtPriceStr(p.raw.cost_price_dkk)}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <PriceCell p={p} field="cost_price_dkk" />
+                              <PriceCell p={p} field="price_dkk" />
+                              <PriceCell p={p} field="price_sek" />
+                              <PriceCell p={p} field="price_eur" />
+                            </>
+                          )}
                           <td className="px-2 py-1.5">
                             {p.bucket === "error" && <span className="text-rose-700">{p.errorMessage}</span>}
                             {p.bucket === "create" && <span className="text-emerald-700">Opretter ny vare.</span>}
                             {p.bucket === "skip" && <span className="text-slate-500">Ingen ændringer.</span>}
                             {p.bucket === "update" && (
-                              nonPriceChanges.length === 0
-                                ? <span className="text-slate-500">Kun prisændringer.</span>
+                              importMode === "COST_ONLY"
+                                ? <span className="text-amber-800">Kostpris opdateres.</span>
+                                : nonPriceChanges.length === 0
+                                ? <span className="text-slate-500">
+                                    {p.existingPersisted ? "Kun prisændringer." : "Opdaterer eksisterende Configurator-vare."}
+                                  </span>
                                 : <ul className="space-y-0.5">
                                     {nonPriceChanges.map((c) => (
                                       <li key={c.field}>
@@ -560,7 +847,7 @@ export default function BackendPriceListsPage() {
 
                 <div className="mt-4 flex items-center justify-end gap-2">
                   <button
-                    onClick={() => { setPreview(null); setFileName(null); setParseErrors([]); }}
+                    onClick={() => { setPreview(null); setFileName(null); setParseErrors([]); setImportFormat(null); }}
                     className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Annuller
@@ -571,7 +858,11 @@ export default function BackendPriceListsPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
                   >
                     <Upload className="h-4 w-4" />
-                    {busy ? "Importerer…" : `Importér priser (${counts.create + counts.update})`}
+                    {busy
+                      ? "Importerer…"
+                      : importMode === "COST_ONLY"
+                        ? `Importér kostpriser (${counts.update})`
+                        : `Importér priser (${counts.create + counts.update})`}
                   </button>
                 </div>
               </section>
@@ -584,8 +875,11 @@ export default function BackendPriceListsPage() {
                   <div className="flex-1">
                     <h2 className="font-bold text-emerald-900">Import gennemført</h2>
                     <p className="mt-1 text-sm text-emerald-900">
-                      <strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret,{" "}
-                      <strong>{summary.skipped}</strong> sprunget over.
+                      {importMode === "COST_ONLY" ? (
+                        <><strong>{summary.updated}</strong> kostpriser opdateret, <strong>{summary.skipped}</strong> uændrede.</>
+                      ) : (
+                        <><strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret, <strong>{summary.skipped}</strong> sprunget over.</>
+                      )}
                     </p>
                     {summary.errors.length > 0 && (
                       <details className="mt-3">
@@ -601,7 +895,7 @@ export default function BackendPriceListsPage() {
                       </details>
                     )}
                     <button
-                      onClick={() => { setSummary(null); setPreview(null); setFileName(null); }}
+                      onClick={() => { setSummary(null); setPreview(null); setFileName(null); setImportFormat(null); }}
                       className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800"
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Importér en ny fil
@@ -623,6 +917,9 @@ export default function BackendPriceListsPage() {
                         <th className="px-3 py-2 text-left">Tidspunkt</th>
                         <th className="px-3 py-2 text-left">Bruger</th>
                         <th className="px-3 py-2 text-left">Fil</th>
+                        <th className="px-3 py-2 text-left">Type</th>
+                        <th className="px-3 py-2 text-left">Scope</th>
+                        <th className="px-3 py-2 text-right">Rækker</th>
                         <th className="px-3 py-2 text-right">Oprettet</th>
                         <th className="px-3 py-2 text-right">Opdateret</th>
                         <th className="px-3 py-2 text-right">Sprunget over</th>
@@ -635,6 +932,11 @@ export default function BackendPriceListsPage() {
                           <td className="px-3 py-2 text-xs">{new Date(l.imported_at).toLocaleString("da-DK")}</td>
                           <td className="px-3 py-2 text-xs">{l.imported_by_email ?? "—"}</td>
                           <td className="px-3 py-2 text-xs">{l.file_name ?? "—"}</td>
+                          <td className="px-3 py-2 text-xs font-semibold">
+                            {l.import_mode === "COST_ONLY" ? "Kostprisimport" : "Fuld prislisteimport"}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{l.machine_scope === "all" ? "Alle maskiner" : l.machine_scope}</td>
+                          <td className="px-3 py-2 text-right font-mono">{l.processed_count}</td>
                           <td className="px-3 py-2 text-right font-mono">{l.created_count}</td>
                           <td className="px-3 py-2 text-right font-mono">{l.updated_count}</td>
                           <td className="px-3 py-2 text-right font-mono">{l.skipped_count}</td>
@@ -657,7 +959,7 @@ export default function BackendPriceListsPage() {
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
             <h2 className="font-bold text-slate-900 mb-2">Eksportér prisliste</h2>
             <p className="text-sm text-slate-600 mb-4">
-              Download den nuværende prisliste som Excel (kolonner: maskintype, varenr, varetekst, kostpris DKK, pris DKK, pris SEK, pris EUR).
+              Download den nuværende prisliste som Excel med varetekst for alle ni portalsprog samt de gældende priser.
             </p>
             <ProductScopeSelect value={productScope} onChange={setProductScope} />
             <button
@@ -689,6 +991,8 @@ export default function BackendPriceListsPage() {
           rows={publishPreview}
           busy={publishBusy}
           summary={publishSummary}
+          nextVersionNumber={(activeRelease?.version_number ?? 0) + 1}
+          actorEmail={appUser.email ?? null}
           onClose={() => { setPublishOpen(false); setPublishSummary(null); }}
           onConfirm={onPublishConfirm}
         />
@@ -705,6 +1009,14 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
     item_number: seed.item_number,
     renamed_from_item_number: null,
     item_text_da: seed.item_text_da,
+    item_text_de: null,
+    item_text_en: null,
+    item_text_it: null,
+    item_text_hu: null,
+    item_text_sv: null,
+    item_text_fr: null,
+    item_text_pl: null,
+    item_text_cs: null,
     cost_price_dkk: null,
     cost_price_source: null,
     cost_price_updated_at: null,
@@ -722,6 +1034,14 @@ export type PriceWorkbookRow = {
   group: string;
   item_number: string;
   item_text_da: string;
+  item_text_en: string;
+  item_text_de: string;
+  item_text_it: string;
+  item_text_hu: string;
+  item_text_sv: string;
+  item_text_fr: string;
+  item_text_pl: string;
+  item_text_cs: string;
   cost_price_dkk: number | string;
   price_dkk: number;
   price_sek: number | string;
@@ -742,16 +1062,26 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     "Ny pris DKK",
     "Prisændring %",
     "Masseændring – skriv X",
+    "Ændring %",
+    "Ændring DKK",
     "Ny pris DKK",
     "Ny pris SEK",
     "Ny pris EUR",
     "Ny DB DKK",
     "Ny DG %",
     "Note",
+    "Varetekst (GB)",
+    "Varetekst (DE)",
+    "Varetekst (IT)",
+    "Varetekst (HU)",
+    "Varetekst (SE)",
+    "Varetekst (FR)",
+    "Varetekst (PL)",
+    "Varetekst (CZ)",
   ];
 
   const aoa: Array<Array<string | number>> = [
-    ["PRISLISTEVÆRKTØJ"],
+    [PRICE_TOOL_MARKER],
     ["1. INDSTILLINGER", "", "", "HURTIG INFO", "", "", "", "SÅDAN BRUGER DU ARKET"],
     ["SEK kurs (DKK pr. 100 SEK)", 66.5, "", "Skriv i de orange felter til venstre.", "", "", "", "1. Ret eventuelt SEK/EUR-kurs, standardrabat eller masseændring øverst."],
     ["EUR kurs (DKK pr. 1 EUR)", 7.45, "", "Ret én vare via Ny pris DKK eller Prisændring %.", "", "", "", "2. Ret én vare: skriv ønsket pris i Ny pris DKK eller skriv fx 1,00% i Prisændring %."],
@@ -760,7 +1090,7 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     ["", "", "", "Systemet beregner automatisk nye priser og avance.", "", "", "", "5. Vare A = X, B = tom, C = X, D = x. Resultat: A, C og D får +3,00%. B ændres ikke."],
     ["", "", "", "Upload samme Excel-fil igen. Systemet indlæser de nye pris-kolonner.", "", "", "", "6. Slet ikke kolonner eller rækker."],
     ["2. PRISLISTE"],
-    ["VAREDATA / IDENTIFIKATION", "", "", "", "NUVÆRENDE VÆRDIER", "", "", "", "", "DINE ÆNDRINGER - udfyld kun her", "", "", "NYE BEREGNEDE VÆRDIER - automatisk", "", "", "", "", "NOTE"],
+    ["VAREDATA / IDENTIFIKATION", "", "", "", "NUVÆRENDE VÆRDIER", "", "", "", "", "DINE ÆNDRINGER - udfyld kun her", "", "", "ÆNDRING FRA NUVÆRENDE PRIS - automatisk", "", "NYE BEREGNEDE VÆRDIER - automatisk", "", "", "", "", "NOTE"],
     headers,
     ...rows.map((row) => [
       row.group,
@@ -770,17 +1100,19 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       row.price_dkk,
       row.price_sek,
       row.price_eur,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
+      "", "", // current DB/DG
+      "", "", "", // user changes
+      "", "", // calculated change
+      "", "", "", "", "", // calculated new values
+      "", // note
+      row.item_text_en,
+      row.item_text_de,
+      row.item_text_it,
+      row.item_text_hu,
+      row.item_text_sv,
+      row.item_text_fr,
+      row.item_text_pl,
+      row.item_text_cs,
     ]),
   ];
 
@@ -796,16 +1128,27 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     const row = rows[r - firstDataRow];
     const price = toWorkbookNumber(row.price_dkk);
     const cost = toWorkbookNumber(row.cost_price_dkk);
-    const currentDb = price != null && cost != null ? roundMoney(price * 0.75 - cost) : "";
-    const currentDg = typeof currentDb === "number" && price != null && price > 0 ? currentDb / price : "";
-    ws[`H${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: `IF(OR(E${r}="",D${r}=""),"",ROUND(E${r}*(1-$B$5)-D${r},2))` };
-    ws[`I${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: `IF(OR(E${r}="",E${r}=0,H${r}=""),"",H${r}/E${r})` };
+    const calculated = calculatePriceToolValues({
+      currentDkk: price,
+      manualDkk: null,
+      rowChangePct: 0,
+      massChangeSelected: false,
+      costPriceDkk: cost,
+      settings: DEFAULT_PRICE_TOOL_SETTINGS,
+    });
+    const currentDb = calculated.contributionMarginDkk ?? "";
+    const currentDg = calculated.contributionMarginPct ?? "";
+    const formulas = priceToolFormulas(r);
+    ws[`H${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.currentDb };
+    ws[`I${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.currentDg };
     ws[`K${r}`] = { t: "n", v: 0 };
-    ws[`M${r}`] = { t: price == null ? "s" : "n", v: price ?? "", f: `IF(ISNUMBER(J${r}),J${r},IF(LOWER(TRIM(L${r}))="x",ROUND(E${r}*(1+$B$6),2),IF(ISNUMBER(K${r}),ROUND(E${r}*(1+K${r}),2),E${r})))` };
-    ws[`N${r}`] = { t: price == null ? "s" : "n", v: price == null ? "" : roundMoney((price / 66.5) * 100), f: `IF(M${r}="","",ROUND(M${r}/$B$3*100,2))` };
-    ws[`O${r}`] = { t: price == null ? "s" : "n", v: price == null ? "" : roundMoney(price / 7.45), f: `IF(M${r}="","",ROUND(M${r}/$B$4,2))` };
-    ws[`P${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: `IF(OR(M${r}="",D${r}=""),"",ROUND(M${r}*(1-$B$5)-D${r},2))` };
-    ws[`Q${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: `IF(OR(M${r}="",M${r}=0,P${r}=""),"",P${r}/M${r})` };
+    ws[`M${r}`] = { t: calculated.changePct == null ? "s" : "n", v: calculated.changePct ?? "", f: formulas.changePct };
+    ws[`N${r}`] = { t: calculated.changeDkk == null ? "s" : "n", v: calculated.changeDkk ?? "", f: formulas.changeDkk };
+    ws[`O${r}`] = { t: calculated.priceDkk == null ? "s" : "n", v: calculated.priceDkk ?? "", f: formulas.priceDkk };
+    ws[`P${r}`] = { t: calculated.priceSek == null ? "s" : "n", v: calculated.priceSek ?? "", f: formulas.priceSek };
+    ws[`Q${r}`] = { t: calculated.priceEur == null ? "s" : "n", v: calculated.priceEur ?? "", f: formulas.priceEur };
+    ws[`R${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.newDb };
+    ws[`S${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.newDg };
   }
 
   const border = {
@@ -884,6 +1227,17 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     border,
     alignment: { horizontal: "center", vertical: "center", wrapText: true },
   };
+  const deltaStyle = {
+    fill: { fgColor: { rgb: "DDEBF7" } },
+    border,
+    alignment: { vertical: "top" },
+  };
+  const deltaHeaderStyle = {
+    font: { bold: true, color: { rgb: "0F172A" } },
+    fill: { fgColor: { rgb: "BDD7EE" } },
+    border,
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  };
   const noteStyle = {
     fill: { fgColor: { rgb: "FFFFFF" } },
     border,
@@ -901,6 +1255,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
   };
   const numberFormat = "#,##0.00";
   const percentFormat = "0.00%";
+  const signedDeltaFormat = '+#,##0.00 "kr.";-#,##0.00 "kr.";0.00 "kr."';
+  const signedPercentFormat = "+0.00%;-0.00%;0.00%";
 
   styleCell(ws, "A1", titleStyle);
   for (let r = 2; r <= 7; r++) {
@@ -924,7 +1280,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     if (c <= 4) styleCell(ws, groupCell, dataHeaderStyle);
     else if (c <= 9) styleCell(ws, groupCell, currentHeaderStyle);
     else if (c <= 12) styleCell(ws, groupCell, changeHeaderStyle);
-    else if (c <= 17) styleCell(ws, groupCell, outputHeaderStyle);
+    else if (c <= 14) styleCell(ws, groupCell, deltaHeaderStyle);
+    else if (c <= 19) styleCell(ws, groupCell, outputHeaderStyle);
     else styleCell(ws, groupCell, dataHeaderStyle);
   }
   for (let c = 0; c < headers.length; c++) {
@@ -932,7 +1289,8 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     if (c <= 3) styleCell(ws, cell, dataHeaderStyle);
     else if (c <= 8) styleCell(ws, cell, currentHeaderStyle);
     else if (c <= 11) styleCell(ws, cell, changeHeaderStyle);
-    else if (c <= 16) styleCell(ws, cell, outputHeaderStyle);
+    else if (c <= 13) styleCell(ws, cell, deltaHeaderStyle);
+    else if (c <= 18) styleCell(ws, cell, outputHeaderStyle);
     else styleCell(ws, cell, dataHeaderStyle);
   }
   for (let r = firstDataRow; r <= lastRow; r++) {
@@ -944,7 +1302,11 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       const cell = `${col}${r}`;
       styleCell(ws, cell, changeStyle);
     }
-    for (const col of ["M", "N", "O", "P", "Q"]) {
+    for (const col of ["M", "N"]) {
+      const cell = `${col}${r}`;
+      styleCell(ws, cell, deltaStyle);
+    }
+    for (const col of ["O", "P", "Q", "R", "S"]) {
       const cell = `${col}${r}`;
       styleCell(ws, cell, outputStyle);
     }
@@ -952,15 +1314,18 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
       const cell = `${col}${r}`;
       styleCell(ws, cell, dataStyle);
     }
-    styleCell(ws, `R${r}`, noteStyle);
-    for (const col of ["D", "E", "F", "G", "H", "J", "M", "N", "O", "P"]) {
+    styleCell(ws, `T${r}`, noteStyle);
+    for (const col of ["U", "V", "W", "X", "Y", "Z", "AA", "AB"]) styleCell(ws, `${col}${r}`, dataStyle);
+    for (const col of ["D", "E", "F", "G", "H", "J", "N", "O", "P", "Q", "R"]) {
       const cell = ws[`${col}${r}`];
       if (cell) cell.z = numberFormat;
     }
-    for (const col of ["I", "K", "Q"]) {
+    for (const col of ["I", "K", "M", "S"]) {
       const cell = ws[`${col}${r}`];
       if (cell) cell.z = percentFormat;
     }
+    if (ws[`M${r}`]) ws[`M${r}`].z = signedPercentFormat;
+    if (ws[`N${r}`]) ws[`N${r}`].z = signedDeltaFormat;
   }
 
   ws[`A${legendRow}`] = { t: "s", v: "FARVEFORKLARING" };
@@ -968,17 +1333,21 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
   ws[`C${legendRow + 1}`] = { t: "s", v: "Grøn = nuværende værdier" };
   ws[`E${legendRow + 1}`] = { t: "s", v: "Pink = dine ændringer" };
   ws[`G${legendRow + 1}`] = { t: "s", v: "Gul = nye beregnede værdier" };
+  ws[`I${legendRow + 1}`] = { t: "s", v: "Blå = ændring fra nuværende pris" };
   styleCell(ws, `A${legendRow}`, boxHeaderStyle);
   styleCell(ws, `A${legendRow + 1}`, inputStyle);
   styleCell(ws, `C${legendRow + 1}`, currentStyle);
   styleCell(ws, `E${legendRow + 1}`, changeStyle);
   styleCell(ws, `G${legendRow + 1}`, outputStyle);
+  styleCell(ws, `I${legendRow + 1}`, deltaStyle);
 
   ws["!cols"] = [
     { wch: 22 }, { wch: 14 }, { wch: 46 }, { wch: 14 }, { wch: 15 },
     { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 15 },
-    { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-    { wch: 14 }, { wch: 12 }, { wch: 26 },
+    { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 15 }, { wch: 15 },
+    { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 26 },
+    { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+    { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
   ];
   ws["!rows"] = [
     { hpt: 24 }, { hpt: 24 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 },
@@ -998,22 +1367,23 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     { s: { r: 4, c: 7 }, e: { r: 4, c: 12 } },
     { s: { r: 5, c: 7 }, e: { r: 5, c: 12 } },
     { s: { r: 6, c: 7 }, e: { r: 6, c: 12 } },
-    { s: { r: 8, c: 0 }, e: { r: 8, c: 17 } },
+    { s: { r: 8, c: 0 }, e: { r: 8, c: 19 } },
     { s: { r: 9, c: 0 }, e: { r: 9, c: 3 } },
     { s: { r: 9, c: 4 }, e: { r: 9, c: 8 } },
     { s: { r: 9, c: 9 }, e: { r: 9, c: 11 } },
-    { s: { r: 9, c: 12 }, e: { r: 9, c: 16 } },
+    { s: { r: 9, c: 12 }, e: { r: 9, c: 13 } },
+    { s: { r: 9, c: 14 }, e: { r: 9, c: 18 } },
     { s: { r: legendRow - 1, c: 0 }, e: { r: legendRow - 1, c: 7 } },
     { s: { r: legendRow, c: 0 }, e: { r: legendRow, c: 1 } },
     { s: { r: legendRow, c: 2 }, e: { r: legendRow, c: 3 } },
     { s: { r: legendRow, c: 4 }, e: { r: legendRow, c: 5 } },
     { s: { r: legendRow, c: 6 }, e: { r: legendRow, c: 7 } },
   ];
-  ws["!autofilter"] = { ref: `A${headerRow}:R${lastRow}` };
+  ws["!autofilter"] = { ref: `A${headerRow}:AB${lastRow}` };
   ws["!freeze"] = { xSplit: 0, ySplit: headerRow };
 
-  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:R1");
-  range.e.c = Math.max(range.e.c, 17);
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:AB1");
+  range.e.c = Math.max(range.e.c, 27);
   range.e.r = Math.max(range.e.r, legendRow);
   ws["!ref"] = XLSX.utils.encode_range(range);
 
@@ -1036,20 +1406,6 @@ function toWorkbookNumber(value: number | string | null | undefined): number | n
     : trimmed.replace(/,/g, "");
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function mergeSeedAndStoredItems(seedItems: PriceListItem[], storedItems: PriceListItem[]): PriceListItem[] {
-  const byItemNumber = new Map<string, PriceListItem>();
-  for (const item of seedItems) byItemNumber.set(item.item_number, item);
-  for (const item of storedItems) {
-    if (item.renamed_from_item_number) byItemNumber.delete(item.renamed_from_item_number);
-  }
-  for (const item of storedItems) byItemNumber.set(item.item_number, item);
-  return [...byItemNumber.values()];
 }
 
 function filterItemsByScope(
@@ -1189,6 +1545,31 @@ function FlowStepButton({ active, onClick, children }: { active: boolean; onClic
   );
 }
 
+function CategoryFilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+        active
+          ? "border-indigo-600 bg-indigo-50 text-indigo-800"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function ProductScopeSelect({
   value,
   onChange,
@@ -1254,12 +1635,36 @@ function EditModal({ item, onClose, onSaved }: {
   onSaved: () => void | Promise<void>;
 }) {
   const [itemNumber, setItemNumber] = useState(item.item_number);
-  const [text, setText] = useState(item.item_text_da ?? "");
+  const [texts, setTexts] = useState<LocalizedProductText>(() => Object.fromEntries(
+    PRODUCT_LANGUAGES.map((language) => [language, storedProductText(item, language)]),
+  ) as LocalizedProductText);
   const [costDkk, setCostDkk] = useState(formatEditablePrice(item.cost_price_dkk));
   const [dkk, setDkk] = useState(formatEditablePrice(item.price_dkk));
   const [eur, setEur] = useState(formatEditablePrice(item.price_eur));
   const [sek, setSek] = useState(formatEditablePrice(item.price_sek));
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<PriceListHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<PriceHistoryFilter>("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
+    void listPriceItemHistory(item.id, 10, 0, historyFilter).then((entries) => {
+      if (cancelled) return;
+      setHistory(entries);
+      setHistoryHasMore(entries.length === 10);
+      setHistoryLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [item.id, historyFilter]);
+
+  async function loadMoreHistory() {
+    const entries = await listPriceItemHistory(item.id, 10, history.length, historyFilter);
+    setHistory((current) => [...current, ...entries]);
+    setHistoryHasMore(entries.length === 10);
+  }
 
   function num(v: string): number | null {
     const n = parseEditablePrice(v);
@@ -1282,7 +1687,15 @@ function EditModal({ item, onClose, onSaved }: {
     const res = await updatePriceItem({
       item_number: item.item_number,
       new_item_number: nextItemNumber,
-      item_text_da: text.trim() || null,
+      item_text_da: texts.da.trim() || null,
+      item_text_en: texts.en.trim() || null,
+      item_text_de: texts.de.trim() || null,
+      item_text_it: texts.it.trim() || null,
+      item_text_hu: texts.hu.trim() || null,
+      item_text_sv: texts.sv.trim() || null,
+      item_text_fr: texts.fr.trim() || null,
+      item_text_pl: texts.pl.trim() || null,
+      item_text_cs: texts.cs.trim() || null,
       cost_price_dkk: c,
       price_dkk: d,
       price_eur: e,
@@ -1290,14 +1703,15 @@ function EditModal({ item, onClose, onSaved }: {
     });
     setBusy(false);
     if (!res.ok) { toast.error(res.error ?? "Kunne ikke gemme."); return; }
+    window.dispatchEvent(new Event('timan:product-master-published'));
     toast.success("Varen er opdateret.");
     await onSaved();
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Rediger varenr.</h3>
             <p className="text-xs text-slate-500 font-mono mt-0.5">{item.item_number}</p>
@@ -1305,36 +1719,140 @@ function EditModal({ item, onClose, onSaved }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="space-y-3">
-          <Field label="Varenr.">
-            <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
-          </Field>
-          <Field label="Varetekst">
-            <input value={text} onChange={(e) => setText(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
-            <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
-            <Field label="Pris SEK"><PriceInput value={sek} onChange={setSek} /></Field>
-            <Field label="Pris EUR"><PriceInput value={eur} onChange={setEur} /></Field>
+        <div className="flex-1 overflow-y-auto p-6 pt-4">
+          <div className="space-y-3">
+            <Field label="Varenr.">
+              <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {PRODUCT_LANGUAGES.map((language) => (
+                <Field key={language} label={`Varetekst ${productLanguageLabel(language)} (${productLanguageDisplayCode(language)})`}>
+                  <input
+                    value={texts[language]}
+                    onChange={(event) => setTexts((current) => ({ ...current, [language]: event.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </Field>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
+              <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
+              <Field label="Pris SEK"><PriceInput value={sek} onChange={setSek} /></Field>
+              <Field label="Pris EUR"><PriceInput value={eur} onChange={setEur} /></Field>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            Annuller
-          </button>
-          <button onClick={() => void save()} disabled={busy}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
-            {busy ? "Gemmer…" : "Gem"}
-          </button>
+          <div className="mt-6 flex justify-end gap-2">
+            <button onClick={onClose}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Annuller
+            </button>
+            <button onClick={() => void save()} disabled={busy}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
+              {busy ? "Gemmer…" : "Gem"}
+            </button>
+          </div>
+
+          <PriceItemHistory
+            entries={history}
+            activeFilter={historyFilter}
+            loading={historyLoading}
+            hasMore={historyHasMore}
+            onFilterChange={setHistoryFilter}
+            onLoadMore={() => void loadMoreHistory()}
+          />
         </div>
       </div>
     </div>
   );
+}
+
+function PriceItemHistory({
+  entries,
+  activeFilter,
+  loading,
+  hasMore,
+  onFilterChange,
+  onLoadMore,
+}: {
+  entries: PriceListHistoryEntry[];
+  activeFilter: PriceHistoryFilter;
+  loading: boolean;
+  hasMore: boolean;
+  onFilterChange: (filter: PriceHistoryFilter) => void;
+  onLoadMore: () => void;
+}) {
+  return (
+    <section className="mt-8 border-t border-slate-200 pt-5" aria-label="Historik">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="text-sm font-bold tracking-wide text-slate-900">HISTORIK</h4>
+        <div className="flex rounded-lg border border-slate-200 p-0.5 text-xs font-semibold">
+          {([['all', 'Alle'], ['price', 'Prisændringer'], ['text', 'Tekstændringer']] as const).map(([filter, label]) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => onFilterChange(filter)}
+              className={`rounded-md px-2.5 py-1.5 ${activeFilter === filter ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="py-5 text-sm text-slate-500">Henter historik…</p>
+      ) : entries.length === 0 ? (
+        <p className="py-5 text-sm text-slate-500">Ingen registrerede ændringer endnu.</p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {entries.map((entry) => <PriceHistoryEntry key={entry.id} entry={entry} />)}
+        </div>
+      )}
+
+      {hasMore && !loading && (
+        <button type="button" onClick={onLoadMore} className="mt-4 text-sm font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-950">
+          Vis flere
+        </button>
+      )}
+    </section>
+  );
+}
+
+function PriceHistoryEntry({ entry }: { entry: PriceListHistoryEntry }) {
+  const isPrice = isPriceHistoryPriceField(entry.field_name);
+  const oldValue = isPrice ? formatHistoryMoney(entry.old_numeric_value, entry.field_name) : `“${entry.old_value ?? '—'}”`;
+  const newValue = isPrice ? formatHistoryMoney(entry.new_numeric_value, entry.field_name) : `“${entry.new_value ?? '—'}”`;
+  const { amount: delta, percentage } = isPrice
+    ? priceHistoryDelta(entry)
+    : { amount: null, percentage: null };
+  const actor = entry.actor_initials || entry.actor_name || entry.actor_email || 'Ukendt bruger';
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+      <p className="text-xs font-semibold text-slate-500">
+        {new Intl.DateTimeFormat('da-DK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(entry.changed_at))} · {actor}
+      </p>
+      <p className="mt-2 font-semibold text-slate-900">{FIELD_LABEL[entry.field_name]}</p>
+      <p className="mt-1 break-words text-slate-700">
+        <span className="text-slate-500">{oldValue}</span> <span className="px-1 text-slate-400">→</span> <span className="font-semibold">{newValue}</span>
+      </p>
+      {delta != null && (
+        <p className={`mt-1 text-xs font-bold ${delta > 0 ? 'text-emerald-700' : delta < 0 ? 'text-rose-700' : 'text-slate-600'}`}>
+          {delta > 0 ? 'Pris steget: ' : delta < 0 ? 'Pris faldet: ' : 'Pris uændret: '}
+          {delta > 0 ? '+' : ''}{formatHistoryMoney(delta, entry.field_name)}{percentage != null ? ` / ${percentage > 0 ? '+' : ''}${percentage.toLocaleString('da-DK', { maximumFractionDigits: 1 })} %` : ''}
+        </p>
+      )}
+    </article>
+  );
+}
+
+function formatHistoryMoney(value: number | null, field: PriceListHistoryEntry['field_name']): string {
+  if (value == null) return '—';
+  const currency = field === 'price_eur' ? 'EUR' : field === 'price_sek' ? 'SEK' : 'DKK';
+  return `${fmtPrice(value)} ${currency}`;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -1382,11 +1900,13 @@ function formatEditablePrice(value: number | null | undefined): string {
 }
 
 function PublishModal({
-  rows, busy, summary, onClose, onConfirm,
+  rows, busy, summary, nextVersionNumber, actorEmail, onClose, onConfirm,
 }: {
   rows: PublishPreviewRow[];
   busy: boolean;
   summary: PublishSummary | null;
+  nextVersionNumber: number;
+  actorEmail: string | null;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
@@ -1422,30 +1942,34 @@ function PublishModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between p-6 border-b border-slate-200">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Upload ændringer til konfigurator</h3>
+            <h3 className="text-lg font-bold text-slate-900">Frigiv prisliste</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Sammenligner ændrede prislistevarer (Backend) mod konfiguratorens nuværende værdier
-              (machines.ts). Ved bekræftelse skrives kun de ændrede varer til <span className="font-mono">price_list_published</span>.
-              Konfiguratoren læser ikke fra denne tabel endnu — eksisterende tilbud, ordrer, PDF og e-mail er uændrede.
+              De viste kladdepriser bliver den aktive prisliste for nye og ikke-låste beregninger.
+              Eksisterende sendte tilbud, ordrer og PDF'er bevarer deres låste prissnapshot.
             </p>
-            <p className="text-xs text-slate-600 mt-2">
-              <strong>{ready.length}</strong> klar til upload
-              {missing.length > 0 && <> · <strong>{missing.length}</strong> mangler i konfigurator</>}
-              {" "}({rows.length} ændringer i alt)
-            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-600 sm:grid-cols-5">
+              <div><dt className="font-semibold text-slate-900">Version</dt><dd>#{nextVersionNumber}</dd></div>
+              <div><dt className="font-semibold text-slate-900">Ikrafttræder</dt><dd>Ved frigivelse</dd></div>
+              <div><dt className="font-semibold text-slate-900">Varer</dt><dd>{ready.length}</dd></div>
+              <div><dt className="font-semibold text-slate-900">Valutaer</dt><dd>{releaseCurrencies(rows).join(', ') || 'Tekst'}</dd></div>
+              <div><dt className="font-semibold text-slate-900">Bruger</dt><dd className="truncate" title={actorEmail ?? undefined}>{actorEmail ?? 'Aktuel backend-bruger'}</dd></div>
+            </dl>
+            {missing.length > 0 && <p className="mt-2 text-xs font-semibold text-amber-700">{missing.length} vare(r) mangler i Configurator og skal kontrolleres før frigivelse.</p>}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="flex-1 overflow-auto p-6">
           {summary ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className={`rounded-xl border p-4 ${summary.errors.length > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-6 w-6 text-emerald-700 mt-0.5" />
+                <CheckCircle2 className={`h-6 w-6 mt-0.5 ${summary.errors.length > 0 ? "text-amber-700" : "text-emerald-700"}`} />
                 <div>
-                  <p className="font-bold text-emerald-900">Publicering gennemført</p>
-                  <p className="text-sm text-emerald-900 mt-1">
-                    <strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret,{" "}
+                  <p className={`font-bold ${summary.errors.length > 0 ? "text-amber-900" : "text-emerald-900"}`}>
+                    {summary.errors.length > 0 ? "Frigivelse afsluttet med fejl" : `Prisliste version #${summary.versionNumber ?? nextVersionNumber} er frigivet`}
+                  </p>
+                  <p className={`text-sm mt-1 ${summary.errors.length > 0 ? "text-amber-900" : "text-emerald-900"}`}>
+                    <strong>{summary.created + summary.updated}</strong> vare(r) er aktive ({summary.created} oprettet, {summary.updated} opdateret),{" "}
                     <strong>{summary.skipped}</strong> sprunget over.
                   </p>
                   {summary.errors.length > 0 && (
@@ -1457,7 +1981,7 @@ function PublishModal({
               </div>
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-slate-500">Ingen ændrede varer at publicere.</p>
+            <p className="text-sm text-slate-500">Ingen klargjorte varer at frigive.</p>
           ) : (
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
               <table className="min-w-full text-xs">
@@ -1465,7 +1989,7 @@ function PublishModal({
                   <tr className="text-left">
                     <th className="px-2 py-1.5">Status</th>
                     <th className="px-2 py-1.5">Varenr.</th>
-                    <th className="px-2 py-1.5">Varetekst (gammel → ny)</th>
+                    <th className="px-2 py-1.5">Varetekster (gammel → ny)</th>
                     <th className="px-2 py-1.5 text-right">Pris DKK</th>
                     <th className="px-2 py-1.5 text-right">Pris EUR</th>
                     <th className="px-2 py-1.5 text-right">Pris SEK</th>
@@ -1482,7 +2006,19 @@ function PublishModal({
                         )}
                       </td>
                       <td className="px-2 py-1.5 font-mono">{r.item_number}</td>
-                      <td className="px-2 py-1.5">{diffText(r.old_item_text_da, r.item_text_da)}</td>
+                      <td className="px-2 py-1.5">
+                        <div className="space-y-1">
+                          <div><span className="mr-1 font-bold text-slate-500">DA</span>{diffText(r.old_item_text_da, r.item_text_da)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">DE</span>{diffText(r.old_item_text_de, r.item_text_de)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">EN</span>{diffText(r.old_item_text_en, r.item_text_en)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">IT</span>{diffText(r.old_item_text_it, r.item_text_it)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">HU</span>{diffText(r.old_item_text_hu, r.item_text_hu)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">SE</span>{diffText(r.old_item_text_sv, r.item_text_sv)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">FR</span>{diffText(r.old_item_text_fr, r.item_text_fr)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">PL</span>{diffText(r.old_item_text_pl, r.item_text_pl)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">CZ</span>{diffText(r.old_item_text_cs, r.item_text_cs)}</div>
+                        </div>
+                      </td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_dkk, r.price_dkk)}</td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_eur, r.price_eur)}</td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_sek, r.price_sek)}</td>
@@ -1508,11 +2044,31 @@ function PublishModal({
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"
             >
               <UploadCloud className="h-4 w-4" />
-              {busy ? "Publicerer…" : `Bekræft upload til konfigurator (${rows.length})`}
+              {busy ? "Frigiver…" : `Frigiv prisliste (${rows.length})`}
             </button>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+function ActiveAndDraftPrice({ active, draft }: { active: number | null; draft: number | null }) {
+  const changed = draft != null && draft !== active;
+  return (
+    <div>
+      <div>{fmtPrice(active)}</div>
+      {changed && <div className="text-[10px] font-semibold text-amber-700">Kladde {fmtPrice(draft)}</div>}
+    </div>
+  );
+}
+
+function releaseCurrencies(rows: PublishPreviewRow[]): string[] {
+  const currencies = new Set<string>();
+  for (const row of rows) {
+    if (row.price_dkk !== row.old_price_dkk) currencies.add('DKK');
+    if (row.price_sek !== row.old_price_sek) currencies.add('SEK');
+    if (row.price_eur !== row.old_price_eur) currencies.add('EUR');
+  }
+  return [...currencies];
 }

@@ -92,4 +92,4 @@ end;
 $$;
 
 revoke all on function public.delete_dealer_contract(uuid) from public, anon, authenticated;
-grant execute on function public.delete_dealer_contract(uuid) to service_role;
+grant execute on function public.delete_dealer_contract(uuid) to service_role;;

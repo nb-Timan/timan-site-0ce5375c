@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, FileText, ShoppingCart, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
@@ -11,33 +11,23 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { cn } from '@/lib/utils';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import { t } from '@/lib/i18n/translations';
-
-interface NavItem { tKey: string; to: string; icon: typeof LayoutDashboard }
-const NAV: NavItem[] = [
-  { tKey: 'crmDashboard',        to: '/portal/crm/dashboard',        icon: LayoutDashboard },
-  { tKey: 'crmMyDealers',        to: '/portal/crm/my-dealers',       icon: Store },
-  { tKey: 'crmLeads',            to: '/portal/crm/leads',            icon: Sparkles },
-  { tKey: 'crmQuotes',           to: '/portal/crm/quotes',           icon: FileText },
-  { tKey: 'crmOrders',           to: '/portal/crm/orders',           icon: ShoppingCart },
-  { tKey: 'crmActivities',       to: '/portal/crm/activities',       icon: Activity },
-  { tKey: 'crmCalendar',         to: '/portal/crm/calendar',         icon: CalendarDays },
-  { tKey: 'crmBudget',           to: '/portal/crm/budget',           icon: Wallet },
-  { tKey: 'crmBudgetDashboard',  to: '/portal/crm/budget-dashboard', icon: Gauge },
-];
-
-const EXTERNAL_NAV_BLOCKLIST = new Set([
-  '/portal/crm/activities',
-  '/portal/crm/budget-dashboard',
-]);
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import { CRM_NAV_ITEMS, EXTERNAL_CRM_NAV_BLOCKLIST } from '@/lib/crmNavigation';
+import { hasEffectiveAcademyCapabilityAccess } from '@/lib/academyCurriculum';
+import { findPortalCapabilityContractByRoute } from '../../../supabase/functions/_shared/portalCapabilityContract';
+import { canMaintainPartnerdata } from '@/lib/partnerDataScope';
 
 interface Props { children: ReactNode; pageTitle?: string; partnerDataPresentation?: boolean }
 
 export default function CrmLayout({ children, pageTitle, partnerDataPresentation = false }: Props) {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser: sessionUser, loading, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const effectiveUser = useEffectivePortalUser(appUser);
+  const academyAccess = useAcademyAccess();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -49,30 +39,41 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
   const externalCrm = isExternalCrmRole(portalRole);
   const dealerDetailMatch = location.pathname.match(/^\/portal\/(?:crm\/my-dealers|dealer-data)\/([^/]+)$/);
   const hasDealerDataAreaAccess = hasAreaAccess(effectiveUser, 'dealer_data');
+  const hasGlobalPartnerDataScope = partnerDataPresentation
+    && canMaintainPartnerdata(effectiveUser, portalRole);
   const hasCrmAreaAccess = hasAreaAccess(effectiveUser, 'timan_crm');
   const externalDealerDetailAllowed = Boolean(
     externalCrm &&
     dealerDetailMatch &&
     hasDealerDataAreaAccess,
   );
-  const crmAreaAllowed = externalDealerDetailAllowed || hasCrmAreaAccess;
+  const partnerDataAreaAllowed = partnerDataPresentation && hasDealerDataAreaAccess;
+  const crmAreaAllowed = partnerDataAreaAllowed || externalDealerDetailAllowed || hasCrmAreaAccess;
   if (!crmAreaAllowed) {
     return <Navigate to="/portal" replace />;
   }
-  if (!canUseCrm(portalRole)) {
+  if (!partnerDataPresentation && !canUseCrm(portalRole)) {
     return <Navigate to="/portal" replace />;
   }
-  if (externalCrm && EXTERNAL_NAV_BLOCKLIST.has(location.pathname)) {
+  if (externalCrm && EXTERNAL_CRM_NAV_BLOCKLIST.has(location.pathname)) {
     return <Navigate to="/portal/crm/dashboard" replace />;
   }
   const baseNavItems = partnerDataPresentation
-    ? NAV.map((item) => item.to === '/portal/crm/my-dealers'
+    ? CRM_NAV_ITEMS.map((item) => item.to === '/portal/crm/my-dealers'
       ? { ...item, tKey: 'area_dealer_data_title', to: '/portal/dealer-data' }
       : item)
-    : NAV;
-  const navItems = externalCrm
-    ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to)) : [])
-    : baseNavItems;
+    : CRM_NAV_ITEMS;
+  const roleScopedNavItems = partnerDataPresentation && !hasCrmAreaAccess
+    ? baseNavItems.filter((item) => item.to === '/portal/dealer-data')
+    : externalCrm
+      ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_CRM_NAV_BLOCKLIST.has(item.to)) : [])
+      : baseNavItems;
+  const navItems = roleScopedNavItems.filter((item) => hasEffectiveAcademyCapabilityAccess(
+    effectiveUser,
+    true,
+    findPortalCapabilityContractByRoute(item.to)?.academyGate,
+    academyAccess?.completionIds ?? [],
+  ));
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -83,18 +84,25 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
         <div className="flex items-center justify-end mb-3 gap-3 flex-wrap">
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
-            isCrmAdmin(portalRole) ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-sky-50 text-sky-800 border border-sky-200"
+            isCrmAdmin(portalRole) || hasGlobalPartnerDataScope
+              ? "bg-amber-50 text-amber-800 border border-amber-200"
+              : "bg-sky-50 text-sky-800 border border-sky-200"
           )}>
-            {isCrmAdmin(portalRole) ? t('crmScopeAll', uiLanguage) : t('crmScopeOwner', uiLanguage)}
+            {isCrmAdmin(portalRole) || hasGlobalPartnerDataScope
+              ? t('crmScopeAll', uiLanguage)
+              : t('crmScopeOwner', uiLanguage)}
           </span>
         </div>
 
         <nav className="relative flex flex-wrap items-center gap-1 mb-6 border-b border-slate-200/80">
           {navItems.map(item => {
-            const active = location.pathname === item.to;
+            const academyLeads = academyCrmSandbox.isActive() && item.to === '/portal/crm/leads';
+            const part = academyCrmSandbox.getPart();
+            const to = academyLeads ? `/academy/crm/leads?academy_mode=true&academy_part=${part}` : item.to;
+            const active = location.pathname === item.to || (academyLeads && location.pathname.startsWith('/academy/crm/leads'));
             const Icon = item.icon;
             return (
-              <Link key={item.to} to={item.to}
+              <Link key={item.to} to={to}
                 className={cn(
                   "group relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors -mb-px",
                   active

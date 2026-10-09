@@ -24,6 +24,8 @@ import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyD
 import SyncSection from "@/components/backend/SyncSection";
 import { useLatestDealerSyncLog, badgeFromLatest } from "@/lib/syncStatusBadge";
 import { isBackendActor } from "@/lib/portalAccess";
+import { CrmCompetitorsAdmin } from '@/components/backend/CrmCompetitorsAdmin';
+import { crmCompetitorText } from '@/lib/crmCompetitorI18n';
 import {
   DATA_TRACE_LOOKUP_TYPES,
   displayTraceTableName,
@@ -42,12 +44,12 @@ import {
   type DataTraceTableCount,
 } from "@/lib/dataTraceArchiveService";
 
-type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "data-trace" | "crm-reset";
-const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik", "data-trace", "crm-reset"];
+type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "data-trace" | "crm-reset" | "competitors";
+const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik", "data-trace", "crm-reset", "competitors"];
 
 export default function BackendDataIntegrationsPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
@@ -98,6 +100,7 @@ export default function BackendDataIntegrationsPage() {
             <TabsTrigger value="historik" className="data-[state=active]:bg-white"><History className="h-4 w-4 mr-2" />Sync Historik</TabsTrigger>
             <TabsTrigger value="data-trace" className="data-[state=active]:bg-white"><ShieldAlert className="h-4 w-4 mr-2" />Slet / gendan</TabsTrigger>
             <TabsTrigger value="crm-reset" className="data-[state=active]:bg-white"><RotateCcw className="h-4 w-4 mr-2" />CRM nulstilling</TabsTrigger>
+            <TabsTrigger value="competitors" className="data-[state=active]:bg-white">{crmCompetitorText('competitors', uiLanguage)}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="forhandlere"><DealerTab /></TabsContent>
@@ -108,6 +111,7 @@ export default function BackendDataIntegrationsPage() {
           <TabsContent value="historik"><HistoryTab /></TabsContent>
           <TabsContent value="data-trace"><DataTraceArchiveTab /></TabsContent>
           <TabsContent value="crm-reset"><CrmResetTab /></TabsContent>
+          <TabsContent value="competitors"><CrmCompetitorsAdmin /></TabsContent>
         </Tabs>
       </main>
 

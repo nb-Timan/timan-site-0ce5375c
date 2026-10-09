@@ -5,8 +5,9 @@
  * (not inside the parent render) so React keeps the same component
  * identity across renders and inputs don't remount on every keystroke.
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2, ArrowRightLeft, CopyPlus } from "lucide-react";
 import { useBeforeUnload } from "react-router-dom";
 
@@ -46,14 +47,10 @@ import {
 } from "@/lib/paymentTerms";
 import { tProfile, type ProfileI18nKey } from "@/lib/dealerProfileI18n";
 import {
-  updateDealerAccount,
   type DealerAccount,
   type UpdateDealerAccountPatch,
 } from "@/lib/dealerAccountsService";
 import {
-  listDealerContacts,
-  upsertDealerContact,
-  deleteDealerContact,
   type DealerContact,
   type DealerContactArea,
 } from "@/lib/dealerContactsService";
@@ -67,7 +64,6 @@ import {
   ROLE_KEYS_WORKSHOP,
 } from "@/lib/dealerContactModel";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
-import { fetchActiveDealerContractPaymentTerm } from "@/lib/dealerContractsService";
 import { PARTNER_CURRENCY_CODES } from "@/lib/currency";
 
 interface Props {
@@ -75,6 +71,7 @@ interface Props {
   language: Language;
   canEdit: boolean;
   canManageFinancialTerms: boolean;
+  effectiveUserId: string | null;
   onUpdated?: (next: DealerAccount) => void;
 }
 
@@ -122,6 +119,10 @@ function createLocalContact(dealerAccountId: string, area: DealerContactArea): D
 
 function isLocalContact(contact: DealerContact): boolean {
   return contact.id.startsWith("local-");
+}
+
+function localContactCreateId(contact: Pick<DealerContact, "id">): string | undefined {
+  return contact.id.startsWith("local-") ? contact.id.slice("local-".length) : undefined;
 }
 
 /** A legacy profile field is display-only until the user explicitly edits it. */
@@ -432,9 +433,10 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
   );
 }
 
-function buildProfilePatch(draft: DealerAccount): UpdateDealerAccountPatch {
+function buildProfilePatch(draft: DealerAccount, canManageFinancialTerms: boolean): UpdateDealerAccountPatch {
   const patch: UpdateDealerAccountPatch = {};
   for (const key of PROFILE_PATCH_KEYS) {
+    if (!canManageFinancialTerms && (key === "payment_terms_override" || key === "currency_code")) continue;
     patch[key] = draft[key] as never;
   }
   return patch;
@@ -446,8 +448,11 @@ function profileValue(value: DealerAccount[ProfilePatchKey]) {
 
 // ---------- main component ----------
 
-export default function DealerProfileEditor({ dealer, language, canEdit, canManageFinancialTerms, onUpdated }: Props) {
+export default function DealerProfileEditor({ dealer, language, canEdit, canManageFinancialTerms, effectiveUserId, onUpdated }: Props) {
+  const { updateDealerAccount, listDealerContacts, upsertDealerContact, deleteDealerContact, fetchActiveDealerContractPaymentTerm } = getPartnerDataRepository();
   const t = useMemo(() => (k: ProfileI18nKey) => tProfile(language, k), [language]);
+  type ContactSaveResult = Awaited<ReturnType<typeof upsertDealerContact>>;
+  const contactSaveQueues = useRef(new Map<string, Promise<ContactSaveResult>>());
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
@@ -559,18 +564,24 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       geocoded_at: null,
       geocoding_status: "pending",
       geocoding_error: null,
+      geocoding_address_hash: null,
+      geocoding_retry_after: null,
     }));
 
   const saveAllProfile = async (section: SavingSection): Promise<boolean> => {
     if (!canEdit) return false;
     setSavingSection(section);
     try {
-      const res = await updateDealerAccount(dealer.id, buildProfilePatch(draft));
+      const res = await updateDealerAccount(
+        dealer.id,
+        buildProfilePatch(draft, canManageFinancialTerms),
+        effectiveUserId,
+      );
       if (!res.ok) {
         toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
         return false;
       } else {
-        const contactResults = await Promise.all(contacts.map((c) => persistContact(c)));
+        const contactResults = await Promise.all(contacts.map((c) => queueContactSave(c)));
         const contactError = contactResults.find((r) => !r.ok)?.error;
         if (contactError) {
           toast({ title: t("saveError"), description: contactError, variant: "destructive" });
@@ -634,15 +645,37 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
   const persistContact = async (c: DealerContact) => {
     if (!shouldPersistContact(c)) return { ok: true };
     const res = await upsertDealerContact({
-      id: isLocalContact(c) ? undefined : c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
+      id: isLocalContact(c) ? undefined : c.id,
+      createId: localContactCreateId(c),
+      dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
       role_title: c.role_title, name: c.name, email: c.email, phone: c.phone, is_primary: c.is_primary,
-    });
+    }, effectiveUserId);
     return res;
   };
+  const queueContactSave = (c: DealerContact): Promise<ContactSaveResult> => {
+    const queueKey = c.id;
+    const previous = contactSaveQueues.current.get(queueKey) ?? Promise.resolve({ ok: true });
+    const queued = previous.then(async () => {
+      try {
+        const res = await persistContact(c);
+        if (res.row) {
+          setContacts((prev) => prev.map((row) => (
+            row.id === c.id || row.id === res.row!.id ? res.row! : row
+          )));
+        }
+        return res;
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    }).finally(() => {
+      if (contactSaveQueues.current.get(queueKey) === queued) contactSaveQueues.current.delete(queueKey);
+    });
+    contactSaveQueues.current.set(queueKey, queued);
+    return queued;
+  };
   const saveContact = async (c: DealerContact) => {
-    const res = await persistContact(c);
+    const res = await queueContactSave(c);
     if (!res.ok) toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
-    else if (res.row) setContacts((prev) => prev.map((row) => row.id === c.id ? res.row! : row));
   };
   const removeContact = async (id: string) => {
     const local = contacts.find((c) => c.id === id);
@@ -651,7 +684,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       setContacts((prev) => prev.filter((c) => c.id !== id));
       return;
     }
-    const res = await deleteDealerContact(id);
+    const res = await deleteDealerContact(id, effectiveUserId);
     if (res.ok) setContacts((prev) => prev.filter((c) => c.id !== id));
     else toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
   };
@@ -668,17 +701,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       setDraft((d) => ({ ...d, primary_contact_name: null, primary_contact_email: null, primary_contact_phone: null }));
     }
     const changedContacts = next.filter(shouldPersistContact);
-    const results = await Promise.all(changedContacts.map((c) => persistContact(c)));
+    const results = await Promise.all(changedContacts.map((c) => queueContactSave(c)));
     const error = results.find((r) => !r.ok)?.error;
     if (error) toast({ title: t("saveError"), description: error, variant: "destructive" });
-    const savedByPreviousId = new Map<string, DealerContact>();
-    changedContacts.forEach((contact, index) => {
-      const saved = results[index]?.row;
-      if (saved) savedByPreviousId.set(contact.id, saved);
-    });
-    if (savedByPreviousId.size > 0) {
-      setContacts((prev) => prev.map((row) => savedByPreviousId.get(row.id) ?? row));
-    }
   };
 
   const openContactTransfer = (mode: ContactTransferMode, contact: DealerContact) => {
@@ -715,7 +740,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
         email: contact.email,
         phone: contact.phone,
         is_primary: false,
-      });
+      }, effectiveUserId);
       if (!res.ok || !res.row) {
         toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
         return;
@@ -737,6 +762,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       return;
     }
     const res = await upsertDealerContact({
+      createId: localContactCreateId(duplicate),
       dealer_account_id: contact.dealer_account_id,
       contact_area: targetArea,
       role_title: null,
@@ -744,7 +770,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       email: contact.email,
       phone: contact.phone,
       is_primary: false,
-    });
+    }, effectiveUserId);
     if (!res.ok || !res.row) {
       toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
       return;
@@ -837,6 +863,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
                   geocoded_at: null,
                   geocoding_status: "pending",
                   geocoding_error: null,
+                  geocoding_address_hash: null,
+                  geocoding_retry_after: null,
                 }));
               }}
               onResolve={(r) => {
@@ -858,6 +886,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
                   geocoding_error: typeof r.latitude === "number" && typeof r.longitude === "number"
                     ? null
                     : d.geocoding_error,
+                  geocoding_address_hash: null,
+                  geocoding_retry_after: null,
                 }));
               }}
             />

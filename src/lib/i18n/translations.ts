@@ -16,6 +16,14 @@ import { NEWS_CMS_TRANSLATIONS } from '@/lib/i18n/newsCmsTranslations';
 import { SITE_FEATURE_TRANSLATIONS } from '@/lib/i18n/siteFeatureTranslations';
 import { TIMAN_2620_INFO_TRANSLATIONS } from '@/lib/i18n/timan2620InfoTranslations';
 import { MESSE_HOME_TRANSLATIONS } from '@/lib/i18n/messeHomeTranslations';
+import { ACADEMY_TRANSLATIONS } from '@/lib/i18n/academyTranslations';
+import { CAMPAIGN_TRANSLATIONS } from '@/lib/i18n/campaignTranslations';
+import { ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS } from '@/lib/i18n/accountOrderDiscountTranslations';
+import { SALES_DOCUMENT_TRANSLATIONS } from '@/lib/i18n/salesDocumentTranslations';
+import { SUPPORT_TRANSLATIONS } from '@/lib/i18n/supportTranslations';
+import { CRM_DEALER_DASHBOARD_TRANSLATIONS } from '@/lib/i18n/crmDealerDashboardTranslations';
+import { PLANNING_TRANSLATIONS } from '@/lib/i18n/planningTranslations';
+import { LOAN_TRANSLATIONS } from '@/lib/i18n/loanTranslations';
 
 type Dict = Record<string, string>;
 
@@ -23,6 +31,15 @@ type Dict = Record<string, string>;
 // Danish (source of truth)
 // ---------------------------------------------------------------------------
 const da: Dict = {
+  ...LOAN_TRANSLATIONS.da,
+  ...PLANNING_TRANSLATIONS.da,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.da,
+  ...SUPPORT_TRANSLATIONS.da,
+  ...ACADEMY_TRANSLATIONS.da,
+  ...CAMPAIGN_TRANSLATIONS.da,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.da,
+  ...SALES_DOCUMENT_TRANSLATIONS.da,
+  backendPermissionSupport: 'Support',
   newsCmsBadgeNews: 'NYHED',
   marketingBadgeNew: 'Nyhed',
   marketingBadgeOffer: 'Tilbud',
@@ -78,6 +95,8 @@ const da: Dict = {
   quickActionCompanyContactInfoDesc: 'Firma- og kontaktinformation',
   quickActionDealerInvoiceAccept: 'Forhandler faktura accept',
   quickActionPartnerMap: 'Partnerkort',
+  quickActionCreateWarrantyRegistration: 'Opret garantiregistrering',
+  quickActionCreateServiceRegistration: 'Opret serviceregistrering',
   quickActionWarrantyRegistrations: 'Registrerede garantibeviser',
   quickActionClaims: 'Alle claims',
   quickActionDrift: 'Driftberegner',
@@ -413,7 +432,7 @@ const da: Dict = {
   // Support / company section on Teknik & Service area
   supportSectionTitle: 'Timan Teknik support og firmainformation',
   supportHeading: 'Support', companyHeading: 'Firmainformation',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Virksomhed', labelAddress: 'Adresse',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Virksomhed', labelAddress: 'Adresse', labelCountry: 'Land', labelCvr: 'CVR',
 
   // CRM nav tabs
   crmDashboard: 'Dashboard', crmMyDealers: 'Mine forhandlere', crmMyPartners: 'Mine samarbejdspartnere',
@@ -697,6 +716,15 @@ const da: Dict = {
 // English
 // ---------------------------------------------------------------------------
 const en: Dict = {
+  ...LOAN_TRANSLATIONS.en,
+  ...PLANNING_TRANSLATIONS.en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.en,
+  ...SUPPORT_TRANSLATIONS.en,
+  ...ACADEMY_TRANSLATIONS.en,
+  ...CAMPAIGN_TRANSLATIONS.en,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.en,
+  ...SALES_DOCUMENT_TRANSLATIONS.en,
+  backendPermissionSupport: 'Support',
   marketingBadgeNew: 'New',
   marketingBadgeOffer: 'Offer',
   marketingBadgeGoodPrice: 'Good price',
@@ -752,6 +780,8 @@ const en: Dict = {
   quickActionCompanyContactInfoDesc: 'Company and contact information',
   quickActionDealerInvoiceAccept: 'Dealer invoice acceptance',
   quickActionPartnerMap: 'Partner map',
+  quickActionCreateWarrantyRegistration: 'Create warranty registration',
+  quickActionCreateServiceRegistration: 'Create service registration',
   quickActionWarrantyRegistrations: 'Warranty registrations',
   quickActionClaims: 'All claims',
   quickActionDrift: 'Operating calculator',
@@ -1079,7 +1109,7 @@ const en: Dict = {
 
   supportSectionTitle: 'Timan Technical support and company information',
   supportHeading: 'Support', companyHeading: 'Company information',
-  labelPhone: 'Phone', labelEmail: 'Email', labelCompany: 'Company', labelAddress: 'Address',
+  labelPhone: 'Phone', labelEmail: 'Email', labelCompany: 'Company', labelAddress: 'Address', labelCountry: 'Country', labelCvr: 'CVR',
 
   crmDashboard: 'Dashboard', crmMyDealers: 'My dealers', crmMyPartners: 'My collaboration partners',
   crmAccounts: 'Accounts', crmLeads: 'Leads', crmQuotes: 'Quotes',
@@ -1356,6 +1386,15 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.de,
+  ...PLANNING_TRANSLATIONS.de,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.de,
+  ...SUPPORT_TRANSLATIONS.de,
+  ...ACADEMY_TRANSLATIONS.de,
+  ...CAMPAIGN_TRANSLATIONS.de,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.de,
+  ...SALES_DOCUMENT_TRANSLATIONS.de,
+  backendPermissionSupport: 'Support',
   contractFullTextHeading: 'Der Vertrag',
   contractFullTextIntro: 'Die vollständige Vereinbarung in der Reihenfolge des endgültigen Vertrags.',
   contractPaymentTermsLabel: 'Zahlungsbedingungen',
@@ -1449,6 +1488,8 @@ const de: Dict = {
   quickActionCompanyContactInfoDesc: 'Firmen- und Kontaktdaten',
   quickActionDealerInvoiceAccept: 'Händler-Rechnungsannahme',
   quickActionPartnerMap: 'Partnerkarte',
+  quickActionCreateWarrantyRegistration: 'Garantieregistrierung erstellen',
+  quickActionCreateServiceRegistration: 'Serviceerfassung erstellen',
   quickActionWarrantyRegistrations: 'Garantieregistrierungen',
   quickActionClaims: 'Alle Reklamationen',
   quickActionDrift: 'Betriebsrechner',
@@ -1581,7 +1622,7 @@ const de: Dict = {
 
   supportSectionTitle: 'Timan Technik-Support und Firmeninformationen',
   supportHeading: 'Support', companyHeading: 'Firmeninformationen',
-  labelPhone: 'Telefon', labelEmail: 'E-Mail', labelCompany: 'Unternehmen', labelAddress: 'Adresse',
+  labelPhone: 'Telefon', labelEmail: 'E-Mail', labelCompany: 'Unternehmen', labelAddress: 'Adresse', labelCountry: 'Land', labelCvr: 'CVR',
 
   crmMyDealers: 'Meine Händler', crmMyPartners: 'Meine Partner', crmAccounts: 'Konten', crmLeads: 'Leads',
   crmQuotes: 'Angebote', crmOrders: 'Aufträge', crmActivities: 'Aktivitäten',
@@ -1815,6 +1856,15 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.it,
+  ...PLANNING_TRANSLATIONS.it,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.it,
+  ...SUPPORT_TRANSLATIONS.it,
+  ...ACADEMY_TRANSLATIONS.it,
+  ...CAMPAIGN_TRANSLATIONS.it,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.it,
+  ...SALES_DOCUMENT_TRANSLATIONS.it,
+  backendPermissionSupport: 'Assistenza',
   contractFullTextHeading: 'Il contratto',
   contractFullTextIntro: 'L’accordo completo nell’ordine utilizzato nel contratto finale.',
   contractPaymentTermsLabel: 'Termini di pagamento',
@@ -1888,6 +1938,8 @@ const it: Dict = {
   quickActionCompanyContactInfoDesc: 'Informazioni aziendali e contatti',
   quickActionDealerInvoiceAccept: 'Accettazione fattura rivenditore',
   quickActionPartnerMap: 'Mappa partner',
+  quickActionCreateWarrantyRegistration: 'Crea registrazione della garanzia',
+  quickActionCreateServiceRegistration: 'Crea registrazione di assistenza',
   quickActionWarrantyRegistrations: 'Registrazioni garanzia',
   quickActionClaims: 'Tutti i reclami',
   quickActionDrift: 'Calcolatore operativo',
@@ -2017,7 +2069,7 @@ const it: Dict = {
 
   supportSectionTitle: 'Supporto tecnico Timan e informazioni aziendali',
   supportHeading: 'Supporto', companyHeading: 'Informazioni aziendali',
-  labelPhone: 'Telefono', labelEmail: 'E-mail', labelCompany: 'Azienda', labelAddress: 'Indirizzo',
+  labelPhone: 'Telefono', labelEmail: 'E-mail', labelCompany: 'Azienda', labelAddress: 'Indirizzo', labelCountry: 'Paese', labelCvr: 'CVR',
 
   crmMyDealers: 'I miei rivenditori', crmAccounts: 'Account', crmLeads: 'Lead',
   crmQuotes: 'Preventivi', crmOrders: 'Ordini', crmActivities: 'Attività',
@@ -2252,6 +2304,15 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.hu,
+  ...PLANNING_TRANSLATIONS.hu,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.hu,
+  ...SUPPORT_TRANSLATIONS.hu,
+  ...ACADEMY_TRANSLATIONS.hu,
+  ...CAMPAIGN_TRANSLATIONS.hu,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.hu,
+  ...SALES_DOCUMENT_TRANSLATIONS.hu,
+  backendPermissionSupport: 'Támogatás',
   contractFullTextHeading: 'A szerződés',
   contractFullTextIntro: 'A teljes megállapodás a végleges szerződésben szereplő sorrendben.',
   contractPaymentTermsLabel: 'Fizetési feltételek',
@@ -2325,6 +2386,8 @@ const hu: Dict = {
   quickActionCompanyContactInfoDesc: 'Cég- és kapcsolati adatok',
   quickActionDealerInvoiceAccept: 'Kereskedői számla elfogadás',
   quickActionPartnerMap: 'Partnertérkép',
+  quickActionCreateWarrantyRegistration: 'Garanciaregisztráció létrehozása',
+  quickActionCreateServiceRegistration: 'Szervizregisztráció létrehozása',
   quickActionWarrantyRegistrations: 'Garanciaregisztrációk',
   quickActionClaims: 'Összes reklamáció',
   quickActionDrift: 'Üzemeltetési kalkulátor',
@@ -2454,7 +2517,7 @@ const hu: Dict = {
 
   supportSectionTitle: 'Timan műszaki támogatás és cégadatok',
   supportHeading: 'Támogatás', companyHeading: 'Cégadatok',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Vállalat', labelAddress: 'Cím',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Vállalat', labelAddress: 'Cím', labelCountry: 'Ország', labelCvr: 'CVR',
 
   crmMyDealers: 'Kereskedőim', crmAccounts: 'Fiókok', crmLeads: 'Leadek',
   crmQuotes: 'Árajánlatok', crmOrders: 'Rendelések', crmActivities: 'Tevékenységek',
@@ -2689,6 +2752,15 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.sv,
+  ...PLANNING_TRANSLATIONS.sv,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.sv,
+  ...SUPPORT_TRANSLATIONS.sv,
+  ...ACADEMY_TRANSLATIONS.sv,
+  ...CAMPAIGN_TRANSLATIONS.sv,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.sv,
+  ...SALES_DOCUMENT_TRANSLATIONS.sv,
+  backendPermissionSupport: 'Support',
   contractFullTextHeading: 'Avtalet',
   contractFullTextIntro: 'Hela avtalet i den ordning som används i det slutliga avtalet.',
   contractPaymentTermsLabel: 'Betalningsvillkor',
@@ -2762,6 +2834,8 @@ const sv: Dict = {
   quickActionCompanyContactInfoDesc: 'Företags- och kontaktinformation',
   quickActionDealerInvoiceAccept: 'Återförsäljares fakturaaccept',
   quickActionPartnerMap: 'Partnerkarta',
+  quickActionCreateWarrantyRegistration: 'Skapa garantiregistrering',
+  quickActionCreateServiceRegistration: 'Skapa serviceregistrering',
   quickActionWarrantyRegistrations: 'Garantiregistreringar',
   quickActionClaims: 'Alla reklamationer',
   quickActionDrift: 'Driftskalkylator',
@@ -2892,7 +2966,7 @@ const sv: Dict = {
 
   supportSectionTitle: 'Timan teknisk support och företagsinformation',
   supportHeading: 'Support', companyHeading: 'Företagsinformation',
-  labelPhone: 'Telefon', labelEmail: 'E-post', labelCompany: 'Företag', labelAddress: 'Adress',
+  labelPhone: 'Telefon', labelEmail: 'E-post', labelCompany: 'Företag', labelAddress: 'Adress', labelCountry: 'Land', labelCvr: 'CVR',
 
   crmMyDealers: 'Mina återförsäljare', crmAccounts: 'Konton', crmLeads: 'Leads',
   crmQuotes: 'Offerter', crmOrders: 'Ordrar', crmActivities: 'Aktiviteter',
@@ -3127,6 +3201,15 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.fr,
+  ...PLANNING_TRANSLATIONS.fr,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.fr,
+  ...SUPPORT_TRANSLATIONS.fr,
+  ...ACADEMY_TRANSLATIONS.fr,
+  ...CAMPAIGN_TRANSLATIONS.fr,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.fr,
+  ...SALES_DOCUMENT_TRANSLATIONS.fr,
+  backendPermissionSupport: 'Assistance',
   contractFullTextHeading: 'Le contrat',
   contractFullTextIntro: 'L’accord complet dans l’ordre utilisé dans le contrat final.',
   contractPaymentTermsLabel: 'Conditions de paiement',
@@ -3200,6 +3283,8 @@ const fr: Dict = {
   quickActionCompanyContactInfoDesc: 'Informations entreprise et contact',
   quickActionDealerInvoiceAccept: 'Acceptation facture revendeur',
   quickActionPartnerMap: 'Carte partenaires',
+  quickActionCreateWarrantyRegistration: 'Créer un enregistrement de garantie',
+  quickActionCreateServiceRegistration: 'Créer un enregistrement de service',
   quickActionWarrantyRegistrations: 'Enregistrements de garantie',
   quickActionClaims: 'Toutes les réclamations',
   quickActionDrift: 'Calculateur d’exploitation',
@@ -3330,7 +3415,7 @@ const fr: Dict = {
 
   supportSectionTitle: 'Support technique Timan et informations sur l’entreprise',
   supportHeading: 'Support', companyHeading: 'Informations sur l’entreprise',
-  labelPhone: 'Téléphone', labelEmail: 'E-mail', labelCompany: 'Société', labelAddress: 'Adresse',
+  labelPhone: 'Téléphone', labelEmail: 'E-mail', labelCompany: 'Société', labelAddress: 'Adresse', labelCountry: 'Pays', labelCvr: 'CVR',
 
   crmMyDealers: 'Mes revendeurs', crmAccounts: 'Comptes', crmLeads: 'Leads',
   crmQuotes: 'Devis', crmOrders: 'Commandes', crmActivities: 'Activités',
@@ -3565,6 +3650,15 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.pl,
+  ...PLANNING_TRANSLATIONS.pl,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.pl,
+  ...SUPPORT_TRANSLATIONS.pl,
+  ...ACADEMY_TRANSLATIONS.pl,
+  ...CAMPAIGN_TRANSLATIONS.pl,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.pl,
+  ...SALES_DOCUMENT_TRANSLATIONS.pl,
+  backendPermissionSupport: 'Wsparcie',
   contractFullTextHeading: 'Umowa',
   contractFullTextIntro: 'Pełna umowa w kolejności użytej w umowie końcowej.',
   contractPaymentTermsLabel: 'Warunki płatności',
@@ -3638,6 +3732,8 @@ const pl: Dict = {
   quickActionCompanyContactInfoDesc: 'Dane firmy i kontaktu',
   quickActionDealerInvoiceAccept: 'Akceptacja faktury dealera',
   quickActionPartnerMap: 'Mapa partnerów',
+  quickActionCreateWarrantyRegistration: 'Utwórz rejestrację gwarancji',
+  quickActionCreateServiceRegistration: 'Utwórz rejestrację serwisową',
   quickActionWarrantyRegistrations: 'Rejestracje gwarancji',
   quickActionClaims: 'Wszystkie reklamacje',
   quickActionDrift: 'Kalkulator eksploatacji',
@@ -3768,7 +3864,7 @@ const pl: Dict = {
 
   supportSectionTitle: 'Wsparcie techniczne Timan i informacje o firmie',
   supportHeading: 'Wsparcie', companyHeading: 'Informacje o firmie',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Firma', labelAddress: 'Adres',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Firma', labelAddress: 'Adres', labelCountry: 'Kraj', labelCvr: 'CVR',
 
   crmMyDealers: 'Moi dealerzy', crmAccounts: 'Konta', crmLeads: 'Leady',
   crmQuotes: 'Oferty', crmOrders: 'Zamówienia', crmActivities: 'Aktywności',
@@ -4003,6 +4099,15 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  ...LOAN_TRANSLATIONS.cs,
+  ...PLANNING_TRANSLATIONS.cs,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.cs,
+  ...SUPPORT_TRANSLATIONS.cs,
+  ...ACADEMY_TRANSLATIONS.cs,
+  ...CAMPAIGN_TRANSLATIONS.cs,
+  ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.cs,
+  ...SALES_DOCUMENT_TRANSLATIONS.cs,
+  backendPermissionSupport: 'Podpora',
   contractFullTextHeading: 'Smlouva',
   contractFullTextIntro: 'Úplná smlouva v pořadí použitém v konečné smlouvě.',
   contractPaymentTermsLabel: 'Platební podmínky',
@@ -4076,6 +4181,8 @@ const cs: Dict = {
   quickActionCompanyContactInfoDesc: 'Firemní a kontaktní údaje',
   quickActionDealerInvoiceAccept: 'Přijetí faktury prodejce',
   quickActionPartnerMap: 'Mapa partnerů',
+  quickActionCreateWarrantyRegistration: 'Vytvořit registraci záruky',
+  quickActionCreateServiceRegistration: 'Vytvořit servisní záznam',
   quickActionWarrantyRegistrations: 'Registrace záruk',
   quickActionClaims: 'Všechny reklamace',
   quickActionDrift: 'Provozní kalkulačka',
@@ -4206,7 +4313,7 @@ const cs: Dict = {
 
   supportSectionTitle: 'Technická podpora Timan a informace o společnosti',
   supportHeading: 'Podpora', companyHeading: 'Informace o společnosti',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Společnost', labelAddress: 'Adresa',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Společnost', labelAddress: 'Adresa', labelCountry: 'Země', labelCvr: 'CVR',
 
   crmMyDealers: 'Moji prodejci', crmAccounts: 'Účty', crmLeads: 'Leady',
   crmQuotes: 'Nabídky', crmOrders: 'Objednávky', crmActivities: 'Aktivity',

@@ -7,12 +7,36 @@
  * crmActivitiesService.ts.
  */
 import { supabase } from "@/lib/supabase";
+import { deleteCrmRecordPermanently } from '@/lib/crmPermanentDelete';
+import { academySandbox } from '@/lib/academySandbox';
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, fiscalYearForCalendarMonth, localizedName } from "@/lib/crmBudgetService";
 import { getLeadPipelineValueSnapshot } from "@/lib/crmPipelineValue";
+import {
+  getMissingStoredCrmLeadFields,
+  readCrmLeadStructuredContact,
+  type StoredCrmLeadCompleteness,
+} from '@/lib/crmLeadValidation';
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
+import {
+  NEXT_ACTIVITY_DEMO_AGREED,
+  NEXT_ACTIVITY_DEMO_REQUESTED,
+} from '@/lib/crmDemoStageI18n';
+import {
+  NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_NOT_RELEVANT,
+  NEXT_ACTIVITY_WON,
+} from '@/lib/leadStatus';
+import {
+  canonicalCrmLeadInterestFromLegacyValue,
+  crmLeadInterestIdentity,
+  formatCrmLeadMachineInterestSummary,
+  getCrmLeadInterestQuantity,
+  normalizeCrmLeadMachineInterestItems,
+  type CrmLeadMachineInterestItem,
+} from '@/lib/crmLeadMachineInterest';
 
 // ---------- Shared option lists (Danish UI) ----------
 
@@ -28,15 +52,41 @@ export const NEXT_ACTIVITY_OPTIONS = [
   "Follow-up on leads",
   "Sales material sent to the customer",
   "Offer sent to the customer",
-  "Customer requests a demonstration",
+  NEXT_ACTIVITY_DEMO_REQUESTED,
+  NEXT_ACTIVITY_DEMO_AGREED,
   "Lead sent to the dealer",
-  "Closed without order",
-  "Closed with order",
-  "Not relevant",
+  NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_WON,
+  NEXT_ACTIVITY_NOT_RELEVANT,
   "New lead",
   "Wants to be contacted",
   "Timan",
 ] as const;
+
+export const CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS = [
+  NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_WON,
+  NEXT_ACTIVITY_NOT_RELEVANT,
+] as const;
+
+const CLOSE_FLOW_NEXT_ACTIVITY_SET = new Set<string>(CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS);
+
+export const MANUAL_NEXT_ACTIVITY_OPTIONS = NEXT_ACTIVITY_OPTIONS.filter(
+  (option) => !CLOSE_FLOW_NEXT_ACTIVITY_SET.has(option),
+);
+
+export function isManualNextActivityOption(activity: string | null | undefined): boolean {
+  return !!activity && !CLOSE_FLOW_NEXT_ACTIVITY_SET.has(activity);
+}
+
+export function getNextActivitySelectorOptions(
+  currentActivity: string | null | undefined,
+  options: readonly string[] = MANUAL_NEXT_ACTIVITY_OPTIONS,
+): string[] {
+  const current = currentActivity?.trim();
+  if (!current || options.includes(current)) return [...options];
+  return [current, ...options];
+}
 
 export const CONTACT_TYPE_OPTIONS = [
   "Phone", "Email", "Trade fair", "Dealer", "SoMe",
@@ -63,19 +113,7 @@ export const PIPELINE_STAGES = [
 ] as const;
 export type PipelineStage = typeof PIPELINE_STAGES[number];
 
-export const LOST_COMPETITOR_OPTIONS = [
-  "Egholm", "Hako", "Kärcher", "Vitra", "Fort", "AS Motor",
-  "Energreen", "X-Rot", "Husqvarna", "Andre",
-] as const;
-
-export const LOST_REASON_OPTIONS = [
-  "Price",
-  "Delivery time",
-  "Machine too small",
-  "Machine too large",
-  "Customer found a used machine instead",
-  "Budget changed or project was cancelled",
-] as const;
+export { CRM_LOST_REASON_CODES as LOST_REASON_OPTIONS } from '@/lib/crmLostReason';
 
 // Demo lead specific
 export const DEMO_MACHINE_CATEGORY = [
@@ -130,6 +168,16 @@ export const CRM_LEAD_SUMMARY_SELECT = [
   "contact_type",
   "customer_type",
   "contact_information",
+  "company_name",
+  "company_cvr",
+  "contact_person_name",
+  "phone",
+  "email",
+  "address",
+  "postal_code",
+  "city",
+  "lead_reference_type",
+  "linked_dealer_contact_id",
   "country",
   "estimated_value",
   "pipeline_value_snapshot",
@@ -138,11 +186,13 @@ export const CRM_LEAD_SUMMARY_SELECT = [
   "probability",
   "pipeline_stage",
   "lost_competitor",
+  "lost_competitor_id",
   "lost_reason",
   "status",
   "move_to_working_qty",
   "converted_demo_lead_id",
   "incomplete_from_configurator",
+  "demo_registration_pending",
   "created_at",
   "updated_at",
 ].join(",");
@@ -255,20 +305,33 @@ export interface CrmLead {
   /** Stable, human-readable lead number (1000+) → displayed as L-1000.
    *  Assigned by Supabase sequence on insert (phase31 SQL). */
   lead_no?: number | null;
+  lead_reference_type?: "L" | "G" | null;
   title: string;
+  sales_source_type?: 'STANDARD' | 'SALES_STOCK_DEMO';
   owner_user_id: string | null;
   owner_name: string | null;
   owner_email?: string | null;
   linked_dealer_id: string | null;
+  linked_dealer_contact_id?: string | null;
   first_contact_date: string | null;
   expected_close_date: string | null;
   next_followup_date: string | null;
   machine_types: string[];
+  /** Canonical quantity-bearing machine/equipment lines. Legacy rows are projected from machine_types at quantity 1. */
+  machine_interest_items?: CrmLeadMachineInterestItem[];
   next_activity: string | null;
   demo_has_run: "yes" | "no" | null;
   contact_type: string | null;
   customer_type: string | null;
   contact_information: string | null;
+  company_name?: string | null;
+  company_cvr?: string | null;
+  contact_person_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
   trade_fair: string | null;
   country: string | null;
   notes: string | null;
@@ -279,6 +342,7 @@ export interface CrmLead {
   probability: number | null;
   pipeline_stage: PipelineStage;
   lost_competitor: string | null;
+  lost_competitor_id?: string | null;
   lost_reason: string | null;
   lost_comment: string | null;
   attachments: CrmLeadAttachment[];
@@ -294,6 +358,8 @@ export interface CrmLead {
    *  required CRM fields. Cleared automatically when the lead is saved
    *  through the normal CRM edit form. */
   incomplete_from_configurator?: boolean | null;
+  demo_registration_pending?: boolean;
+  demo_registration?: Pick<CrmDemoLead, 'id' | 'demo_date' | 'completed_at' | 'result_status'> | null;
   /** Read-only lifecycle signal derived from scoped configurations. */
   linked_sales_event?: CrmLinkedSalesEvent | null;
   created_at: string;
@@ -303,6 +369,8 @@ export interface CrmLead {
 export type CrmLinkedSalesEvent = "quote_sent" | "order_submitted";
 
 export interface CrmDemoLead {
+  completed_at?: string | null;
+  completed_by?: string | null;
   id: string;
   /** Stable, human-readable demo number (8000+) → displayed as D-8000.
    *  Assigned by Supabase sequence on insert (phase31 SQL). */
@@ -315,6 +383,10 @@ export interface CrmDemoLead {
   dealer_company: string | null;
   dealer_country?: string | null;
   dealer_rep: string | null;
+  dealer_account_id?: string | null;
+  /** Stable reference when the demonstrator was selected from canonical partner data. */
+  dealer_rep_contact_id?: string | null;
+  dealer_rep_user_id?: string | null;
   customer_name: string | null;
   customer_address: string | null;
   notes: string | null;
@@ -329,6 +401,7 @@ export interface CrmDemoLead {
   probability: number | null;
   competitors_present: "yes" | "no" | null;
   competitor_name: string | null;
+  competitor_id?: string | null;
   notes_after_demo: string | null;
   result_status: string | null;
   attachments: CrmLeadAttachment[];
@@ -399,12 +472,48 @@ export const DEMO_NO_PREFIX = "D-";
 const LEAD_NO_START = 1001;
 const DEMO_NO_START = 8000;
 
-export function formatLeadNo(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return n >= 5000 ? `${LEGACY_LEAD_NO_PREFIX}${n}` : `${LEAD_NO_PREFIX}${n}`;
+function normalizeLeadReferenceType(
+  referenceType: string | null | undefined,
+): "L" | "G" | null {
+  const normalized = (referenceType || "").trim().toUpperCase().replace(/-+$/, "");
+  return normalized === "L" || normalized === "G" ? normalized : null;
 }
-export function formatDemoNo(n: number | null | undefined): string {
-  return n == null ? "—" : `${DEMO_NO_PREFIX}${n}`;
+
+export function resolveLeadReferenceType(
+  n: number | null | undefined,
+  referenceType?: string | null,
+): "L" | "G" {
+  const normalized = normalizeLeadReferenceType(referenceType);
+  if (normalized) return normalized;
+  return n != null && n >= 5000 ? "G" : "L";
+}
+
+export function formatLeadRelation(
+  n: number | null | undefined,
+  referenceType?: string | null,
+): "L-" | "G-" {
+  return `${resolveLeadReferenceType(n, referenceType)}-`;
+}
+
+export function formatLeadReferenceDisplay(
+  n: number | null | undefined,
+  referenceType?: string | null,
+): string {
+  const normalized = normalizeLeadReferenceType(referenceType);
+  const number = n == null ? "" : String(n).trim();
+  if (normalized && number) return `${normalized}-${number}`;
+  if (number) return number;
+  return normalized ? `${normalized}-` : "";
+}
+
+export function formatLeadNo(n: number | null | undefined, referenceType?: string | null): string {
+  if (n == null) return "—";
+  return `${formatLeadRelation(n, referenceType)}${n}`;
+}
+export function formatDemoNo(n: number | string | null | undefined): string {
+  if (n == null) return "—";
+  const match = String(n).trim().match(/^(?:D-)?([0-9]+)$/i);
+  return match ? `${DEMO_NO_PREFIX}${Number(match[1])}` : "—";
 }
 
 const LS_LEAD_LOCAL_NO = "timan.crm.leads.localNo.v1";
@@ -449,16 +558,25 @@ function removeLeadFromLocalCache(id: string): void {
   writeLS<CrmLead>(LS_LEADS, readLS<CrmLead>(LS_LEADS).filter(r => r.id !== id));
 }
 
+function replaceLeadInLocalCache(lead: CrmLead): void {
+  const local = readLS<CrmLead>(LS_LEADS);
+  const index = local.findIndex((row) => row.id === lead.id);
+  if (index >= 0) local[index] = lead;
+  else local.unshift(lead);
+  writeLS<CrmLead>(LS_LEADS, local);
+}
+
 function isUuid(value: string | null | undefined): boolean {
   return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export async function createLead(input: NewCrmLead, opts: { requireRemote?: boolean } = {}): Promise<CrmLead> {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+  if (academySandbox.isActive()) {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
+  row.machine_interest_items = normalizeCrmLeadMachineInterestItems(row.machine_types, row.machine_interest_items);
   const pipelineSnapshot = getLeadPipelineValueSnapshot(row);
   row.pipeline_value_snapshot = pipelineSnapshot.value;
   row.pipeline_value_snapshot_reason = pipelineSnapshot.reason;
@@ -481,10 +599,12 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
     const { data, error } = await supabase.from("crm_leads").insert({
       id: row.id,
       title: row.title,
+      sales_source_type: row.sales_source_type ?? 'STANDARD',
       owner_user_id: row.owner_user_id,
       owner_name: row.owner_name,
       owner_email: row.owner_email ?? null,
       linked_dealer_id: isUuid(row.linked_dealer_id) ? row.linked_dealer_id : null,
+      linked_dealer_contact_id: isUuid(row.linked_dealer_contact_id) ? row.linked_dealer_contact_id : null,
       first_contact_date: row.first_contact_date,
       expected_close_date: row.expected_close_date,
       next_followup_date: row.next_followup_date,
@@ -494,6 +614,14 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       contact_type: row.contact_type,
       customer_type: row.customer_type,
       contact_information: row.contact_information,
+      company_name: row.company_name ?? null,
+      company_cvr: row.company_cvr ?? null,
+      contact_person_name: row.contact_person_name ?? null,
+      phone: row.phone ?? null,
+      email: row.email ?? null,
+      address: row.address ?? null,
+      postal_code: row.postal_code ?? null,
+      city: row.city ?? null,
       trade_fair: row.trade_fair,
       country: row.country,
       notes: row.notes,
@@ -504,26 +632,37 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       probability: row.probability,
       pipeline_stage: row.pipeline_stage,
       lost_competitor: row.lost_competitor,
+      lost_competitor_id: row.lost_competitor_id ?? null,
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
       attachments: row.attachments ?? [],
       status: row.status,
       move_to_working_qty: row.move_to_working_qty ?? 0,
       incomplete_from_configurator: row.incomplete_from_configurator ?? false,
-    }).select("lead_no").maybeSingle();
+    }).select("lead_no, lead_reference_type").maybeSingle();
     if (error) {
       notifyLocalFallback({ table: "crm_leads", action: "insert", error });
       if (opts.requireRemote) {
         removeLeadFromLocalCache(row.id);
         throw error;
       }
+    } else {
+      const { error: interestError } = await supabase.rpc('replace_crm_lead_machine_interests', {
+        p_lead_id: row.id,
+        p_items: row.machine_interest_items,
+      });
+      if (interestError) throw interestError;
     }
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
       row.lead_no = (data as { lead_no: number }).lead_no;
+      row.lead_reference_type = (data as { lead_reference_type?: "L" | "G" }).lead_reference_type || "L";
       // Sync the local row with the authoritative number.
       const ls = readLS<CrmLead>(LS_LEADS);
       const idx = ls.findIndex(r => r.id === row.id);
-      if (idx >= 0) { ls[idx] = { ...ls[idx], lead_no: row.lead_no }; writeLS(LS_LEADS, ls); }
+      if (idx >= 0) {
+        ls[idx] = { ...ls[idx], lead_no: row.lead_no, lead_reference_type: row.lead_reference_type };
+        writeLS(LS_LEADS, ls);
+      }
     }
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "insert", error: err });
@@ -539,6 +678,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       activity_type: row.pipeline_stage === "Won" ? "order_created"
                   : row.pipeline_stage === "Lost" ? "lead_rejected"
                   : "lead_created",
+      lead_id: row.id,
       title: row.title,
       description: `${row.customer_type || ""} · ${row.contact_type || ""}`.trim(),
       status: row.pipeline_stage,
@@ -549,7 +689,9 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       value: row.estimated_value,
       currency: "DKK",
       meta: {
+        lead_id: row.id,
         machine_types: row.machine_types,
+        machine_interest_items: row.machine_interest_items,
         probability: row.probability,
         lost_reason: row.lost_reason,
         lost_competitor: row.lost_competitor,
@@ -578,41 +720,10 @@ export interface DeleteLeadAudit {
 
 export async function deleteLead(id: string, audit: DeleteLeadAudit = {}): Promise<{ error?: string }> {
   try {
-    const { error } = await supabase.from("crm_leads").delete().eq("id", id);
-    if (error) throw error;
+    await deleteCrmRecordPermanently('lead', id);
     markDeletedId(LS_DELETED_LEADS, id);
     removeLeadFromLocalCache(id);
     notifyCrmLeadsChanged();
-    try {
-      await logActivity({
-        activity_type: "lead_deleted",
-        title: audit.title ? `Slettet lead: ${audit.title}` : "Slettet lead",
-        description: [
-          audit.display_no,
-          audit.customer,
-          audit.deleted_by_name ? `Slettet af: ${audit.deleted_by_name}` : null,
-          audit.deleted_by_role ? `Rolle: ${audit.deleted_by_role}` : null,
-        ].filter(Boolean).join(" · "),
-        status: "Slettet",
-        account_name: audit.dealer ?? null,
-        assigned_owner_user_id: audit.owner_user_id ?? null,
-        assigned_owner_name: audit.owner_name ?? null,
-        created_by_user_id: audit.deleted_by_user_id ?? null,
-        created_by_name: audit.deleted_by_name ?? audit.deleted_by_email ?? null,
-        created_by_email: audit.deleted_by_email ?? null,
-        value: audit.value ?? null,
-        currency: audit.value != null ? "DKK" : null,
-        meta: {
-          deleted_entity: "crm_lead",
-          deleted_lead_id: id,
-          deleted_lead_no: audit.display_no,
-          deleted_by_email: audit.deleted_by_email,
-          deleted_by_role: audit.deleted_by_role,
-          owner_email: audit.owner_email,
-          machine: audit.machine,
-        },
-      });
-    } catch { /* deletion already succeeded; activity logging is best-effort */ }
     return {};
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "delete", error: err });
@@ -648,7 +759,7 @@ export async function updateLead(
   patch: CrmLeadPatch,
   options: UpdateLeadOptions = {},
 ): Promise<CrmLead> {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+  if (academySandbox.isActive()) {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
   const now = new Date().toISOString();
@@ -674,6 +785,14 @@ export async function updateLead(
     merged = { ...base, ...patch, id, updated_at: now } as CrmLead;
     local.unshift(merged);
   }
+  if (patch.machine_interest_items === undefined && !merged.machine_interest_items) {
+    const persistedInterests = (await fetchLeadMachineInterestMap([id])).get(id);
+    if (persistedInterests?.length) merged.machine_interest_items = persistedInterests;
+  }
+  merged.machine_interest_items = normalizeCrmLeadMachineInterestItems(
+    merged.machine_types,
+    merged.machine_interest_items,
+  );
   const pipelineSnapshot = getLeadPipelineValueSnapshot(merged);
   merged.pipeline_value_snapshot = pipelineSnapshot.value;
   merged.pipeline_value_snapshot_reason = pipelineSnapshot.reason;
@@ -688,9 +807,12 @@ export async function updateLead(
       ? { move_to_working_qty: merged.move_to_working_qty ?? 0 }
       : {
       title: merged.title,
+      sales_source_type: merged.sales_source_type ?? 'STANDARD',
       owner_user_id: merged.owner_user_id,
       owner_name: merged.owner_name,
+      owner_email: merged.owner_email ?? null,
       linked_dealer_id: merged.linked_dealer_id,
+      linked_dealer_contact_id: merged.linked_dealer_contact_id ?? null,
       first_contact_date: merged.first_contact_date,
       expected_close_date: merged.expected_close_date,
       next_followup_date: merged.next_followup_date,
@@ -700,6 +822,14 @@ export async function updateLead(
       contact_type: merged.contact_type,
       customer_type: merged.customer_type,
       contact_information: merged.contact_information,
+      company_name: merged.company_name ?? null,
+      company_cvr: merged.company_cvr ?? null,
+      contact_person_name: merged.contact_person_name ?? null,
+      phone: merged.phone ?? null,
+      email: merged.email ?? null,
+      address: merged.address ?? null,
+      postal_code: merged.postal_code ?? null,
+      city: merged.city ?? null,
       trade_fair: merged.trade_fair,
       country: merged.country,
       notes: merged.notes,
@@ -710,6 +840,7 @@ export async function updateLead(
       probability: merged.probability,
       pipeline_stage: merged.pipeline_stage,
       lost_competitor: merged.lost_competitor,
+      lost_competitor_id: merged.lost_competitor_id ?? null,
       lost_reason: merged.lost_reason,
       lost_comment: merged.lost_comment,
       attachments: merged.attachments ?? [],
@@ -730,6 +861,13 @@ export async function updateLead(
       const { error } = await supabase.from("crm_leads").update(remotePatch).eq("id", id);
       if (error) throw error;
     }
+    if (options.remoteOnly !== "move_to_working_qty" && patch.machine_interest_items !== undefined) {
+      const { error: interestError } = await supabase.rpc('replace_crm_lead_machine_interests', {
+        p_lead_id: id,
+        p_items: merged.machine_interest_items,
+      });
+      if (interestError) throw interestError;
+    }
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "update", error: err });
     if (options.requireRemote) {
@@ -746,14 +884,18 @@ export async function updateLead(
   return merged;
 }
 
-/** Fetch a single lead by id from local override → supabase → seed. */
+/** Fetch canonical remote data first; local storage is only an offline fallback. */
 export async function getLead(id: string): Promise<CrmLead | null> {
-  const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
-  if (local) return (await attachLinkedSalesEvents(ensureLeadNumbers([local])))[0] || null;
   try {
     const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
-    if (data) return (await attachLinkedSalesEvents(ensureLeadNumbers([data as unknown as CrmLead])))[0] || null;
+    if (data) {
+      const remote = (await attachLeadMachineInterests(ensureLeadNumbers([data as unknown as CrmLead])))[0];
+      replaceLeadInLocalCache(remote);
+      return (await attachLinkedSalesEvents([remote]))[0] || null;
+    }
   } catch { /* */ }
+  const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
+  if (local) return (await attachLinkedSalesEvents(ensureLeadNumbers([local])))[0] || null;
   const seeded = seedOpenLeads().find(r => r.id === id);
   return seeded ? (await attachLinkedSalesEvents(ensureLeadNumbers([seeded])))[0] || null : null;
 }
@@ -769,6 +911,10 @@ export interface ListLeadsOpts {
 export interface CrmLeadsPageRow {
   id: string;
   display_no: string;
+  reference_no?: number | null;
+  reference_type?: "L" | "G" | null;
+  demo_id?: string | null;
+  demo_no?: number | null;
   type: "open" | "demo";
   title: string;
   customer: string | null;
@@ -785,6 +931,7 @@ export interface CrmLeadsPageRow {
   equipment: string | null;
   date: string | null;
   next_followup: string | null;
+  expected_close_date: string | null;
   status: string | null;
   probability: number | null;
   value: number | null;
@@ -792,7 +939,9 @@ export interface CrmLeadsPageRow {
   attachments: CrmLeadAttachment[];
   has_demo?: boolean;
   incomplete?: boolean;
+  demo_registration_pending?: boolean;
   shared?: boolean;
+  demo_registration?: Pick<CrmDemoLead, 'id' | 'demo_no' | 'demo_date' | 'completed_at' | 'result_status'> | null;
   quote_id?: string | null;
 }
 
@@ -854,6 +1003,44 @@ function arrayOrEmpty<T>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : [];
 }
 
+async function fetchLeadMachineInterestMap(leadIds: string[]): Promise<Map<string, CrmLeadMachineInterestItem[]>> {
+  const uniqueIds = Array.from(new Set(leadIds.filter(Boolean)));
+  const grouped = new Map<string, CrmLeadMachineInterestItem[]>();
+  if (uniqueIds.length === 0) return grouped;
+
+  const batchSize = 100;
+  for (let index = 0; index < uniqueIds.length; index += batchSize) {
+    const batch = uniqueIds.slice(index, index + batchSize);
+    const { data, error } = await supabase
+      .from('crm_lead_machine_interests')
+      .select('id,lead_id,interest_type,machine_key,item_key,item_number,quantity')
+      .in('lead_id', batch)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.warn('[crm.lead-machine-interest] quantity lookup batch failed; using legacy quantity 1', error);
+      continue;
+    }
+    for (const row of (data || []) as CrmLeadMachineInterestItem[]) {
+      if (!row.lead_id) continue;
+      const current = grouped.get(row.lead_id) || [];
+      current.push(row);
+      grouped.set(row.lead_id, current);
+    }
+  }
+  return grouped;
+}
+
+async function attachLeadMachineInterests<T extends CrmLead>(rows: T[]): Promise<T[]> {
+  const grouped = await fetchLeadMachineInterestMap(rows.map((row) => row.id));
+  return rows.map((row) => ({
+    ...row,
+    machine_interest_items: normalizeCrmLeadMachineInterestItems(
+      row.machine_types,
+      grouped.get(row.id) || row.machine_interest_items,
+    ),
+  }));
+}
+
 /**
  * Adds the highest lifecycle event from configurations already visible to the
  * caller. The lead query is scoped before this lookup; this is not a global
@@ -899,7 +1086,7 @@ async function attachLinkedSalesEvents<T extends CrmLead>(rows: T[]): Promise<T[
 }
 
 function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
-  const obj = (payload ?? {}) as Record<string, any>;
+  const obj = (payload ?? {}) as Record<string, unknown>;
   const counts = (obj.counts ?? {}) as Record<string, unknown>;
   const followup = (obj.followup_counts ?? {}) as Record<string, unknown>;
   const options = (obj.options ?? {}) as Record<string, unknown>;
@@ -911,6 +1098,8 @@ function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
       created_by_email: typeof row.created_by_email === 'string' ? row.created_by_email : null,
       created_by_partner: row.created_by_partner === true,
       owner_is_timan_seller: row.owner_is_timan_seller === true,
+      demo_id: typeof row.demo_id === 'string' ? row.demo_id : null,
+      demo_no: row.demo_no == null ? null : numberOrZero(row.demo_no),
       probability: row.probability == null ? null : numberOrZero(row.probability),
       value: row.value == null ? null : numberOrZero(row.value),
     })),
@@ -962,7 +1151,35 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
     p_offset: opts.offset ?? 0,
   });
   if (error) throw error;
-  return normalizePageResult(data);
+  const page = normalizePageResult(data);
+  const leadIds = page.rows.filter((row) => row.type === 'open').map((row) => row.id);
+  if (leadIds.length === 0) return page;
+  const { data: leads, error: completenessError } = await supabase.from('crm_leads')
+    .select('id,lead_no,lead_reference_type,title,owner_user_id,linked_dealer_id,first_contact_date,expected_close_date,next_followup_date,next_activity,contact_type,customer_type,machine_types,contact_information,company_name,company_cvr,contact_person_name,phone,email,address,postal_code,city,country,trade_fair,notes')
+    .in('id', leadIds);
+  if (completenessError) {
+    console.warn('[crm.listLeadsPage] completeness lookup failed', completenessError);
+    return page;
+  }
+  const interestByLeadId = await fetchLeadMachineInterestMap(leadIds);
+  const byId = new Map((leads || []).map((lead) => [lead.id, lead as StoredCrmLeadCompleteness]));
+  page.rows = page.rows.map((row) => {
+    const lead = byId.get(row.id);
+    return row.type === 'open' && lead
+      ? {
+          ...row,
+          reference_no: typeof lead.lead_no === 'number' ? lead.lead_no : null,
+          reference_type: lead.lead_reference_type === 'G' ? 'G' : 'L',
+          customer: readCrmLeadStructuredContact(lead).company || row.customer,
+          machine: formatCrmLeadMachineInterestSummary(
+            lead.machine_types,
+            interestByLeadId.get(row.id),
+          ) || row.machine,
+          incomplete: getMissingStoredCrmLeadFields(lead).length > 0,
+        }
+      : row;
+  });
+  return page;
 }
 
 function seedOpenLeads(): CrmLead[] {
@@ -973,7 +1190,7 @@ function dedupOpenLeads(rows: (CrmLead & { legacy_id?: string | null })[]): CrmL
   const seen = new Set<string>();
   const out: CrmLead[] = [];
   for (const r of rows) {
-    const k1 = (r as any).legacy_id ? `lid:${(r as any).legacy_id}` : "";
+    const k1 = r.legacy_id ? `lid:${r.legacy_id}` : "";
     const k2 = `t:${(r.title||"").toLowerCase()}|${r.first_contact_date||""}`;
     if (k1 && seen.has(k1)) continue;
     if (seen.has(k2)) continue;
@@ -1003,13 +1220,14 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const deletedIds = readDeletedIds(LS_DELETED_LEADS);
   supRows = supRows.filter((r) => !deletedIds.has(r.id));
   if (remoteReadOk) {
-    const remoteOnly = await attachLinkedSalesEvents(ensureLeadNumbers([...supRows]));
+    const withInterests = await attachLeadMachineInterests(ensureLeadNumbers([...supRows]));
+    const remoteOnly = await attachLinkedSalesEvents(withInterests);
     remoteOnly.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
     return remoteOnly.slice(0, limit);
   }
   const localRows = readLS<CrmLead>(LS_LEADS).filter((r) => !deletedIds.has(r.id));
   const seeded = seedOpenLeads().filter((r) => !deletedIds.has(r.id));
-  let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
+  let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded]);
   if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
   if (opts.linkedDealerIds && opts.linkedDealerIds.length > 0) {
     const ids = new Set(opts.linkedDealerIds);
@@ -1028,15 +1246,150 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
     else if (r.lead_no) { ls.push(r); lsChanged = true; }
   }
   if (lsChanged) writeLS(LS_LEADS, ls);
-  return merged.slice(0, limit);
+  const withInterests = await attachLeadMachineInterests(merged.slice(0, limit));
+  return attachLinkedSalesEvents(withInterests);
 }
 
 // ---------- Demo Leads ----------
 
 export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 
+export interface CreateCrmDemoLifecycleInput extends NewCrmDemoLead {
+  demo_id?: string | null;
+  effective_user_id?: string | null;
+  update_followup?: boolean;
+  /** Canonical dealer account relation used when a new lead is created. */
+  dealer_account_id?: string | null;
+  /** Preserve the complete selected machine interest on a newly created lead. */
+  machine_interest?: string[];
+}
+
+export interface CrmDemoLifecycleResult {
+  lead_id: string;
+  lead_no: number | null;
+  demo_id: string;
+  demo_no: number | null;
+  demo_date: string | null;
+}
+
+/**
+ * Creates a demo as part of one canonical sales opportunity. The database
+ * operation is atomic: a new lead (when needed), the demo, its lead-history
+ * event and its calendar event either all succeed or all roll back.
+ */
+export async function createCrmDemoLifecycle(
+  input: CreateCrmDemoLifecycleInput,
+): Promise<CrmDemoLifecycleResult> {
+  if (academySandbox.isActive()) {
+    throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
+  }
+
+  const { data, error } = await supabase.rpc('save_crm_demo_registration', {
+    p_demo_id: input.demo_id ?? null,
+    p_effective_user_id: input.effective_user_id ?? null,
+    p_source_lead_id: input.source_lead_id ?? null,
+    p_demo: {
+      title: input.title,
+      owner_user_id: input.owner_user_id,
+      owner_name: input.owner_name,
+      owner_email: input.owner_email ?? null,
+      dealer_account_id: input.dealer_account_id ?? null,
+      dealer_company: input.dealer_company,
+      dealer_country: input.dealer_country ?? null,
+      dealer_rep: input.dealer_rep,
+      dealer_rep_contact_id: input.dealer_rep_contact_id ?? null,
+      dealer_rep_user_id: input.dealer_rep_user_id ?? null,
+      customer_name: input.customer_name,
+      customer_address: input.customer_address,
+      notes: input.notes,
+      machine_category: input.machine_category,
+      machine_interest: input.machine_interest ?? [],
+      demo_machine: input.demo_machine,
+      demo_equipment: input.demo_equipment,
+      demo_date: input.demo_date,
+      interest_level: input.interest_level,
+      wants_offer: input.wants_offer,
+      followup_date: input.followup_date,
+      update_followup: input.update_followup === true,
+      estimated_value: input.estimated_value,
+      competitors_present: input.competitors_present,
+      competitor_name: input.competitor_name,
+      notes_after_demo: input.notes_after_demo,
+      result_status: input.result_status,
+      attachments: input.attachments ?? [],
+    },
+  });
+  if (error) throw error;
+  if (!data || typeof data !== 'object') {
+    throw new Error('CRM demo lifecycle returned no result');
+  }
+  const row = data as Record<string, unknown>;
+  if (typeof row.lead_id !== 'string' || typeof row.demo_id !== 'string') {
+    throw new Error('CRM demo lifecycle returned an invalid result');
+  }
+  return {
+    lead_id: row.lead_id,
+    lead_no: typeof row.lead_no === 'number' ? row.lead_no : null,
+    demo_id: row.demo_id,
+    demo_no: typeof row.demo_no === 'number' ? row.demo_no : null,
+    demo_date: typeof row.demo_date === 'string' ? row.demo_date : null,
+  };
+}
+
+/** Record scheduling intent without manufacturing a dated demo. Repeated starts are idempotent. */
+export async function startCrmDemoRegistration(leadId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('start_crm_demo_registration', { p_lead_id: leadId });
+  if (error) throw error;
+  return typeof data === 'string' ? data : null;
+}
+
+export async function getCrmDemo(id: string, ownerId?: string | null): Promise<CrmDemoLead | null> {
+  let query = supabase.from('crm_demo_leads').select('*').eq('id', id);
+  if (ownerId) query = query.eq('owner_user_id', ownerId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data as CrmDemoLead | null;
+}
+
+export type CrmDemoResultInput = Pick<CrmDemoLead, 'interest_level' | 'competitors_present' | 'competitor_id'>;
+export async function saveCrmDemoResult(id: string, result: CrmDemoResultInput, effectiveUserId: string | null, inlineOnly = false): Promise<CrmDemoLead> {
+  const { data, error } = await supabase.rpc('save_crm_demo_result', {
+    p_demo_id: id, p_result: inlineOnly ? { ...result, inline_only: true } : result, p_effective_user_id: effectiveUserId,
+  });
+  if (error) throw error;
+  return data as unknown as CrmDemoLead;
+}
+
+/** Read linked demo records only through the existing demo RLS scope. */
+export async function listDemoLeadsForSource(leadId: string): Promise<CrmDemoLead[]> {
+  if (!leadId) return [];
+  const { data, error } = await supabase
+    .from('crm_demo_leads')
+    .select('*')
+    .eq('source_lead_id', leadId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as CrmDemoLead[];
+}
+
+/**
+ * Updates the scheduled date on the canonical demo record. The database
+ * trigger upserts its one linked calendar activity, so rescheduling cannot
+ * create a second calendar event.
+ */
+export async function updateDemoLeadDate(demoId: string, demoDate: string | null): Promise<CrmDemoLead> {
+  const { data, error } = await supabase
+    .from('crm_demo_leads')
+    .update({ demo_date: demoDate || null })
+    .eq('id', demoId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as unknown as CrmDemoLead;
+}
+
 export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead> {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+  if (academySandbox.isActive()) {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
   const now = new Date().toISOString();
@@ -1374,7 +1727,7 @@ function matchEquipmentProductKey(machineType: string): { product_key: string; l
       if (!itemName) continue;
       if (normalizedRaw.includes(normalizeWorkingText(itemName))) {
         return {
-          product_key: `${machineKey}::${item.key}`,
+          product_key: item.key,
           label: `${machineKey} - ${itemName}`,
         };
       }
@@ -1397,6 +1750,7 @@ export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingCont
     const month_idx = d.getUTCMonth();
     const types = (l.machine_types || []).filter(Boolean);
     if (types.length === 0) continue;
+    const interestItems = normalizeCrmLeadMachineInterestItems(l.machine_types, l.machine_interest_items);
     // One lead can add one working-budget item per selected machine or attachment.
     const seenProductKeys = new Set<string>();
     for (const t of types) {
@@ -1404,13 +1758,17 @@ export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingCont
       const pk = equipmentMatch?.product_key || matchMainProductKey(t);
       if (!pk || seenProductKeys.has(pk)) continue;
       seenProductKeys.add(pk);
+      const canonical = canonicalCrmLeadInterestFromLegacyValue(t);
+      const lineQuantity = canonical && interestItems.some((item) => crmLeadInterestIdentity(item) === crmLeadInterestIdentity(canonical))
+        ? getCrmLeadInterestQuantity(interestItems, canonical)
+        : qty;
       out.push({
         lead_id: l.id,
         lead_no: typeof l.lead_no === "number" ? l.lead_no : null,
         title: l.title,
         product_key: pk,
         machine_label: equipmentMatch?.label || t,
-        qty,
+        qty: lineQuantity,
         year,
         month_idx,
         expected_close_date: iso,

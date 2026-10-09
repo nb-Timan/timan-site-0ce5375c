@@ -2,12 +2,22 @@ import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { logActivity } from '@/lib/crmActivitiesService';
 import { getCrmLinkedConfigurationKind } from '@/lib/crmConfigurationsService';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
-import { currencyFromLanguage, toDkk } from '@/lib/currency';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
+import { toDkk } from '@/lib/currency';
 import { getLead, updateLead, type CrmLead, type CrmLeadPatch } from '@/lib/crmLeadsService';
+import {
+  buildStructuredContactInformation,
+  readCrmLeadStructuredContact,
+  structuredCrmLeadContactColumns,
+  type StructuredContactInfo,
+} from '@/lib/crmLeadValidation';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { configuratorSalesSourceType, salesStockAssetContextLines } from '@/lib/salesStockConfigurator';
 import { supabase } from '@/lib/supabase';
+import { LOOSE_TOOL_KEY } from '@/data/machines';
+import type { CrmLeadMachineInterestItem } from '@/lib/crmLeadMachineInterest';
 import type { ConfiguratorState } from '@/types/configurator';
 
 const SYNC_START = '--- CONFIGURATOR SYNC START ---';
@@ -43,6 +53,7 @@ const CONFIGURATOR_ITEM_NUMBER_TO_CRM_INTEREST: Record<string, string> = {
   '730114': 'Equipment: Timan 3330 - Vinter redskaber - V-plov 130-150 cm med gummiskær',
   '730105': 'Equipment: Timan 3330 - Vinter redskaber - Dozerblad 130 cm med gummiskær',
   '730106': 'Equipment: Timan 3330 - Vinter redskaber - Sneslynge, 110 cm arbejdsbredde',
+  '730016-00-SAM': 'Equipment: Timan 3330 - Vinter redskaber - Sneslynge, 110 cm arbejdsbredde',
   '725131': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn',
   '725132': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Combi, for lad, manuel reg. Husk lad og vogn',
   '725138': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Combi, for lad, el reg. Husk lad og vogn',
@@ -162,7 +173,10 @@ export function crmMachineInterestForConfiguratorItem(input: {
   return fallbackEquipmentInterest(input.machineType, input.itemName, input.itemNumber);
 }
 
-function buildMachineTypesFromState(state: ConfiguratorState, existingMachineTypes: string[] = []): string[] {
+export function buildCrmLeadMachineTypesFromConfigurationState(
+  state: ConfiguratorState,
+  existingMachineTypes: string[] = [],
+): string[] {
   const summary = buildQuoteContentSummary(state);
   const values: string[] = existingMachineTypes
     .map(canonicalizeExistingMachineInterest)
@@ -183,80 +197,40 @@ function buildMachineTypesFromState(state: ConfiguratorState, existingMachineTyp
   return mergeUnique(values);
 }
 
-type StructuredContactInfo = {
-  company: string;
-  contactPerson: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  zipCity: string;
-  phone: string;
-  email: string;
-  country: string;
-};
+export function buildCrmLeadMachineInterestItemsFromConfigurationState(
+  state: ConfiguratorState,
+): CrmLeadMachineInterestItem[] {
+  const summary = buildQuoteContentSummary(state);
+  const items = new Map<string, CrmLeadMachineInterestItem>();
 
-function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
-  if (!match) return { postalCode: '', city: '' };
-  return { postalCode: match[1].trim(), city: match[2].trim() };
-}
-
-function parseStructuredContactInformation(value: string | null | undefined, fallbackCountry: string | null | undefined): StructuredContactInfo {
-  const info: StructuredContactInfo = {
-    company: '',
-    contactPerson: '',
-    address: '',
-    postalCode: '',
-    city: '',
-    zipCity: '',
-    phone: '',
-    email: '',
-    country: '',
-  };
-
-  String(value ?? '').split(/\r?\n/).forEach((line) => {
-    const separatorIndex = line.indexOf(':');
-    if (separatorIndex < 0) return;
-    const key = line.slice(0, separatorIndex).trim().toLowerCase();
-    const fieldValue = line.slice(separatorIndex + 1).trim();
-    if (!fieldValue) return;
-
-    if (key.startsWith('firma')) info.company = fieldValue;
-    else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
-    else if (key.startsWith('adresse')) info.address = fieldValue;
-    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
-      info.zipCity = fieldValue;
-      const split = splitPostalCodeAndCity(fieldValue);
-      info.postalCode = split.postalCode;
-      info.city = split.city;
+  for (const machine of summary.machines) {
+    if (machine.model_type !== LOOSE_TOOL_KEY) {
+      const machineItem: CrmLeadMachineInterestItem = {
+        interest_type: 'machine',
+        machine_key: machine.model_type,
+        item_key: machine.model_type,
+        item_number: machine.varenr,
+        quantity: Math.max(1, Math.trunc(machine.qty)),
+      };
+      items.set(`machine:${machine.model_type}:${machine.model_type}`, machineItem);
     }
-    else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
-    else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
-    else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
-    else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
-  });
 
-  if (!info.country && String(value ?? '').trim() && fallbackCountry) {
-    info.country = fallbackCountry;
+    for (const unit of machine.units) {
+      for (const accessory of unit.accessories) {
+        const key = `equipment:${machine.model_type}:${accessory.id}`;
+        const existing = items.get(key);
+        items.set(key, {
+          interest_type: 'equipment',
+          machine_key: machine.model_type,
+          item_key: accessory.id,
+          item_number: accessory.varenr,
+          quantity: (existing?.quantity || 0) + Math.max(1, Math.trunc(accessory.qty)),
+        });
+      }
+    }
   }
 
-  return info;
-}
-
-function buildStructuredContactInformation(info: StructuredContactInfo): string {
-  const postalCode = info.postalCode.trim();
-  const city = info.city.trim();
-  const zipCity = info.zipCity.trim() || [postalCode, city].filter(Boolean).join(' ').trim();
-  return [
-    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
-    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
-    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
-    zipCity ? `Postnr. og by: ${zipCity}` : null,
-    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
-    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
-    info.country.trim() ? `Land: ${info.country.trim()}` : null,
-  ].filter(Boolean).join('\n');
+  return Array.from(items.values());
 }
 
 function readStateField(state: ConfiguratorState, keys: string[]): string | null {
@@ -268,8 +242,8 @@ function readStateField(state: ConfiguratorState, keys: string[]): string | null
   return null;
 }
 
-function contactInformationFromState(lead: CrmLead, state: ConfiguratorState): string | null {
-  const current = parseStructuredContactInformation(lead.contact_information, lead.country);
+function contactFromState(lead: CrmLead, state: ConfiguratorState): StructuredContactInfo {
+  const current = readCrmLeadStructuredContact(lead);
   const next: StructuredContactInfo = {
     company: preferNonEmpty(state.firmanavn, current.company) ?? '',
     contactPerson: preferNonEmpty(state.kontaktperson, current.contactPerson) ?? '',
@@ -286,7 +260,7 @@ function contactInformationFromState(lead: CrmLead, state: ConfiguratorState): s
     next.zipCity = [next.postalCode, next.city].filter(Boolean).join(' ');
   }
 
-  return buildStructuredContactInformation(next) || lead.contact_information || null;
+  return next;
 }
 
 function getConfigurationSourceValue(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow): number {
@@ -295,7 +269,7 @@ function getConfigurationSourceValue(state: ConfiguratorState, row: CrmLeadConfi
 }
 
 function getConfigurationValueDkk(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow): number {
-  return Math.round(toDkk(getConfigurationSourceValue(state, row), currencyFromLanguage(state.language)));
+  return Math.round(toDkk(getConfigurationSourceValue(state, row), configuratorCurrency(state)));
 }
 
 function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow, syncedAt: string): string {
@@ -312,8 +286,9 @@ function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRo
     ));
     if (accessoryNames.length > 0) lines.push(`  Udstyr: ${accessoryNames.join(', ')}`);
   }
+  lines.push(...salesStockAssetContextLines(state));
   const sourceValue = Math.round(getConfigurationSourceValue(state, row));
-  const sourceCurrency = currencyFromLanguage(state.language);
+  const sourceCurrency = configuratorCurrency(state);
   const crmValueDkk = getConfigurationValueDkk(state, row);
   lines.push(`Værdi: ${sourceValue} ${sourceCurrency} (${crmValueDkk} DKK i CRM)`);
   lines.push(SYNC_END);
@@ -332,7 +307,7 @@ function getConfigurationNumber(row: CrmLeadConfigurationSyncRow): string | null
 }
 
 function shouldClearIncompleteFlag(row: CrmLeadConfigurationSyncRow): boolean {
-  return getCrmLinkedConfigurationKind(row) === 'quote' || getCrmLinkedConfigurationKind(row) === 'order';
+  return getCrmLinkedConfigurationKind(row) === 'order';
 }
 
 function isCanonicalSubmittedOrder(row: CrmLeadConfigurationSyncRow): boolean {
@@ -358,17 +333,21 @@ export function buildLeadPatchFromConfigurationState(
   syncedAt: string,
   sellerId?: string | null,
 ): CrmLeadPatch {
-  const machineTypes = buildMachineTypesFromState(state, lead.machine_types);
+  const machineTypes = buildCrmLeadMachineTypesFromConfigurationState(state, lead.machine_types);
   const estimatedValue = getConfigurationValueDkk(state, row);
   const linkedDealerId = preferNonEmpty(row.dealer_account_id, null)
     ?? preferNonEmpty(row.dealer_number, null)
     ?? lead.linked_dealer_id
     ?? null;
+  const contact = contactFromState(lead, state);
 
   const patch: CrmLeadPatch = {
     title: preferNonEmpty(state.firmanavn, null) ?? preferNonEmpty(row.title, null) ?? lead.title,
+    sales_source_type: configuratorSalesSourceType(state),
     machine_types: machineTypes.length > 0 ? machineTypes : lead.machine_types,
-    contact_information: contactInformationFromState(lead, state),
+    machine_interest_items: buildCrmLeadMachineInterestItemsFromConfigurationState(state),
+    ...structuredCrmLeadContactColumns(contact),
+    contact_information: lead.contact_information || buildStructuredContactInformation(contact) || null,
     estimated_value: estimatedValue || lead.estimated_value,
     linked_dealer_id: linkedDealerId,
     owner_user_id: preferNonEmpty(sellerId, null) ?? preferNonEmpty(row.assigned_seller_id, null) ?? lead.owner_user_id,

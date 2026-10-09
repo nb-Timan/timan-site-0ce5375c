@@ -10,6 +10,7 @@ import { listDemoLeads, resolveSeedOwners, demoLeadsToActivities } from '@/lib/c
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { Language } from '@/types/configurator';
+import { resolveReferencedUserInitials, useSellerDirectory } from '@/lib/sellerDirectory';
 
 const T: Record<string, Record<Language, string>> = {
   empty: { da: 'Ingen aktivitet endnu. Aktivitet logges automatisk når tilbud/ordrer oprettes, sendes eller når brugere logger ind.', en: 'No activity yet. Logged automatically when quotes/orders are created, sent or on login.', de: 'Noch keine Aktivität.', it: 'Nessuna attività.', hu: 'Még nincs tevékenység.' },
@@ -30,6 +31,7 @@ const TYPE_BADGE: Record<string, string> = {
 export default function CrmActivitiesPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
+  const userDirectory = useSellerDirectory();
   const portalRole = derivePortalRole(appUser);
   const canViewAllActivities =
     isCrmAdmin(portalRole) || (appUser?.portal_role ?? '').toLowerCase() === 'timan_backend';
@@ -45,11 +47,15 @@ export default function CrmActivitiesPage() {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter(a => {
-      const hay = [a.title, a.account_name, a.created_by_name, a.assigned_owner_name, a.description, a.activity_type]
+      const authorInitials = resolveReferencedUserInitials({
+        userId: a.created_by_user_id,
+        legacyLabel: a.created_by_name,
+      }, userDirectory);
+      const hay = [a.title, a.account_name, authorInitials, a.created_by_name, a.assigned_owner_name, a.description, a.activity_type]
         .filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, search]);
+  }, [rows, search, userDirectory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +126,10 @@ export default function CrmActivitiesPage() {
                   </p>
                   {a.description && <p className="text-xs text-gray-500 mt-1">{a.description}</p>}
                 </div>
-                <span className="text-xs text-gray-500">{a.created_by_name || '—'}</span>
+                <span className="text-xs text-gray-500">{resolveReferencedUserInitials({
+                  userId: a.created_by_user_id,
+                  legacyLabel: a.created_by_name,
+                }, userDirectory) || '—'}</span>
                 <span className="text-xs text-gray-400 whitespace-nowrap md:text-right">{new Date(a.activity_date).toLocaleString()}</span>
               </div>
             ))}

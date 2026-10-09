@@ -46,6 +46,7 @@ function canOpenQuickAction(user: QuickActionAccessUser, key: QuickActionKey): b
     case "dealer_invoice_accept":
     case "partner_map":
       return hasModuleAccess(role, "sales_tools", moduleOverride);
+    case "create_warranty_registration":
     case "warranty_registrations":
       return hasModuleAccess(role, "warranty", moduleOverride);
     default:

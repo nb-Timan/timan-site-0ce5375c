@@ -46,6 +46,7 @@ const FIELD_DISPLAY: Record<string, string> = {
 interface MappedRow {
   sharepoint_item_id: string;
   dealer_name_snapshot: string;
+  source_dealer_name_raw: string;
   machine_serial_raw: string;
   machine_serial_number: string; // normalized
   machine_model: string;
@@ -316,6 +317,7 @@ Deno.serve(async (req) => {
     const mapped: MappedRow[] = items.map((it: any) => {
       const f = (it.fields ?? {}) as Record<string, unknown>;
       const serialRaw = readMachineSerial(f, displayToInternal);
+      const sourceDealerName = readField(f, displayToInternal, FIELD_DISPLAY.dealer_name);
       const tools = [
         readField(f, displayToInternal, FIELD_DISPLAY.tool_serial_1),
         readField(f, displayToInternal, FIELD_DISPLAY.tool_serial_2),
@@ -325,7 +327,8 @@ Deno.serve(async (req) => {
 
       return {
         sharepoint_item_id: String(it.id ?? ""),
-        dealer_name_snapshot: readField(f, displayToInternal, FIELD_DISPLAY.dealer_name).trim(),
+        dealer_name_snapshot: sourceDealerName.trim(),
+        source_dealer_name_raw: sourceDealerName,
         machine_serial_raw: serialRaw,
         machine_serial_number: normalizeSerial(serialRaw),
         machine_model: readField(f, displayToInternal, FIELD_DISPLAY.machine_model).trim(),
@@ -492,6 +495,9 @@ Deno.serve(async (req) => {
     interface NeedsReview {
       sharepoint_item_id: string;
       dealer_name_snapshot: string;
+      source_dealer_name_raw: string;
+      normalized_dealer_name: string;
+      warranty_row: Pick<MappedRow, "sharepoint_item_id" | "dealer_name_snapshot" | "source_dealer_name_raw" | "machine_serial_raw" | "machine_serial_number" | "machine_model">;
       candidates: Array<{
         dealer_account_id: string;
         company_name: string;
@@ -502,12 +508,24 @@ Deno.serve(async (req) => {
     interface Unmatched {
       sharepoint_item_id: string;
       dealer_name_snapshot: string;
+      source_dealer_name_raw: string;
+      normalized_dealer_name: string;
+      warranty_row: Pick<MappedRow, "sharepoint_item_id" | "dealer_name_snapshot" | "source_dealer_name_raw" | "machine_serial_raw" | "machine_serial_number" | "machine_model">;
     }
 
     const safe_matches: SafeMatch[] = [];
     const needs_review: NeedsReview[] = [];
     const unmatched: Unmatched[] = [];
     let manual_matches_preserved_count = 0;
+
+    const reviewRow = (m: MappedRow) => ({
+      sharepoint_item_id: m.sharepoint_item_id,
+      dealer_name_snapshot: m.dealer_name_snapshot,
+      source_dealer_name_raw: m.source_dealer_name_raw,
+      machine_serial_raw: m.machine_serial_raw,
+      machine_serial_number: m.machine_serial_number,
+      machine_model: m.machine_model,
+    });
 
     for (const m of validRows) {
       const ex = existingById.get(m.sharepoint_item_id);
@@ -527,12 +545,24 @@ Deno.serve(async (req) => {
 
       const rawName = m.dealer_name_snapshot;
       if (!rawName) {
-        unmatched.push({ sharepoint_item_id: m.sharepoint_item_id, dealer_name_snapshot: "" });
+        unmatched.push({
+          sharepoint_item_id: m.sharepoint_item_id,
+          dealer_name_snapshot: "",
+          source_dealer_name_raw: m.source_dealer_name_raw,
+          normalized_dealer_name: "",
+          warranty_row: reviewRow(m),
+        });
         continue;
       }
       const norm = normalizeDealer(rawName);
       if (!norm) {
-        unmatched.push({ sharepoint_item_id: m.sharepoint_item_id, dealer_name_snapshot: rawName });
+        unmatched.push({
+          sharepoint_item_id: m.sharepoint_item_id,
+          dealer_name_snapshot: rawName,
+          source_dealer_name_raw: m.source_dealer_name_raw,
+          normalized_dealer_name: norm,
+          warranty_row: reviewRow(m),
+        });
         continue;
       }
 
@@ -578,6 +608,9 @@ Deno.serve(async (req) => {
         needs_review.push({
           sharepoint_item_id: m.sharepoint_item_id,
           dealer_name_snapshot: rawName,
+          source_dealer_name_raw: m.source_dealer_name_raw,
+          normalized_dealer_name: norm,
+          warranty_row: reviewRow(m),
           candidates: scored.map((c) => ({
             dealer_account_id: c.dealer_account_id,
             company_name: c.company_name,
@@ -589,6 +622,9 @@ Deno.serve(async (req) => {
         unmatched.push({
           sharepoint_item_id: m.sharepoint_item_id,
           dealer_name_snapshot: rawName,
+          source_dealer_name_raw: m.source_dealer_name_raw,
+          normalized_dealer_name: norm,
+          warranty_row: reviewRow(m),
         });
       }
     }

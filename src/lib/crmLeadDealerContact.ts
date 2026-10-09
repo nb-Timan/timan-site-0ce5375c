@@ -14,6 +14,62 @@ export type CrmLeadDealerContactSnapshot = {
 
 export type CrmLeadContactMode = 'dealer' | 'manual';
 
+export type CrmLeadCustomerDraftState = {
+  mode: CrmLeadContactMode;
+  manualCustomerDraft: CrmLeadDealerContactSnapshot;
+  dealerCustomerData: CrmLeadDealerContactSnapshot;
+};
+
+export const EMPTY_CRM_LEAD_CUSTOMER_DRAFT: CrmLeadDealerContactSnapshot = {
+  company: '',
+  contactPerson: '',
+  phone: '',
+  email: '',
+  address: '',
+  postalCode: '',
+  city: '',
+  country: '',
+};
+
+/** The visible fields always come from the currently selected source. */
+export function activeCrmLeadCustomerDraft(
+  state: CrmLeadCustomerDraftState,
+): CrmLeadDealerContactSnapshot {
+  return state.mode === 'dealer'
+    ? state.dealerCustomerData
+    : state.manualCustomerDraft;
+}
+
+/** Select a visible customer source without changing either saved draft. */
+export function selectCrmLeadCustomerMode(
+  state: CrmLeadCustomerDraftState,
+  mode: CrmLeadContactMode,
+): CrmLeadCustomerDraftState {
+  return { ...state, mode };
+}
+
+/** Field edits update the active lead-local snapshot without changing source mode. */
+export function updateActiveCrmLeadCustomerDraft(
+  state: CrmLeadCustomerDraftState,
+  patch: Partial<CrmLeadDealerContactSnapshot>,
+): CrmLeadCustomerDraftState {
+  return state.mode === 'dealer'
+    ? { ...state, dealerCustomerData: { ...state.dealerCustomerData, ...patch } }
+    : { ...state, manualCustomerDraft: { ...state.manualCustomerDraft, ...patch } };
+}
+
+/** A dealer change replaces only the dealer-derived snapshot. */
+export function replaceCrmLeadDealerCustomerData(
+  state: CrmLeadCustomerDraftState,
+  dealerCustomerData: CrmLeadDealerContactSnapshot,
+): CrmLeadCustomerDraftState {
+  return {
+    ...state,
+    mode: 'dealer',
+    dealerCustomerData,
+  };
+}
+
 type CrmLeadContactSourceState = {
   linkedDealerId: string;
   selectedDealerContactId: string;

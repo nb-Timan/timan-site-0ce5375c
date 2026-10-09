@@ -109,10 +109,15 @@ describe("marketing video library", () => {
     for (const lang of ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs"] as const) {
       expect(tv("videoLibraryTitle", lang)).not.toBe("videoLibraryTitle");
       expect(tv("videoLibraryFavorites", lang)).not.toBe("videoLibraryFavorites");
+      expect(tv("videoLibraryCategory", lang)).not.toBe("videoLibraryCategory");
+      expect(tv("videoLibraryAllCategories", lang)).not.toBe("videoLibraryAllCategories");
+      expect(tv("videoLibraryAllSeasons", lang)).not.toBe("videoLibraryAllSeasons");
+      expect(tv("videoLibraryAllMachines", lang)).not.toBe("videoLibraryAllMachines");
       expect(tv("videoLibraryAddFavorite", lang)).not.toBe("videoLibraryAddFavorite");
       expect(tv("videoLibraryRemoveFavorite", lang)).not.toBe("videoLibraryRemoveFavorite");
       expect(tv("videoLibraryNoFavorites", lang)).not.toBe("videoLibraryNoFavorites");
       expect(tv("videoLibraryNoMesseVideos", lang)).not.toBe("videoLibraryNoMesseVideos");
+      expect(tv("videoLibraryUnavailable", lang)).not.toBe("videoLibraryUnavailable");
       expect(tv("videoMgmtAdd", lang)).not.toBe("videoMgmtAdd");
       expect(tv("videoMgmtContentType", lang)).not.toBe("videoMgmtContentType");
       expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
@@ -127,6 +132,9 @@ describe("marketing video library", () => {
       expect(tv("videoMgmtMessePortal", lang)).not.toBe("videoMgmtMessePortal");
       expect(tv("videoMgmtShowOnMessePortal", lang)).not.toBe("videoMgmtShowOnMessePortal");
     }
+    expect(tv("videoLibraryCategory", "da")).toBe("Kategori");
+    expect(tv("videoLibraryAllMachines", "de")).toBe("Alle Maschinen");
+    expect(tv("videoLibrarySortLatest", "en")).toBe("Latest first");
     expect(tv("videoMgmtContentType", "de")).toBe("Inhaltstyp");
     expect(tv("videoMgmtPublished", "de")).toBe("Veröffentlicht");
     expect(tv("videoSeasonAllYear", "de")).toBe("Ganzjährig");
@@ -171,13 +179,15 @@ describe("marketing video library", () => {
     const portalAccess = readFileSync("src/lib/portalAccess.ts", "utf8");
     const usersPage = readFileSync("src/pages/backend/BackendUsersPage.tsx", "utf8");
     const filterBar = readFileSync("src/components/video/VideoLibraryFilterBar.tsx", "utf8");
+    const player = readFileSync("src/components/video/TimanVideoModal.tsx", "utf8");
+    const embedResolver = readFileSync("src/lib/timanVideoEmbed.ts", "utf8");
     const filterHelper = readFileSync("src/lib/videoLibraryFilters.ts", "utf8");
     const configurator = readFileSync("src/pages/ConfiguratorPage.tsx", "utf8");
     const migration = [
       readFileSync("supabase/migrations/20260901183941_marketing_video_library.sql", "utf8"),
       readFileSync("supabase/migrations/20260901184240_harden_marketing_video_library_policies.sql", "utf8"),
       readFileSync("supabase/migrations/20260901201158_marketing_video_editorial_i18n.sql", "utf8"),
-      readFileSync("supabase/migrations/20260901210152_marketing_video_user_favorites.sql", "utf8"),
+      readFileSync("supabase/migrations/20260901210720_marketing_video_user_favorites.sql", "utf8"),
       readFileSync("supabase/migrations/20260902100428_show_marketing_videos_on_messe_portal.sql", "utf8"),
     ].join("\n");
 
@@ -209,9 +219,12 @@ describe("marketing video library", () => {
     expect(filterBar).toContain("videoLibraryMachine");
     expect(filterHelper).toContain("filterAndSortVideos");
     expect(salesPage).toContain("listPublishedMarketingVideos(uiLanguage)");
-    expect(salesPage).toContain("window.addEventListener(\"keydown\", closeOnEscape)");
-    expect(salesPage).toContain("videoLibraryEmbedFallback");
-    expect(salesPage).toContain("https://www.youtube.com/watch?v=");
+    expect(salesPage).not.toContain("listAcademyVideos");
+    expect(salesPage).toContain("TimanVideoModal");
+    expect(messePage).toContain("TimanVideoModal");
+    expect(player).toContain("DialogContent");
+    expect(embedResolver).toContain("extractYouTubeVideoId");
+    expect(player).toContain("videoLibraryEmbedFallback");
     expect(managementPage).toContain("findPrimaryProductConflict");
     expect(managementPage).toContain("dedupeVideoProductOptions");
     expect(managementPage).toContain('tv("videoMgmtSaveFailed", uiLanguage)');
@@ -225,7 +238,10 @@ describe("marketing video library", () => {
     expect(managementPage).toContain("content_language: uiLanguage");
     expect(managementPage).not.toContain("<FieldLabel text={tv(\"videoMgmtStatus\", lang)} />");
     expect(managementPage).toContain("onSave(\"draft\")");
-    expect(managementPage).toContain("onSave(\"archived\")");
+    expect(managementPage).toContain("archiveMarketingVideo");
+    expect(managementPage).toContain("restoreMarketingVideo");
+    expect(managementPage).toContain("permanentlyDeleteArchivedMarketingVideo");
+    expect(managementPage).not.toContain("onSave(\"archived\")");
     expect(managementPage).toContain("onSave(\"published\")");
     expect(managementPage).toContain("uploadVideoThumbnail");
     expect(configurator).toContain("listPublishedPrimaryVideos(uiLanguage)");

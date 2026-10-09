@@ -8,9 +8,9 @@
  *
  * Reuses:
  *   - listLeads()           → urgency classification by next_followup_date
- *   - listBudgetLines / listForecasts / listSalesActuals → per-machine score
+ *   - canonical Budget reads + aggregateBudget → per-machine score
  *   - listActivities()      → for orders/pipeline counts in comparison
- *   - BUDGET_SELLERS        → canonical seller list (BP/EM/JTN/AKR)
+ *   - BUDGET_SELLERS        → canonical seller list (BP/EM/JTN/AKR/NB)
  *   - useLanguage / Language → DA/EN/DE labels
  *
  * No backend writes, no route changes, no auth changes.
@@ -33,12 +33,19 @@ import {
 import { isOpenLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import { classifyLeadFollowupUrgency, type LeadFollowupUrgency } from "@/lib/leadFollowupUrgency";
 import {
-  listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
-  BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
+  listBudgetLines, listForecasts, listSalesActuals, listBudgetDealerLines, aggregateBudget,
+  currentFiscalYearForBudget, BUDGET_SELLERS,
+  type BudgetLine, type BudgetForecast, type SalesActual, type BudgetDealerLine,
 } from "@/lib/crmBudgetService";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
 import { AlertTriangle, Flame, Target, Users, Filter, TrendingUp, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
+import BudgetFocusNoBudgetDisclosure from "@/components/crm/BudgetFocusNoBudgetDisclosure";
+import {
+  budgetFocusProductLabel,
+  noBudgetOrderTotals,
+  sortNoBudgetOrderRows,
+} from "@/lib/crmBudgetFocusPresentation";
 
 // ────────────────────────────────────────────────────────────
 // Translations (DA / EN / DE — others fall back to EN)
@@ -73,7 +80,13 @@ const LT: Record<string, Record<Language, string>> = {
   metric_health_tip:{ da: "Lead Helbred viser andelen af sælgerens aktive leads med sund næste opfølgning. Antallet viser den samlede aktive lead-portefølje.", en: "Lead health shows the share of the seller's active leads with a healthy next follow-up. The count shows the total active lead portfolio.", de: "Lead-Gesundheit zeigt den Anteil aktiver Leads mit gesunder nächster Nachverfolgung. Die Anzahl zeigt das gesamte aktive Lead-Portfolio.", it: "Salute lead mostra la quota di lead attivi con un prossimo follow-up sano. Il numero mostra il portafoglio totale di lead attivi.", hu: "A lead-egészség az egészséges következő követéssel rendelkező aktív leadek arányát mutatja. A darabszám a teljes aktív lead portfólió." },
   metric_budget:    { da: "Budget score %",        en: "Budget score %",    de: "Budget-Score %",     it: "Score budget %",     hu: "Költség pont %" },
   no_budget:        { da: "Intet budget",          en: "No budget",         de: "Kein Budget",        it: "Nessun budget",      hu: "Nincs terv" },
-  orders_no_budget: { da: "ordre uden budget",     en: "orders without budget", de: "Aufträge ohne Budget", it: "ordini senza budget", hu: "rendelés terv nélkül" },
+  order_no_budget:  { da: "ordre uden budget",     en: "order without budget", de: "Auftrag ohne Budget", it: "ordine senza budget", hu: "rendelés terv nélkül" },
+  orders_no_budget: { da: "ordrer uden budget",    en: "orders without budget", de: "Aufträge ohne Budget", it: "ordini senza budget", hu: "rendelés terv nélkül" },
+  no_budget_orders: { da: "Ordrer uden budget",    en: "Orders without budget", de: "Aufträge ohne Budget", it: "Ordini senza budget", hu: "Rendelések terv nélkül" },
+  order_one:        { da: "ordre",                 en: "order",             de: "Auftrag",            it: "ordine",             hu: "megrendelés" },
+  order_many:       { da: "ordrer",                en: "orders",            de: "Aufträge",           it: "ordini",             hu: "megrendelés" },
+  item_one:         { da: "vare",                  en: "item",              de: "Artikel",            it: "articolo",           hu: "termék" },
+  item_many:        { da: "varer",                 en: "items",             de: "Artikel",            it: "articoli",           hu: "termék" },
   dealer_label:     { da: "Forhandler",            en: "Dealer",                de: "Händler",              it: "Rivenditore",         hu: "Kereskedő" },
 };
 function t(key: string, lang: Language): string {
@@ -275,19 +288,22 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
+  const [dealerLines, setDealerLines] = useState<BudgetDealerLine[]>([]);
+  const budgetYear = currentFiscalYearForBudget();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [rawLeads, rawDemoLeads, acts, lines, fc, ac] = await Promise.all([
+        const [rawLeads, rawDemoLeads, acts, lines, fc, ac, dl] = await Promise.all([
           // Match CRM → Leads: fetch a broad list, then scope locally.
           listLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000, payload: "summary" }),
           listDemoLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000, payload: "summary" }),
           listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 500 }),
-          listBudgetLines({ year: new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear() }),
-          listForecasts(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
-          listSalesActuals(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
+          listBudgetLines({ year: budgetYear }),
+          listForecasts(budgetYear),
+          listSalesActuals(budgetYear),
+          listBudgetDealerLines(budgetYear),
         ]);
         const [leads, demoLeads] = await Promise.all([
           resolveSeedOwners(rawLeads),
@@ -300,13 +316,14 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         setBudgetLines(lines);
         setForecasts(fc);
         setActuals(ac);
+        setDealerLines(dl);
       } catch (err) {
         // Defensive — never throw from a dashboard widget.
         console.warn("[SellerCockpit] data load failed:", err);
       }
     })();
     return () => { cancelled = true; };
-  }, [isAdmin, sellerId]);
+  }, [isAdmin, sellerId, budgetYear]);
 
   // Filter by selected seller.
   // - For sellers (non-admin), allLeads is already server-scoped via
@@ -360,8 +377,8 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   // We deliberately do NOT add a separate orders/pipeline source here so
   // dashboard numbers always match the Budget table cell-for-cell.
   const aggregated = useMemo(
-    () => aggregateBudget(budgetLines, forecasts, actuals, activeSeller?.email ?? null),
-    [budgetLines, forecasts, actuals, activeSeller],
+    () => aggregateBudget(budgetLines, forecasts, actuals, activeSeller?.email ?? null, dealerLines, budgetYear),
+    [budgetLines, forecasts, actuals, activeSeller, dealerLines, budgetYear],
   );
   const scopedBudget = useMemo(() => {
     if (!activeSeller) return { lines: budgetLines, forecasts, actuals };
@@ -387,7 +404,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
 
   // Lead → Arbejdsbudget contributions for current scope (same logic as
   // CRM → Budget). scopedLeads is already filtered by seller scope above.
-  const currentYear = new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear();
+  const currentYear = budgetYear;
   const leadContribs = useMemo(
     () => buildLeadWorkingContributions(scopedLeads).filter(c => c.year === currentYear),
     [scopedLeads, currentYear],
@@ -427,10 +444,108 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
       scorePct: r?.scorePct ?? 0,
     };
   };
-  const machineRows: MachineRow[] = [
-    ...MACHINES.map(m => buildRow(m.key, m.label, aggByKey.get(m.key))),
-    ...extras.map(r => buildRow(r.product_key, r.product_name, r)),
+  const primaryMachineRows = MACHINES.map(m => buildRow(m.key, m.label, aggByKey.get(m.key)));
+  const extraMachineRows = extras.map(r => buildRow(
+    r.product_key,
+    budgetFocusProductLabel(r.product_key, r.product_name, lang),
+    r,
+  ));
+  const noBudgetOrderRows = sortNoBudgetOrderRows(
+    extraMachineRows.filter(row => row.budgetQty === 0 && row.ordersQty > 0),
+  );
+  const visibleMachineRows: MachineRow[] = [
+    ...primaryMachineRows,
+    ...extraMachineRows.filter(row => row.budgetQty > 0 || row.ordersQty === 0),
   ];
+  const noBudgetTotals = noBudgetOrderTotals(noBudgetOrderRows);
+
+  const renderBudgetRow = (row: MachineRow) => {
+    const noBudget = row.budgetQty === 0;
+    const orphanOrders = noBudget && row.ordersQty > 0;
+    const score = scoreColor(row.scorePct);
+    const ordersPct = noBudget ? 0 : Math.min(100, (row.ordersQty / row.budgetQty) * 100);
+    const pipelinePct = noBudget ? 0 : Math.min(100 - ordersPct, (row.pipelineQty / row.budgetQty) * 100);
+    return (
+      <Tooltip key={row.key}>
+        <TooltipTrigger asChild>
+          <div className="cursor-default">
+            <div className="flex items-start justify-between gap-3 text-sm mb-1">
+              <span className="min-w-0 font-medium text-slate-800 inline-flex items-center gap-1.5 break-words">
+                {row.label}
+                {row.leadQty > 0 && (
+                  <span className="shrink-0 text-[9px] font-bold px-1 rounded bg-amber-100 text-amber-700 border border-amber-200">
+                    +{row.leadQty}L
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                {orphanOrders ? (
+                  <span className="font-semibold text-amber-700">
+                    {row.ordersQty} {t(row.ordersQty === 1 ? "order_no_budget" : "orders_no_budget", lang)}
+                  </span>
+                ) : (
+                  <>
+                    <span className={`font-semibold ${noBudget ? "text-slate-400" : score.text}`}>
+                      {noBudget ? t("no_budget", lang) : `${row.scorePct}%`}
+                    </span>
+                    {!noBudget && (
+                      <>
+                        <span className="mx-1.5 text-slate-300">·</span>
+                        {row.ordersQty}/{row.budgetQty}
+                      </>
+                    )}
+                  </>
+                )}
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
+              {!noBudget && (
+                <>
+                  <div className={`${score.bar} h-full transition-[width] duration-700`} style={{ width: `${ordersPct}%` }} />
+                  <div className="h-full bg-sky-300/70 transition-[width] duration-700" style={{ width: `${pipelinePct}%` }} />
+                </>
+              )}
+              {orphanOrders && <div className="h-full bg-amber-400/80 w-full" />}
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">
+          <div className="text-xs space-y-0.5">
+            <div className="font-semibold">{row.label}</div>
+            <div>{t("budget_qty", lang)}: <span className="font-medium tabular-nums">{row.budgetQty}</span></div>
+            <div>{t("orders_qty", lang)}: <span className="font-medium tabular-nums">{row.ordersQty}</span></div>
+            <div>{t("pipeline_qty", lang)}: <span className="font-medium tabular-nums">{row.pipelineQty}</span></div>
+            <div>
+              {t("forecast_qty", lang)}: <span className="font-medium tabular-nums">{row.forecastQty}</span>
+              {row.leadQty > 0 && <span className="text-amber-700"> ({row.manualForecastQty} + {row.leadQty}L)</span>}
+            </div>
+            <div>{t("remaining_gap", lang)}: <span className="font-medium tabular-nums">{row.remainingGap}</span></div>
+            <div>{t("score_pct", lang)}: <span className="font-medium tabular-nums">{row.scorePct}%</span></div>
+            {row.leads.length > 0 && (
+              <div className="pt-2 mt-2 border-t border-slate-200 space-y-1.5">
+                <div className="font-semibold text-amber-700">Leads i Arbejdsbudget</div>
+                {row.leads.map(c => (
+                  <div key={c.lead_id} className="space-y-0.5 pb-1 border-b border-slate-100 last:border-0">
+                    <div className="font-medium">
+                      <Link to={`/portal/crm/leads/${c.lead_id}`} className="font-mono text-[10px] text-sky-600 hover:underline mr-1.5">
+                        {formatLeadNo(c.lead_no)}
+                      </Link>
+                      {c.title}
+                    </div>
+                    <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
+                    {c.dealer && <div className="text-slate-600">{t("dealer_label", lang)}: {c.dealer}</div>}
+                    {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
+                    {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
+                    {c.expected_close_date && <div className="text-slate-500">Forventet luk: {fmtDate(c.expected_close_date, lang)}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
 
 
   // ── Backend comparison + alerts ──
@@ -440,7 +555,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   const sellerComparison = useMemo(() => {
     if (!isAdmin) return [];
     const perSeller = BUDGET_SELLERS.map(seller => {
-      const agg = aggregateBudget(budgetLines, forecasts, actuals, seller.email);
+      const agg = aggregateBudget(budgetLines, forecasts, actuals, seller.email, dealerLines, budgetYear);
       return { seller, agg };
     });
     const totals = {
@@ -466,7 +581,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         noFollow,
       };
     });
-  }, [isAdmin, allLeads, allDemoLeads, budgetLines, forecasts, actuals, scopedLeadFocusRows.length, now]);
+  }, [isAdmin, allLeads, allDemoLeads, budgetLines, forecasts, actuals, dealerLines, budgetYear, scopedLeadFocusRows.length, now]);
 
 
   const alerts = useMemo(() => {
@@ -623,98 +738,19 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
             </header>
 
             <div className="space-y-2.5">
-              {machineRows.map(row => {
-                const noBudget = row.budgetQty === 0;
-                const orphanOrders = noBudget && row.ordersQty > 0;
-                const score = scoreColor(row.scorePct);
-                const ordersPct = noBudget ? 0 : Math.min(100, (row.ordersQty / row.budgetQty) * 100);
-                const pipelinePct = noBudget ? 0 : Math.min(100 - ordersPct, (row.pipelineQty / row.budgetQty) * 100);
-                return (
-                  <Tooltip key={row.key}>
-                    <TooltipTrigger asChild>
-                      <div className="cursor-default">
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="font-medium text-slate-800 inline-flex items-center gap-1.5">
-                            {row.label}
-                            {row.leadQty > 0 && (
-                              <span className="text-[9px] font-bold px-1 rounded bg-amber-100 text-amber-700 border border-amber-200">
-                                +{row.leadQty}L
-                              </span>
-                            )}
-                          </span>
-                          <span className="text-xs text-slate-500 tabular-nums">
-                            {orphanOrders ? (
-                              <span className="font-semibold text-amber-700">
-                                {row.ordersQty} {t("orders_no_budget", lang)}
-                              </span>
-                            ) : (
-                              <>
-                                <span className={`font-semibold ${noBudget ? "text-slate-400" : score.text}`}>
-                                  {noBudget ? t("no_budget", lang) : `${row.scorePct}%`}
-                                </span>
-                                {!noBudget && (
-                                  <>
-                                    <span className="mx-1.5 text-slate-300">·</span>
-                                    {row.ordersQty}/{row.budgetQty}
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
-                          {!noBudget && (
-                            <>
-                              <div className={`${score.bar} h-full transition-[width] duration-700`} style={{ width: `${ordersPct}%` }} />
-                              <div className="h-full bg-sky-300/70 transition-[width] duration-700" style={{ width: `${pipelinePct}%` }} />
-                            </>
-                          )}
-                          {orphanOrders && (
-                            <div className="h-full bg-amber-400/80 w-full" />
-                          )}
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-sm">
-                      <div className="text-xs space-y-0.5">
-                        <div className="font-semibold">{row.label}</div>
-                        <div>{t("budget_qty", lang)}: <span className="font-medium tabular-nums">{row.budgetQty}</span></div>
-                        <div>{t("orders_qty", lang)}: <span className="font-medium tabular-nums">{row.ordersQty}</span></div>
-                        <div>{t("pipeline_qty", lang)}: <span className="font-medium tabular-nums">{row.pipelineQty}</span></div>
-                        <div>
-                          {t("forecast_qty", lang)}: <span className="font-medium tabular-nums">{row.forecastQty}</span>
-                          {row.leadQty > 0 && (
-                            <span className="text-amber-700"> ({row.manualForecastQty} + {row.leadQty}L)</span>
-                          )}
-                        </div>
-                        <div>{t("remaining_gap", lang)}: <span className="font-medium tabular-nums">{row.remainingGap}</span></div>
-                        <div>{t("score_pct", lang)}: <span className="font-medium tabular-nums">{row.scorePct}%</span></div>
-                        {row.leads.length > 0 && (
-                          <div className="pt-2 mt-2 border-t border-slate-200 space-y-1.5">
-                            <div className="font-semibold text-amber-700">Leads i Arbejdsbudget</div>
-                            {row.leads.map(c => (
-                              <div key={c.lead_id} className="space-y-0.5 pb-1 border-b border-slate-100 last:border-0">
-                                <div className="font-medium">
-                                  <Link
-                                    to={`/portal/crm/leads/${c.lead_id}`}
-                                    className="font-mono text-[10px] text-sky-600 hover:underline mr-1.5"
-                                  >{formatLeadNo(c.lead_no)}</Link>
-                                  {c.title}
-                                </div>
-                                <div className="text-slate-600">{c.machine_label} · {c.qty} stk.</div>
-                                {c.dealer && <div className="text-slate-600">{t("dealer_label", lang)}: {c.dealer}</div>}
-                                {c.customer && <div className="text-slate-600">Kunde: {c.customer}</div>}
-                                {c.owner_name && <div className="text-slate-500">Sælger: {c.owner_name}</div>}
-                                {c.expected_close_date && <div className="text-slate-500">Forventet luk: {fmtDate(c.expected_close_date, lang)}</div>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
+              {visibleMachineRows.map(renderBudgetRow)}
+
+              {noBudgetOrderRows.length > 0 && (
+                <BudgetFocusNoBudgetDisclosure
+                  title={t("no_budget_orders", lang)}
+                  orders={noBudgetTotals.orders}
+                  orderLabel={t(noBudgetTotals.orders === 1 ? "order_one" : "order_many", lang)}
+                  items={noBudgetTotals.items}
+                  itemLabel={t(noBudgetTotals.items === 1 ? "item_one" : "item_many", lang)}
+                >
+                  {noBudgetOrderRows.map(renderBudgetRow)}
+                </BudgetFocusNoBudgetDisclosure>
+              )}
             </div>
 
             {/* Legend */}

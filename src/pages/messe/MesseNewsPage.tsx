@@ -30,6 +30,7 @@ import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 import type { NewsTemplateId } from '@/features/news-cms/templates/types';
 import { missingNewsLanguages } from '@/features/news-cms/lib/newsContent';
 import { translateNewsContentDynamically } from '@/features/news-cms/lib/dynamicNewsTranslation';
+import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_ID, PORTAL_BASICS_NEWS_TITLE } from '@/lib/academySandbox';
 import {
   getAttachmentOptionsForMachine,
   getCombinedAttachmentOptions,
@@ -55,6 +56,24 @@ function effectiveStatus(row: NewsPost): NewsStatus {
 
 function languageFlag(code: PortalUiLanguage) {
   return code.toUpperCase();
+}
+
+export function opensPublicNewsModal(post: Pick<NewsPost, 'source' | 'localized_content'>): boolean {
+  return post.source === 'academy' || post.source === 'news_cms' || !!post.localized_content;
+}
+
+function academyPortalBasicsNews(): NewsPost {
+  return {
+    id: PORTAL_BASICS_NEWS_ID,
+    title: PORTAL_BASICS_NEWS_TITLE,
+    excerpt: 'Lokalt Academy-eksempel til Portal Basics.',
+    image_url: null,
+    link_url: null,
+    category: 'NYHED',
+    published_at: '2026-01-01T00:00:00.000Z',
+    is_active: true,
+    source: 'academy',
+  };
 }
 
 export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
@@ -126,9 +145,12 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
     [machineFilter, attachmentFilter],
   );
 
+  const academyPortalBasicsNewsActive = academySandbox.isActive()
+    && academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS;
   const filteredCmsNews = useMemo(
-    () => (news ?? []).filter((post) => matchesNewsTopicFilter(post, machineFilter, attachmentFilter)),
-    [news, machineFilter, attachmentFilter],
+    () => (academyPortalBasicsNewsActive ? [academyPortalBasicsNews(), ...(news ?? []).filter((post) => post.id !== PORTAL_BASICS_NEWS_ID)] : news ?? [])
+      .filter((post) => matchesNewsTopicFilter(post, machineFilter, attachmentFilter)),
+    [academyPortalBasicsNewsActive, news, machineFilter, attachmentFilter],
   );
   const showCuratedFallback = !isMarketingMode && (news ?? []).length === 0;
   const hasActiveTopicFilter = machineFilter !== 'all' || attachmentFilter !== 'all';
@@ -286,7 +308,7 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
   );
 
   const renderCmsPost = (post: NewsPost) => {
-    const isCmsPost = post.source === 'news_cms' || !!post.localized_content;
+    const isCmsPost = opensPublicNewsModal(post);
     const localizedPost = resolvePublicNewsFields(post, uiLanguage);
     const body = (
       <>
@@ -310,17 +332,24 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
           </div>
           <h2 className="text-lg font-bold text-slate-900">{localizedPost.title}</h2>
           {localizedPost.excerpt && <p className="text-sm text-slate-600 mt-2 flex-grow">{localizedPost.excerpt}</p>}
-          {post.link_url && (
+          {isCmsPost ? (
+            <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 group-hover:underline">
+              {t('messe_news_read', uiLanguage)}
+            </span>
+          ) : post.link_url ? (
             <a href={post.link_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
               {t('messe_news_read', uiLanguage)} <ExternalLink className="h-3.5 w-3.5" />
             </a>
-          )}
+          ) : null}
         </div>
       </>
     );
 
-    return isCmsPost && !post.link_url ? (
-      <button key={post.id} type="button" onClick={() => setOpenPost(post)} className={cardClass}>
+    return isCmsPost ? (
+      <button key={post.id} type="button" onClick={() => {
+        if (academySandbox.isActive()) academySandbox.trackPortalBasicsNews(post.id);
+        setOpenPost(post);
+      }} className={cardClass}>
         {renderAdminActions(post)}
         {body}
       </button>

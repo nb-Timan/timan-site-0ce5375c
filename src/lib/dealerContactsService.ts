@@ -1,7 +1,8 @@
 /**
  * dealer_contacts CRUD — extra people for director/sales/workshop/parts/marketing/finance.
- * RLS in phase52 allows: backend full access; dealer-side user limited to own
- * dealer_accounts row via current_user_dealer_number().
+ * Direct RLS allows Backend, an external account's own users, and the
+ * canonically assigned Timan Seller. Partnerdata View-as writes use scoped
+ * RPCs because the authenticated session intentionally remains Backend.
  */
 import { supabase } from "@/lib/supabase";
 import type { DealerAccount } from "@/lib/dealerAccountsService";
@@ -142,6 +143,8 @@ export async function listDealerContactsForAccounts(
 
 export interface UpsertDealerContactInput {
   id?: string;
+  /** Stable UUID for one logical create operation; retries reuse the same canonical row. */
+  createId?: string;
   dealer_account_id: string;
   contact_area: DealerContactArea;
   role_title?: string | null;
@@ -153,8 +156,27 @@ export interface UpsertDealerContactInput {
 
 export async function upsertDealerContact(
   input: UpsertDealerContactInput,
+  effectiveUserId?: string | null,
 ): Promise<{ ok: boolean; row?: DealerContact; error?: string }> {
   try {
+    if (effectiveUserId !== undefined) {
+      const { data, error } = await supabase.rpc("upsert_partnerdata_contact", {
+        p_dealer_account_id: input.dealer_account_id,
+        p_contact_area: input.contact_area,
+        p_contact_id: input.id ?? null,
+        p_role_title: input.role_title ?? null,
+        p_name: input.name ?? null,
+        p_email: input.email ?? null,
+        p_phone: input.phone ?? null,
+        p_is_primary: input.is_primary ?? false,
+        p_effective_user_id: effectiveUserId,
+        p_create_id: input.createId ?? null,
+      });
+      if (error) throw error;
+      const rpcRow = Array.isArray(data) ? data[0] : data;
+      return { ok: true, row: rpcRow ? rowToContact(rpcRow as Record<string, unknown>) : undefined };
+    }
+
     if (input.id) {
       const { data, error } = await supabase
         .from("dealer_contacts")
@@ -172,6 +194,24 @@ export async function upsertDealerContact(
       if (error) throw error;
       return { ok: true, row: data ? rowToContact(data) : undefined };
     }
+    if (input.createId) {
+      const { data, error } = await supabase.rpc("upsert_partnerdata_contact", {
+        p_dealer_account_id: input.dealer_account_id,
+        p_contact_area: input.contact_area,
+        p_contact_id: null,
+        p_role_title: input.role_title ?? null,
+        p_name: input.name ?? null,
+        p_email: input.email ?? null,
+        p_phone: input.phone ?? null,
+        p_is_primary: input.is_primary ?? false,
+        p_effective_user_id: null,
+        p_create_id: input.createId,
+      });
+      if (error) throw error;
+      const rpcRow = Array.isArray(data) ? data[0] : data;
+      return { ok: true, row: rpcRow ? rowToContact(rpcRow as Record<string, unknown>) : undefined };
+    }
+
     const { data, error } = await supabase
       .from("dealer_contacts")
       .insert({
@@ -192,7 +232,18 @@ export async function upsertDealerContact(
   }
 }
 
-export async function deleteDealerContact(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function deleteDealerContact(
+  id: string,
+  effectiveUserId?: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  if (effectiveUserId !== undefined) {
+    const { data, error } = await supabase.rpc("delete_partnerdata_contact", {
+      p_contact_id: id,
+      p_effective_user_id: effectiveUserId,
+    });
+    if (error) return { ok: false, error: describeError(error) };
+    return { ok: Boolean(data) };
+  }
   const { error } = await supabase.from("dealer_contacts").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };

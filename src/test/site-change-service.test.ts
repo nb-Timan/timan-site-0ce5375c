@@ -241,13 +241,14 @@ describe('site change service', () => {
     expect(source).toContain('const description = pickLocalizedRecord(entry.description || {}, language)');
     expect(source).toContain("t('siteFeaturesArea', language)");
     expect(source).toContain('formatChangedDate(entry.changed_at)');
-    expect(source).toContain('line-clamp-2');
+    expect(source).toContain('line-clamp-5');
+    expect(source).toContain('whitespace-pre-line');
   });
 
   it('keeps GitHub-imported technical metadata separate from suggested public text', () => {
     const source = readFileSync('supabase/functions/import-site-changes-from-github/index.ts', 'utf8');
 
-    expect(source).toContain('buildPublishedSuggestion(module, changeType)');
+    expect(source).toContain('buildPublishedSuggestion(module, changeType, source)');
     expect(source).toContain('title_public: localizedContent.da.title');
     expect(source).toContain('description_public: localizedContent.da.description');
     expect(source).toContain('technical_description');
@@ -277,7 +278,7 @@ describe('site change service', () => {
   });
 
   it('supports grouped public feature suggestions while preserving source commits', () => {
-    const migration = readFileSync('supabase/migrations/20260901132435_site_change_grouped_publications.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260901163615_site_change_grouped_publications.sql', 'utf8');
     const service = readFileSync('src/lib/portalChangelogService.ts', 'utf8');
     const page = readFileSync('src/pages/backend/BackendChangelogPage.tsx', 'utf8');
     const edgeFunction = readFileSync('supabase/functions/import-site-changes-from-github/index.ts', 'utf8');
@@ -290,7 +291,7 @@ describe('site change service', () => {
     expect(service).toContain('adminCreateChangelogGroup');
     expect(service).toContain('adminRemoveChangeFromGroup');
     expect(service).toContain('adminSplitChangelogGroup');
-    expect(service).toContain('Vælg kun ændringer fra samme modul og samme dato.');
+    expect(service).toContain('Vælg kun ændringer fra samme område.');
     expect(service).toContain('Denne publicering består af');
 
     expect(page).toContain('selectedIds');
@@ -298,18 +299,22 @@ describe('site change service', () => {
     expect(page).toContain('siteFeaturesShowTechnicalHistory');
     expect(page).toContain('siteFeaturesRemoveFromGroup');
 
-    expect(edgeFunction).toContain('dailyGroupKeys(groupingCandidates)');
-    expect(edgeFunction).toContain('const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at">> = [...entries];');
+    expect(edgeFunction).toContain('semanticGroupKeys(groupingCandidates)');
+    expect(edgeFunction).toContain('if (!resolveUserFacingSiteFeature(entries[0], "da"))');
+    expect(edgeFunction).toContain('let groupingCandidates: StoredGitHubEntry[] = []');
     expect(edgeFunction).toContain('if (body.mode === "manual")');
-    expect(edgeFunction).toContain('.is("group_parent_id", null)');
-    expect(edgeFunction).toContain('const publishedSource = entries.find((entry) => entry.status === "published");');
-    expect(edgeFunction).toContain('status: publishedSource ? "published" : "new"');
+    expect(edgeFunction).toContain('.eq("status", "new")');
+    expect(edgeFunction).toContain('.is("reviewed_at", null)');
+    expect(edgeFunction).toContain('if (existingGroup?.status === "published") continue;');
     expect(edgeFunction).toContain('.eq("source", "github")');
     expect(edgeFunction).toContain('priorAutomaticGroupIds');
-    expect(edgeFunction).toContain('dailyGroupSourceRef');
-    expect(edgeFunction).toContain('github-day:${module}:${date}');
-    expect(edgeFunction).toContain('const date = dayKey(entry.implemented_at)');
-    expect(edgeFunction).toContain('keys.set(`${entry.module}:${date}`, { module: entry.module, date });');
+    expect(edgeFunction).toContain('semanticGroupSourceRef');
+    expect(edgeFunction).toContain('github-topic:${module}:${topic}');
+    expect(edgeFunction).toContain('keys.set(`${entry.module}:${topic}`, { module: entry.module, topic });');
+    expect(edgeFunction).toContain('reprocessedEntryPatch');
+    expect(edgeFunction).toContain('hasConcretePublicCopy');
+    expect(edgeFunction).toContain('recommendation: "internal" as const');
+    expect(edgeFunction).toContain('technicalInternal');
     expect(edgeFunction).toContain('groupsSuggested');
     expect(edgeFunction).toContain('type SiteChangeGroupSuggestion');
     expect(edgeFunction).toContain('.eq("source_ref", suggestion.group.source_ref)');
@@ -331,9 +336,9 @@ describe('site change service', () => {
     ];
 
     const suggestion = buildGroupedFeatureSuggestion(rows);
-    expect(suggestion.da?.title).toBe('CRM er forbedret');
-    expect(suggestion.da?.description).toBe('Lead- og kontaktflowet er forbedret. Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent.\n\nOmråde: CRM');
-    expect((suggestion.da?.description.match(/\n/g) || [])).toHaveLength(2);
+    expect(suggestion.da?.title).toBe('CRM: Manuelle kundeoplysninger bevares');
+    expect(suggestion.da?.description).toBe('Hvad er ændret?\n• Manuelle kundeoplysninger bevares, når der skiftes mellem forhandler og manuel kunde.\n• Budget og pipeline følger de gemte CRM-data mere konsekvent.\n\nOmråde: CRM');
+    expect((suggestion.da?.description.match(/\n/g) || [])).toHaveLength(4);
   });
 
   it('generates one user-facing CRM overview text for grouped partner-detail commits', () => {
@@ -371,9 +376,10 @@ describe('site change service', () => {
     }));
 
     const suggestion = buildGroupedFeatureSuggestion(rows);
-    expect(suggestion.da?.title).toBe('CRM-overblikket er forbedret');
-    expect(suggestion.da?.description).toContain('Partneroversigten er blevet gjort mere kompakt');
-    expect(suggestion.en?.title).toBe('The CRM overview has been improved');
-    expect(suggestion.de?.title).toBe('Die CRM-Übersicht wurde verbessert');
+    expect(suggestion.da?.title).toBe('CRM: Partneroverblikket er samlet');
+    expect(suggestion.da?.description).toContain('Hvad er ændret?');
+    expect(suggestion.da?.description).toContain('Partneroplysninger og de vigtigste handlinger er samlet mere overskueligt.');
+    expect(suggestion.en?.title).toBe('CRM has been improved');
+    expect(suggestion.de?.title).toBe('CRM wurde verbessert');
   });
 });

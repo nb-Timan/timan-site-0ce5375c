@@ -56,11 +56,12 @@ export default function WarrantyPage({ page }: { page: Page }) {
 
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateWarranty;
-  const readOnly = !perms?.canEditData;
   const dealerName = effectiveUser?.company_dealer ?? "";
 
-  // /new is dealer-side only and never available to read-only users
-  if (page === "new" && (variant !== "dealer" || !canCreate)) {
+  // Creation follows the established permission model. The form itself keeps
+  // dealer identity server-derived; Backend and Service already have this
+  // permission and must not be redirected away from their Quick Action.
+  if (page === "new" && !canCreate) {
     return <Navigate to="/portal/service/warranty" replace />;
   }
 
@@ -73,8 +74,8 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return (
       <WarrantyAdminSidebarLayout
         scope={variant}
-        readOnly={readOnly}
-        intro={<WarrantyDashboardIntro scope={variant} showCreate={canCreate} />}
+        canCreate={canCreate}
+        intro={<WarrantyDashboardIntro scope={variant} />}
       >
         <WarrantyDashboardBody scope={variant} dealerName={dealerName} />
       </WarrantyAdminSidebarLayout>
@@ -85,7 +86,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return (
       <WarrantyAdminSidebarLayout
         scope="admin"
-        readOnly={false}
+        canCreate={canCreate}
         intro={
           <div>
             <h1 className="text-3xl font-black tracking-tight">Synkronisering</h1>
@@ -111,13 +112,13 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return (
       <WarrantyAdminSidebarLayout
         scope={variant}
-        readOnly={readOnly}
+        canCreate={canCreate}
         intro={
           <WarrantyRegistrationsHeader
             scope={variant}
             title={title}
             subtitle={subtitle}
-            showCreate={canCreate}
+            showCreate={false}
           />
         }
       >
@@ -133,11 +134,15 @@ export default function WarrantyPage({ page }: { page: Page }) {
   // page === "new"
   return (
     <WarrantyAdminSidebarLayout
-      scope="dealer"
-      readOnly={false}
+      scope={variant}
+      canCreate={canCreate}
       intro={<WarrantyNewFormIntro />}
     >
-      <WarrantyNewForm defaultDealerName={dealerName} role={portalRole} />
+      <WarrantyNewForm
+        defaultDealerName={dealerName}
+        defaultDealerNumber={effectiveUser?.dealer_number ?? ""}
+        role={portalRole}
+      />
     </WarrantyAdminSidebarLayout>
   );
 }

@@ -5,7 +5,6 @@
  * and the localized field label.
  */
 
-import type { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 export const DEFAULT_PAYMENT_TERMS = 'Standard NET21';
@@ -61,16 +60,20 @@ const OPTION_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
   },
 };
 
-const LABEL: Partial<Record<Language, string>> = {
+const LABEL: Record<PortalUiLanguage, string> = {
   da: 'Betalingsbetingelser',
   en: 'Payment terms',
   de: 'Zahlungsbedingungen',
   it: 'Termini di pagamento',
   hu: 'Fizetési feltételek',
+  sv: 'Betalningsvillkor',
+  fr: 'Conditions de paiement',
+  pl: 'Warunki płatności',
+  cs: 'Platební podmínky',
 };
 
-export function getPaymentTermsLabel(lang: Language): string {
-  return LABEL[lang] ?? LABEL.en!;
+export function getPaymentTermsLabel(lang: PortalUiLanguage): string {
+  return LABEL[lang] ?? LABEL.en;
 }
 
 /** Localized display text while preserving canonical stored option values. */
@@ -84,6 +87,16 @@ export function resolvePaymentTerms(value: unknown): string {
   const trimmed = value.trim();
   if (!trimmed) return DEFAULT_PAYMENT_TERMS;
   return trimmed;
+}
+
+/** Canonical value printed on confirmations, PDFs and mail payloads. */
+export function getPaymentTermsDocumentValue(value: unknown): string {
+  const resolved = resolvePaymentTerms(value);
+  const compact = resolved.toLowerCase().replace(/[\s_-]+/g, '');
+  const netDays = compact.match(/^(?:standard)?net(7|14|21|30|40)(?:days?)?$/);
+  if (netDays) return `NET${netDays[1]}`;
+  if (compact === 'cbscashbeforeshipment' || compact === 'cbs') return 'CBS';
+  return resolved;
 }
 
 export const PAYMENT_TERMS_PERMISSION_KEY = 'can_manage_payment_terms' as const;

@@ -11,7 +11,7 @@ import {
 
 const migrationPath = path.resolve(
   process.cwd(),
-  "supabase/migrations/20260830220459_data_trace_archive_delete_restore.sql",
+  "supabase/migrations/20260830222109_data_trace_archive_delete_restore.sql",
 );
 const migrationSql = fs.readFileSync(migrationPath, "utf8");
 

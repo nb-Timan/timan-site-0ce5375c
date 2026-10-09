@@ -15,7 +15,6 @@ begin
   return new;
 end;
 $$;
-
 create or replace function public.sync_site_change_public_entry()
 returns trigger
 language plpgsql
@@ -90,16 +89,13 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists site_change_prepare_publication_metadata on public.site_change_entries;
 create trigger site_change_prepare_publication_metadata
 before insert or update on public.site_change_entries
 for each row execute function public.site_change_prepare_publication_metadata();
-
 drop trigger if exists sync_site_change_public_entry on public.site_change_entries;
 create trigger sync_site_change_public_entry
 after insert or update or delete on public.site_change_entries
 for each row execute function public.sync_site_change_public_entry();
-
 revoke all on function public.site_change_prepare_publication_metadata() from public, anon, authenticated;
 revoke all on function public.sync_site_change_public_entry() from public, anon, authenticated;

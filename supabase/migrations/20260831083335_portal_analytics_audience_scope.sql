@@ -112,6 +112,5 @@ begin
   return v_result;
 end;
 $$;
-
 revoke all on function public.get_backend_portal_analytics_filter_options() from public, anon;
 grant execute on function public.get_backend_portal_analytics_filter_options() to authenticated, service_role;

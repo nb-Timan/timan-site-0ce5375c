@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n/translations';
@@ -8,6 +8,7 @@ import { NEWS_TEMPLATE_REGISTRY, getNewsTemplate, isNewsTemplateId } from '@/fea
 import type { LocalizedNewsContent, NewsTemplateId } from '@/features/news-cms/templates/types';
 import {
   emptyLocalizedContent,
+  getNewsTranslationCoverage,
   mergeSharedNewsFields,
   missingNewsLanguages,
   missingTranslationFields,
@@ -25,7 +26,8 @@ import NewsTemplatePicker from './NewsTemplatePicker';
 import NewsFieldEditor from './NewsFieldEditor';
 import NewsPreviewPane from './NewsPreviewPane';
 import NewsRenderSurface from './NewsRenderSurface';
-import NewsHomepageFocusFrame, { NewsHomepageFocusOverlay } from './NewsHomepageFocusFrame';
+import NewsHomepageFocusFrame from './NewsHomepageFocusFrame';
+import { resolveNewsHomepageMedia } from '@/features/news-cms/lib/newsHomepageFocus';
 import {
   getAttachmentOptionsForMachine,
   getNewsAttachmentLabel,
@@ -94,8 +96,10 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   // for both the CMS interface and the content language being edited.
   const editLanguage: PortalUiLanguage = uiLanguage;
   const [localizedContent, setLocalizedContent] = useState<LocalizedNewsContent>(() => initialPost?.localized_content || emptyLocalizedContent());
+  const [persistedLocalizedContent, setPersistedLocalizedContent] = useState<LocalizedNewsContent | null>(() => initialPost?.localized_content || null);
   const [templateData, setTemplateData] = useState<Record<string, unknown>>(() => initialPost?.template_data || {});
   const [translateStatus, setTranslateStatus] = useState<string | null>(null);
+  const publishInFlight = useRef(false);
 
   useEffect(() => {
     setStep(1);
@@ -103,6 +107,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     setPersistedPostId(initialPost?.id);
     setTemplateId(isNewsTemplateId(initialPost?.template_id) ? initialPost.template_id : NEWS_TEMPLATE_REGISTRY[0].id);
     setLocalizedContent(initialPost?.localized_content || emptyLocalizedContent());
+    setPersistedLocalizedContent(initialPost?.localized_content || null);
     setTemplateData(initialPost?.template_data || {});
     setTranslateStatus(null);
   }, [initialPost?.id]);
@@ -116,21 +121,31 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     () => missingTranslationFields(localizedContent, editLanguage, template.fields),
     [localizedContent, editLanguage, template.fields],
   );
-  const missingLanguages = useMemo(
-    () => missingNewsLanguages(localizedContent, template.fields),
-    [localizedContent, template.fields],
+  const translationCoverage = useMemo(
+    () => getNewsTranslationCoverage(localizedContent, template.fields, editLanguage, persistedLocalizedContent),
+    [localizedContent, template.fields, editLanguage, persistedLocalizedContent],
   );
+  const missingLanguages = translationCoverage.missingLanguages;
   const [publishWarning, setPublishWarning] = useState<string | null>(null);
   const contentLanguageLabel =
     PORTAL_LANGUAGES.find((option) => option.code === editLanguage)?.label || editLanguage.toUpperCase();
   const missingLanguageLabels = missingLanguages
     .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
     .join(', ');
+  const staleLanguageLabels = translationCoverage.staleLanguages
+    .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+    .join(', ');
+  const formatStatus = (key: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce((message, [name, value]) => message.replace(`{${name}}`, String(value)), t(key, uiLanguage));
   const validation = template.validate(activeContent);
   const canPublish = validation.valid;
   const newsTopic = normalizeNewsTopicData(templateData.news_topic);
   const attachmentOptions = getAttachmentOptionsForMachine(newsTopic.target);
   const typography = useMemo(() => getNewsTypography(templateData), [templateData]);
+  const homepageMedia = useMemo(
+    () => resolveNewsHomepageMedia(template.id, activeContent),
+    [template.id, activeContent],
+  );
 
   const updateNewsTopic = (patch: Partial<typeof newsTopic>) => {
     setTemplateData((current) => {
@@ -200,6 +215,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     try {
       const savedPost = await onSaveDraft({ id: persistedPostId, templateId, localizedContent: contentToSave, templateData: templateDataToSave, sourceLanguage: editLanguage });
       setPersistedPostId(savedPost.id);
+      setPersistedLocalizedContent(contentToSave);
       setSavedOnce(true);
     } catch (error) {
       setPublishWarning(error instanceof Error ? error.message : 'Kladden kunne ikke gemmes.');
@@ -212,53 +228,56 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   };
 
   const publish = async () => {
+    if (publishInFlight.current || saving) return;
     if (!validation.valid) {
       setPublishWarning(validation.issues.map((issue) => t(issue.messageKey, uiLanguage)).join(', '));
       return;
     }
 
-    setTranslateStatus('Oversætter nyheden...');
-    const translationResult = await translateNewsContentDynamically({
-      localizedContent,
-      previousLocalizedContent: initialPost?.localized_content,
-      templateData,
-      fields: template.fields,
-      sourceLanguage: editLanguage,
-    });
-    if (translationResult.error) {
-      setTranslateStatus(null);
-      setPublishWarning(`Oversættelse mislykkedes: ${translationResult.error}. Nyheden er ikke publiceret med dansk fallback.`);
-      return;
-    }
-
-    const contentToPublish = translationResult.localizedContent;
-    const templateDataToPublish = translationResult.templateData;
-    const remainingMissingLanguages = missingNewsLanguages(contentToPublish, template.fields);
-
-    if (remainingMissingLanguages.length > 0) {
-      const labels = remainingMissingLanguages
-        .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
-        .join(', ');
-      setPublishWarning(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${labels}`);
-      return;
-    }
-
-    if (translationResult.translatedLanguages.length) {
-      setLocalizedContent(contentToPublish);
-      setTemplateData(templateDataToPublish);
-      const labels = translationResult.translatedLanguages
-        .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
-        .join(', ');
-      setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
-    } else {
-      setTranslateStatus(null);
-    }
-
-    setPublishWarning(null);
+    publishInFlight.current = true;
     try {
+      setTranslateStatus('Oversætter nyheden...');
+      const translationResult = await translateNewsContentDynamically({
+        localizedContent,
+        previousLocalizedContent: initialPost?.localized_content,
+        templateData,
+        fields: template.fields,
+        sourceLanguage: editLanguage,
+      });
+      if (translationResult.error) {
+        setTranslateStatus(null);
+        setPublishWarning(`Oversættelse mislykkedes: ${translationResult.error}. Nyheden er ikke publiceret med dansk fallback.`);
+        return;
+      }
+
+      const contentToPublish = translationResult.localizedContent;
+      const templateDataToPublish = translationResult.templateData;
+      const remainingMissingLanguages = missingNewsLanguages(contentToPublish, template.fields);
+      if (remainingMissingLanguages.length > 0) {
+        const labels = remainingMissingLanguages
+          .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+          .join(', ');
+        setPublishWarning(`${t('newsCmsPublishBlockedTranslations', uiLanguage)} ${labels}`);
+        return;
+      }
+
+      if (translationResult.translatedLanguages.length) {
+        setLocalizedContent(contentToPublish);
+        setTemplateData(templateDataToPublish);
+        const labels = translationResult.translatedLanguages
+          .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+          .join(', ');
+        setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
+      } else {
+        setTranslateStatus(null);
+      }
+
+      setPublishWarning(null);
       await onPublish({ id: persistedPostId, templateId, localizedContent: contentToPublish, templateData: templateDataToPublish, sourceLanguage: editLanguage });
     } catch (error) {
       setPublishWarning(error instanceof Error ? error.message : 'Nyheden kunne ikke publiceres.');
+    } finally {
+      publishInFlight.current = false;
     }
   };
 
@@ -279,10 +298,6 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             <Button type="button" variant="outline" disabled={saving} onClick={saveDraft}>
               <Save className="mr-2 h-4 w-4" />
               {t('newsCmsSaveDraft', uiLanguage)}
-            </Button>
-            <Button type="button" disabled={saving || (step > 1 && !validation.valid)} onClick={() => (step < 5 ? setStep((step + 1) as StepId) : publish())}>
-              {step < 5 ? `${t('next', uiLanguage)}: ${stepTitle((step + 1) as StepId, uiLanguage)}` : t('newsCmsPublish', uiLanguage)}
-              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -340,7 +355,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
             ) : (
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800">
-                {t('newsCmsTranslationComplete', uiLanguage)}
+                {formatStatus('newsCmsCurrentLanguageComplete', { language: contentLanguageLabel })}
               </div>
             )}
             <p className="mb-4 text-xs text-slate-400">{t('newsCmsSharedAcrossLanguages', uiLanguage)}</p>
@@ -349,9 +364,26 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 {translateStatus}
               </div>
             )}
-            {missingLanguages.length > 0 && (
-              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                <span className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</span> {missingLanguageLabels}
+            {missingFields.length === 0 && missingLanguages.filter((language) => language !== editLanguage).length > 0 && (
+              <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsGenerateOnPublish', { count: missingLanguages.filter((language) => language !== editLanguage).length })}
+                </p>
+                <p className="mt-1">{t('newsCmsTranslationsGenerateHelp', uiLanguage)} {missingLanguageLabels}</p>
+              </div>
+            )}
+            {missingFields.length === 0 && translationCoverage.staleLanguages.length > 0 && (
+              <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsUpdateOnPublish', { count: translationCoverage.staleLanguages.length })}
+                </p>
+                <p className="mt-1">{staleLanguageLabels}</p>
+              </div>
+            )}
+            {missingFields.length === 0 && missingLanguages.length === 0 && translationCoverage.staleLanguages.length === 0 && persistedLocalizedContent && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900">
+                <Check className="h-4 w-4" />
+                {formatStatus('newsCmsAllPortalLanguagesCurrent', { count: PORTAL_LANGUAGES.length })}
               </div>
             )}
 
@@ -471,20 +503,13 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               template={template}
               content={activeContent}
               templateData={templateData}
-              overlay={template.id === 'template-03-hero-news' && typeof activeContent.heroImage === 'string' ? (
-                <NewsHomepageFocusOverlay
-                  focus={activeContent.heroHomepageFocus}
-                  onFocusChange={(next) =>
-                    setLocalizedContent((current) => updateSharedNewsField(current, 'heroHomepageFocus', next))
-                  }
-                />
-              ) : null}
             />
-            {template.id === 'template-03-hero-news' && (
+            {homepageMedia.imageUrl && (
               <NewsHomepageFocusFrame
-                imageUrl={typeof activeContent.heroImage === 'string' ? activeContent.heroImage : ''}
+                imageUrl={homepageMedia.imageUrl}
                 headline={typeof activeContent.headline === 'string' ? activeContent.headline : ''}
                 focus={activeContent.heroHomepageFocus}
+                imageTransform={homepageMedia.imageTransform}
                 onFocusChange={(next) =>
                   setLocalizedContent((current) => updateSharedNewsField(current, 'heroHomepageFocus', next))
                 }
@@ -507,10 +532,6 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 <Save className="mr-2 h-4 w-4" />
                 {savedOnce ? t('newsCmsDraftSaved', uiLanguage) : t('newsCmsSaveDraft', uiLanguage)}
               </Button>
-              <Button type="button" disabled={saving || !validation.valid} onClick={() => setStep(5)}>
-                {t('next', uiLanguage)}: {t('newsCmsStepPublish', uiLanguage)}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
             </div>
           </div>
         </section>
@@ -524,10 +545,20 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             </div>
             <h3 className="text-xl font-bold text-slate-900">{t('newsCmsStepPublishTitle', uiLanguage)}</h3>
             <p className="mt-2 text-sm text-slate-600">{t('newsCmsStepPublishHelp', uiLanguage)}</p>
-            {missingLanguages.length > 0 && (
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <p className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</p>
-                <p className="mt-1">{missingLanguageLabels}</p>
+            {missingFields.length === 0 && missingLanguages.filter((language) => language !== editLanguage).length > 0 && (
+              <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsGenerateOnPublish', { count: missingLanguages.filter((language) => language !== editLanguage).length })}
+                </p>
+                <p className="mt-1">{t('newsCmsTranslationsGenerateHelp', uiLanguage)} {missingLanguageLabels}</p>
+              </div>
+            )}
+            {missingFields.length === 0 && translationCoverage.staleLanguages.length > 0 && (
+              <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsUpdateOnPublish', { count: translationCoverage.staleLanguages.length })}
+                </p>
+                <p className="mt-1">{staleLanguageLabels}</p>
               </div>
             )}
             {publishWarning && (
@@ -540,10 +571,6 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 <Eye className="mr-2 h-4 w-4" />
                 {t('newsCmsPreview', uiLanguage)}
               </Button>
-              <Button type="button" disabled={saving || !canPublish} onClick={publish}>
-                <Send className="mr-2 h-4 w-4" />
-                {t('newsCmsPublish', uiLanguage)}
-              </Button>
             </div>
           </div>
         </section>
@@ -554,10 +581,17 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
           <ArrowLeft className="mr-2 h-4 w-4" />
           {t('previous', uiLanguage)}
         </Button>
-        <Button type="button" disabled={saving || (step > 1 && !validation.valid) || (step === 5 && !canPublish)} onClick={() => (step < 5 ? setStep((step + 1) as StepId) : publish())}>
-          {step < 5 ? `${t('next', uiLanguage)}: ${stepTitle((step + 1) as StepId, uiLanguage)}` : t('newsCmsPublish', uiLanguage)}
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+        {step < 5 ? (
+          <Button type="button" disabled={saving || (step > 1 && !validation.valid)} onClick={() => setStep((step + 1) as StepId)}>
+            {`${t('next', uiLanguage)}: ${stepTitle((step + 1) as StepId, uiLanguage)}`}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        ) : (
+          <Button type="button" disabled={saving || !canPublish} onClick={publish}>
+            {t('newsCmsPublish', uiLanguage)}
+            <Send className="ml-2 h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

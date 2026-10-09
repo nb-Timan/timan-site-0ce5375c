@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@/types/configurator";
+import { timanCompanyLegalLine } from '../../../supabase/functions/_shared/timanCompanyProfile';
 import {
   addConnectedClaim,
   addDealerComment,
@@ -1384,7 +1385,7 @@ export function ClaimTool({
           <span className="text-green-700">MAN</span> A/S
         </p>
         <p className="mt-1 text-xs">
-          Osvald Pedersens Vej 2A-D, 6980 Tim - Danmark
+          {timanCompanyLegalLine()}
         </p>
         <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-green-700">
           <Phone className="h-4 w-4 text-red-600" />

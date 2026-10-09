@@ -161,6 +161,15 @@ describe("CRM Budget — order actuals are independent from budget_line_id", () 
     expect(actuals.every((a) => a.product_key && a.seller_email === JTN.email && a.year === FISCAL_YEAR)).toBe(true);
   });
 
+  it('includes one sales-stock order exactly once in canonical actuals', async () => {
+    const order = makeOrder('sales-stock-order', 'RC-751', 1);
+    order.details.state_json = { ...order.details.state_json, salesChannel: 'sales_stock_demo' };
+    setOrders([order.view], [order.details]);
+    const actuals = await listSalesActuals(FISCAL_YEAR);
+    expect(qtyByStableKey(actuals, 'RC-751')).toBe(1);
+    expect(actuals.filter((row) => row.product_key === 'RC-751')).toHaveLength(1);
+  });
+
   it("creating budget lines does not move or rebind order actuals", async () => {
     const before = await listSalesActuals(FISCAL_YEAR);
     const persistedRC1000 = await mkLine("RC-1000s", "411000");

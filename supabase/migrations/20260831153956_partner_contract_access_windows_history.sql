@@ -18,15 +18,12 @@ create table if not exists public.dealer_contract_access_windows (
   constraint dealer_contract_access_windows_valid_time
     check (expires_at > activated_at and expires_at <= activated_at + interval '8 hours')
 );
-
 create index if not exists dealer_contract_access_windows_dealer_active_idx
   on public.dealer_contract_access_windows (dealer_account_id, expires_at desc)
   where revoked_at is null;
-
 create index if not exists dealer_contract_access_windows_contract_idx
   on public.dealer_contract_access_windows (contract_id)
   where contract_id is not null;
-
 create table if not exists public.partner_agreement_history (
   id uuid primary key default gen_random_uuid(),
   dealer_account_id uuid not null references public.dealer_accounts(id) on delete cascade,
@@ -59,24 +56,19 @@ create table if not exists public.partner_agreement_history (
     )
   )
 );
-
 create index if not exists partner_agreement_history_dealer_idx
   on public.partner_agreement_history (dealer_account_id, created_at desc);
-
 create index if not exists partner_agreement_history_contract_idx
   on public.partner_agreement_history (contract_id)
   where contract_id is not null;
-
 alter table public.dealer_contract_access_windows enable row level security;
 alter table public.partner_agreement_history enable row level security;
-
 revoke all on public.dealer_contract_access_windows from anon, public;
 revoke all on public.partner_agreement_history from anon, public;
 grant select on public.dealer_contract_access_windows to authenticated;
 grant select on public.partner_agreement_history to authenticated;
 grant all on public.dealer_contract_access_windows to service_role;
 grant all on public.partner_agreement_history to service_role;
-
 create or replace function public.current_timan_app_user()
 returns table (
   id uuid,
@@ -109,10 +101,8 @@ as $$
     and coalesce(au.approved, true) = true
   limit 1;
 $$;
-
 revoke all on function public.current_timan_app_user() from public, anon;
 grant execute on function public.current_timan_app_user() to authenticated, service_role;
-
 create or replace function public.can_manage_dealer_contract_access(p_dealer_account_id uuid)
 returns boolean
 language sql
@@ -138,10 +128,8 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_manage_dealer_contract_access(uuid) from public, anon;
 grant execute on function public.can_manage_dealer_contract_access(uuid) to authenticated, service_role;
-
 create or replace function public.is_internal_contract_actor()
 returns boolean
 language sql
@@ -155,10 +143,8 @@ as $$
     where au.portal_role in ('timan_backend', 'timan_service', 'timan_seller')
   );
 $$;
-
 revoke all on function public.is_internal_contract_actor() from public, anon;
 grant execute on function public.is_internal_contract_actor() to authenticated, service_role;
-
 create or replace function public.has_active_dealer_contract_window(
   p_dealer_account_id uuid,
   p_contract_id uuid default null
@@ -179,10 +165,8 @@ as $$
       and (p_contract_id is null or w.contract_id is null or w.contract_id = p_contract_id)
   );
 $$;
-
 revoke all on function public.has_active_dealer_contract_window(uuid, uuid) from public, anon;
 grant execute on function public.has_active_dealer_contract_window(uuid, uuid) to authenticated, service_role;
-
 create or replace function public.can_read_partner_agreement_history(p_dealer_account_id uuid)
 returns boolean
 language sql
@@ -201,10 +185,8 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_read_partner_agreement_history(uuid) from public, anon;
 grant execute on function public.can_read_partner_agreement_history(uuid) to authenticated, service_role;
-
 create or replace function public.append_partner_agreement_history(
   p_dealer_account_id uuid,
   p_event_type text,
@@ -279,10 +261,8 @@ begin
   return result;
 end;
 $$;
-
 revoke all on function public.append_partner_agreement_history(uuid, text, text, text, uuid, uuid, uuid, text, text, jsonb) from public, anon;
 grant execute on function public.append_partner_agreement_history(uuid, text, text, text, uuid, uuid, uuid, text, text, jsonb) to authenticated, service_role;
-
 create or replace function public.activate_dealer_contract_access_window(
   p_dealer_account_number text,
   p_contract_id uuid default null,
@@ -370,10 +350,8 @@ begin
   return result;
 end;
 $$;
-
 revoke all on function public.activate_dealer_contract_access_window(text, uuid, integer, text) from public, anon;
 grant execute on function public.activate_dealer_contract_access_window(text, uuid, integer, text) to authenticated, service_role;
-
 create or replace function public.revoke_dealer_contract_access_window(p_window_id uuid)
 returns public.dealer_contract_access_windows
 language plpgsql
@@ -413,10 +391,8 @@ begin
   return result;
 end;
 $$;
-
 revoke all on function public.revoke_dealer_contract_access_window(uuid) from public, anon;
 grant execute on function public.revoke_dealer_contract_access_window(uuid) to authenticated, service_role;
-
 drop policy if exists dealer_contract_access_windows_select on public.dealer_contract_access_windows;
 create policy dealer_contract_access_windows_select
 on public.dealer_contract_access_windows
@@ -425,13 +401,11 @@ using (
   public.can_manage_dealer_contract_access(dealer_account_id)
   or dealer_account_number = public.current_user_dealer_number()
 );
-
 drop policy if exists partner_agreement_history_select on public.partner_agreement_history;
 create policy partner_agreement_history_select
 on public.partner_agreement_history
 for select to authenticated
 using (public.can_read_partner_agreement_history(dealer_account_id));
-
 create or replace function public.can_read_dealer_contract(p_contract_id uuid)
 returns boolean
 language sql
@@ -461,19 +435,15 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_read_dealer_contract(uuid) from public, anon;
 grant execute on function public.can_read_dealer_contract(uuid) to authenticated, service_role;
-
 drop policy if exists dealer_contracts_select_owner_or_backend on public.dealer_contracts;
 drop policy if exists dealer_contracts_insert_owner_or_backend on public.dealer_contracts;
 drop policy if exists dealer_contracts_update_owner_or_backend on public.dealer_contracts;
-
 create policy dealer_contracts_select_controlled
 on public.dealer_contracts
 for select to authenticated
 using (public.can_read_dealer_contract(id));
-
 create policy dealer_contracts_insert_controlled
 on public.dealer_contracts
 for insert to authenticated
@@ -485,7 +455,6 @@ with check (
     and public.has_active_dealer_contract_window(dealer_account_id, null)
   )
 );
-
 create policy dealer_contracts_update_controlled
 on public.dealer_contracts
 for update to authenticated
@@ -507,7 +476,6 @@ with check (
     and public.has_active_dealer_contract_window(dealer_account_id, id)
   )
 );
-
 create or replace function public.complete_dealer_contract_guided_review(
   p_contract_id uuid,
   p_snapshot jsonb,
@@ -561,7 +529,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.submit_dealer_contract_upload(p_upload_version_id uuid)
 returns public.dealer_contract_upload_versions
 language plpgsql
@@ -636,7 +603,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.approve_dealer_contract_upload(p_upload_version_id uuid)
 returns public.dealer_contracts
 language plpgsql

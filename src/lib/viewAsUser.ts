@@ -20,7 +20,7 @@
  * No DB writes. No auth changes. Pure presentation.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { SessionUser } from '@/context/AppUserContext';
 import {
@@ -32,14 +32,20 @@ import {
 } from '@/lib/activeMode';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
+import {
+  classifyPortalStartupFailure,
+  markPortalStartup,
+  withPortalStartupTimeout,
+} from '@/lib/portalStartupDiagnostics';
 
 async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
   const norm = email.toLowerCase();
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from('app_users')
     .select('*')
     .eq('email', norm)
     .maybeSingle();
+  if (error) throw error;
   if (!row) return null;
   const u: SessionUser = {
     id: (row.id as string | null) ?? null,
@@ -60,6 +66,7 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     portal_role: (row.portal_role as string | null) ?? null,
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,
+    country: (row.country as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
     portal_variant: (row.portal_variant as string | null) ?? 'standard',
     module_access: ((row.allowed_modules as string[] | null) ?? (row.module_access as string[] | null)) ?? null,
@@ -86,6 +93,7 @@ export function clearViewAsCache(email?: string | null) {
  */
 export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser | null {
   const state = useEffectivePortalUserState(appUser);
+  if (state.error) return null;
   return state.effectiveUser ?? appUser;
 }
 
@@ -98,9 +106,11 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
 export function useEffectivePortalUserState(appUser: SessionUser | null): {
   effectiveUser: SessionUser | null;
   resolving: boolean;
+  error: Error | null;
 } {
   const [target, setTarget] = useState<SessionUser | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [resolutionError, setResolutionError] = useState<Error | null>(null);
   const [rev, setRev] = useState(0);
 
   // Listen for view-as switches and user-edit-driven cache busts.
@@ -110,61 +120,97 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
     return () => window.removeEventListener('timan:active-mode-changed', bump);
   }, []);
 
+  const mode = useMemo(
+    () => {
+      void rev; // Re-read localStorage after the active-mode event.
+      return appUser ? getActiveMode(appUser.email) : null;
+    },
+    [appUser, rev],
+  );
+  const viewUser = useMemo(
+    () => {
+      void rev; // Re-read localStorage after the active-mode event.
+      return appUser ? getActiveUserView(appUser.email) : null;
+    },
+    [appUser, rev],
+  );
+  const preview = useMemo(
+    () => (appUser && typeof mode === 'string' && mode.startsWith('role:')
+      ? getActiveRolePreview(appUser.email)
+      : null),
+    [appUser, mode],
+  );
+
   useEffect(() => {
-    if (!appUser || !canSwitchMode(appUser)) { setTarget(null); setResolving(false); return; }
-    const viewUser = getActiveUserView(appUser.email);
-    if (!viewUser) { setTarget(null); setResolving(false); return; }
+    if (!appUser || !canSwitchMode(appUser)) { setTarget(null); setResolving(false); setResolutionError(null); return; }
+    if (!viewUser) { setTarget(null); setResolving(false); setResolutionError(null); return; }
     let cancelled = false;
     setResolving(true);
-    fetchUserByEmail(viewUser.email)
+    setResolutionError(null);
+    withPortalStartupTimeout(fetchUserByEmail(viewUser.email), 8_000, 'permission_error')
       .then((u) => {
         if (cancelled) return;
+        if (!u) throw new Error('View-as user profile is unavailable');
         setTarget(u);
         setResolving(false);
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return;
+        const category = classifyPortalStartupFailure(error, 'permission_error');
+        markPortalStartup(category, { once: false, errorCategory: category });
+        console.error('[portal-startup] View-as permission resolution failed', { category });
         setTarget(null);
         setResolving(false);
+        setResolutionError(error instanceof Error ? error : new Error(category));
       });
     return () => { cancelled = true; };
-  }, [appUser, rev]);
+  }, [appUser, rev, viewUser]);
 
-  if (!appUser) return { effectiveUser: null, resolving: false };
-  if (!canSwitchMode(appUser)) return { effectiveUser: appUser, resolving: false };
+  const rolePreviewUser = useMemo<SessionUser | null>(() => {
+    if (!appUser || !preview) return null;
+    return {
+      ...appUser,
+      portal_role: preview.key,
+      module_access: null,
+      allowed_areas: null,
+      allowed_modules: null,
+      permissions: null,
+      quick_actions: null,
+    };
+  }, [appUser, preview]);
+
+  const viewedUser = useMemo(
+    () => (appUser && target ? mergeEffectivePortalUser(appUser, target, viewUser) : null),
+    [appUser, target, viewUser],
+  );
+
+  if (!appUser) return { effectiveUser: null, resolving: false, error: null };
+  if (!canSwitchMode(appUser)) return { effectiveUser: appUser, resolving: false, error: null };
 
   // Role preview (no actual user row to fetch — clear module_access so
   // role defaults apply).
-  const mode = getActiveMode(appUser.email);
-  const viewUser = getActiveUserView(appUser.email);
   if (typeof mode === 'string' && mode.startsWith('role:')) {
-    const preview = getActiveRolePreview(appUser.email);
-    if (!preview) return { effectiveUser: appUser, resolving: false };
+    if (!rolePreviewUser) return { effectiveUser: appUser, resolving: false, error: null };
     return {
-      effectiveUser: {
-        ...appUser,
-        portal_role: preview.key,
-        module_access: null,
-        allowed_areas: null,
-        allowed_modules: null,
-        permissions: null,
-        quick_actions: null,
-      },
+      effectiveUser: rolePreviewUser,
       resolving: false,
+      error: null,
     };
   }
 
+  if (resolutionError) return { effectiveUser: null, resolving: false, error: resolutionError };
   if (viewUser && !target) {
-    return { effectiveUser: null, resolving: true };
+    return { effectiveUser: null, resolving: true, error: null };
   }
 
-  if (target) {
+  if (viewedUser) {
     return {
-      effectiveUser: mergeEffectivePortalUser(appUser, target, viewUser),
+      effectiveUser: viewedUser,
       resolving: false,
+      error: null,
     };
   }
-  return { effectiveUser: appUser, resolving };
+  return { effectiveUser: appUser, resolving, error: null };
 }
 
 export function mergeEffectivePortalUser(
@@ -185,7 +231,7 @@ export function mergeEffectivePortalUser(
     partner_type: target.partner_type,
     can_view_prices: target.can_view_prices,
     can_submit_order: target.can_submit_order,
-    portal_role: isSameBackendUserInSellerMode ? viewUser.portalRole : (target.portal_role ?? appUser.portal_role),
+    portal_role: viewUser?.portalRole ?? target.portal_role ?? appUser.portal_role,
     module_access: isSameBackendUserInSellerMode ? null : (target.module_access ?? null),
     allowed_areas: isSameBackendUserInSellerMode ? null : (target.allowed_areas ?? null),
     allowed_modules: isSameBackendUserInSellerMode ? null : (target.allowed_modules ?? null),
@@ -194,8 +240,9 @@ export function mergeEffectivePortalUser(
     portal_variant: target.portal_variant ?? appUser.portal_variant,
     display_name: target.display_name || appUser.display_name,
     initials: target.initials || appUser.initials,
-    dealer_number: target.dealer_number ?? null,
-    company_dealer: target.company_dealer ?? null,
+    dealer_number: viewUser?.dealerNumber ?? target.dealer_number ?? null,
+    company_dealer: viewUser?.companyDealer ?? target.company_dealer ?? null,
+    country: target.country ?? appUser.country ?? null,
   };
 }
 

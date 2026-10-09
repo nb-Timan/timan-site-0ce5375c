@@ -3,6 +3,7 @@ import { formatLeadNo, type CrmDemoLead, type CrmLead } from "@/lib/crmLeadsServ
 export type BudgetReferenceCrmOption = {
   value: string;
   kind: "lead" | "demo";
+  /** Canonical UUID persisted to budget_references.lead_id or demo_id. */
   reference: string;
   label: string;
 };
@@ -41,22 +42,22 @@ export function buildBudgetReferenceCrmOptions(
   demos: CrmDemoLead[],
 ): BudgetReferenceCrmOption[] {
   const leadOptions = leads.map((lead) => {
-    const reference = leadReference(lead);
+    const displayReference = leadReference(lead);
     const status = lead.status?.trim() || lead.pipeline_stage || "Åben";
     return {
-      value: `lead:${reference}`,
+      value: `lead:${lead.id}`,
       kind: "lead" as const,
-      reference,
-      label: [reference, lead.title?.trim() || "Uden titel", status].join(" · "),
+      reference: lead.id,
+      label: [displayReference, lead.title?.trim() || "Uden titel", status].join(" · "),
     };
   });
   const demoOptions = demos.map((demo) => {
-    const reference = demoReference(demo);
+    const displayReference = demoReference(demo);
     return {
-      value: `demo:${reference}`,
+      value: `demo:${demo.id}`,
       kind: "demo" as const,
-      reference,
-      label: [reference, demo.title?.trim() || demo.demo_machine?.trim() || "Demo", "Demo"].join(" · "),
+      reference: demo.id,
+      label: [displayReference, demo.title?.trim() || demo.demo_machine?.trim() || "Demo", "Demo"].join(" · "),
     };
   });
 

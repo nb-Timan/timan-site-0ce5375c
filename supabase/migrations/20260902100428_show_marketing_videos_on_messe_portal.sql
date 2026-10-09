@@ -113,4 +113,4 @@ using (
     where mv.id = marketing_video_primary_products.video_id
       and public.can_read_marketing_video(mv.status, mv.published_at, mv.show_on_messe_portal)
   )
-);
+);;

@@ -27,7 +27,7 @@ import { listLeads, listDemoLeads, resolveSeedOwners, demoLeadsToActivities, typ
 import { effectiveLeadStatus } from '@/lib/leadStatus';
 import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { getActiveSellerView } from '@/lib/activeMode';
+import { getActiveSellerView, getEffectiveSellerEmail } from '@/lib/activeMode';
 import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
 import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { buildJournalScope } from '@/lib/machineJournalScope';
@@ -41,6 +41,10 @@ import {
   type CrmDashboardQuoteOrderKpis,
   type CrmDashboardSalesOutcomeKpis,
 } from '@/lib/crmDashboardKpisService';
+import { summarizeWonOrderValues } from '@/lib/crmClosedOrderValue';
+import { calculateAverageSalesCycle } from '@/lib/crmSalesCycle';
+import { classifyCrmLostReason, type CrmLostReasonAnalyticsCategory } from '@/lib/crmLostReason';
+import { classifyPortalStartupFailure, markPortalStartup } from '@/lib/portalStartupDiagnostics';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -75,7 +79,7 @@ const T: Record<string, Record<Language, string>> = {
   trend30:        { da: 'Pipeline (sidste 30 dage)', en: 'Pipeline (last 30 days)', de: 'Pipeline (30 Tage)', it: 'Pipeline (30 gg)',   hu: 'Pipeline (30 nap)' },
 
   stage_lead:     { da: 'Lead',          en: 'Lead',          de: 'Lead',          it: 'Lead',          hu: 'Lead' },
-  stage_demo:     { da: 'Demo planlagt', en: 'Demo planned',  de: 'Demo geplant',  it: 'Demo pianificata', hu: 'Demó tervezve' },
+  stage_demo:     { da: 'Demo aftalt', en: 'Demo agreed',  de: 'Demo vereinbart',  it: 'Demo concordata', hu: 'Demó egyeztetve' },
   stage_quote:    { da: 'Tilbud sendt',  en: 'Quote sent',    de: 'Angebot gesendet', it: 'Preventivo inviato', hu: 'Árajánlat elküldve' },
   stage_neg:      { da: 'Forhandling',   en: 'Negotiation',   de: 'Verhandlung',   it: 'Negoziazione',  hu: 'Tárgyalás' },
   stage_won:      { da: 'Vundet',        en: 'Won',           de: 'Gewonnen',      it: 'Vinto',         hu: 'Megnyert' },
@@ -84,6 +88,7 @@ const T: Record<string, Record<Language, string>> = {
   reason_price:   { da: 'Pris',          en: 'Price',         de: 'Preis',         it: 'Prezzo',        hu: 'Ár' },
   reason_lead:    { da: 'Leveringstid',  en: 'Lead time',     de: 'Lieferzeit',    it: 'Tempo consegna',hu: 'Szállítási idő' },
   reason_comp:    { da: 'Konkurrent',    en: 'Competitor',    de: 'Wettbewerb',    it: 'Concorrente',   hu: 'Versenytárs' },
+  reason_not_relevant: { da: 'Ikke relevant', en: 'Not relevant', de: 'Nicht relevant', it: 'Non pertinente', hu: 'Nem releváns' },
   reason_other:   { da: 'Andet',         en: 'Other',         de: 'Sonstiges',     it: 'Altro',         hu: 'Egyéb' },
 
   days:           { da: 'dage',          en: 'days',          de: 'Tage',          it: 'giorni',        hu: 'nap' },
@@ -114,8 +119,8 @@ const PIPELINE_STAGES: StageMeta[] = [
   { key: 'lost',  tKey: 'stage_lost',  bar: 'bg-gradient-to-r from-rose-400 to-rose-500',     hex: '#f43f5e', ring: 'bg-rose-100 text-rose-700' },
 ];
 
-const REASON_HEX: Record<'price'|'lead'|'comp'|'other', string> = {
-  price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', other: '#64748b',
+const REASON_HEX: Record<CrmLostReasonAnalyticsCategory, string> = {
+  price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', not_relevant: '#0f766e', other: '#64748b',
 };
 
 // Mini bar chart heights (%) for the Closed Orders hero card
@@ -154,13 +159,9 @@ function classifyStage(a: CrmActivity): StageMeta['key'] | null {
     default: return null;
   }
 }
-function classifyLostReason(a: CrmActivity): 'price' | 'lead' | 'comp' | 'other' {
+function classifyLostReason(a: CrmActivity): CrmLostReasonAnalyticsCategory {
   const meta = (a.meta || {}) as Record<string, unknown>;
-  const r = String(meta.lost_reason || a.description || '').toLowerCase();
-  if (/pris|price/.test(r)) return 'price';
-  if (/lever|delivery|lead\s*time/.test(r)) return 'lead';
-  if (/konkur|competitor|comp/.test(r)) return 'comp';
-  return 'other';
+  return classifyCrmLostReason(String(meta.lost_reason || a.description || ''));
 }
 
 function activityDotClass(stage: StageMeta['key'] | null): string {
@@ -238,7 +239,7 @@ export default function CrmDashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       // Resolve the active scope. For admins with a top-filter selection we
       // re-scope every dashboard fetch as that seller. "Alle" → unscoped.
       const sellerView = getActiveSellerView(appUser?.email);
@@ -322,7 +323,7 @@ export default function CrmDashboardPage() {
       });
       let lds: CrmLead[] = [];
       let cal: CalendarActivity[] = [];
-      if (!rpcKpis || externalCrm) {
+      if (!rpcKpis || !salesOutcomeKpis || externalCrm) {
         const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500, payload: "summary" });
         lds = externalCrm
           ? rawLeads.filter((l) => {
@@ -349,7 +350,12 @@ export default function CrmDashboardPage() {
       setServerLeadKpis(rpcKpis);
       setServerQuoteOrderKpis(quoteOrderKpis);
       setServerSalesOutcomeKpis(salesOutcomeKpis);
-    })();
+    })().catch((error) => {
+      if (cancelled) return;
+      const category = classifyPortalStartupFailure(error, 'rpc_error');
+      markPortalStartup(category, { once: false, errorCategory: category });
+      console.error('[portal-startup] CRM dashboard data failed', { category });
+    });
     return () => { cancelled = true; };
   }, [appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, externalCrm, topSellerInitials, leadRefreshToken]);
 
@@ -372,7 +378,7 @@ export default function CrmDashboardPage() {
   }, [localPipelineRows, serverLeadKpis, serverQuoteOrderKpis]);
 
   const realMetrics = useMemo(() => {
-    const base = deriveMetrics(activities, orders, isAdmin);
+    const base = deriveMetrics(activities, orders, leads, isAdmin);
     const byStage = PIPELINE_STAGES.map(meta => {
       const items = pipelineRows[meta.key] || [];
       const value = items.reduce((s, x) => s + (x.value || 0), 0);
@@ -400,11 +406,15 @@ export default function CrmDashboardPage() {
       activeLeads: activeLeadRows.length,
       leadsPctChange: pctChange(leadsThis, leadsPrev),
       pipelineValue,
+      wonOrdersCount: serverQuoteOrderKpis?.orderCount ?? base.wonOrdersCount,
+      closedOrderValue: serverQuoteOrderKpis?.orderValueDkk ?? base.closedOrderValue,
+      wonPctChange: serverQuoteOrderKpis?.wonPctChange ?? base.wonPctChange,
+      closedPctChange: serverQuoteOrderKpis?.closedPctChange ?? base.closedPctChange,
       winRate: serverSalesOutcomeKpis?.winRate ?? base.winRate,
       avgSalesDays: serverSalesOutcomeKpis?.avgSalesDays ?? base.avgSalesDays,
       pipelineByStage: byStage,
     };
-  }, [activities, orders, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis, serverSalesOutcomeKpis]);
+  }, [activities, orders, leads, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis, serverSalesOutcomeKpis]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
@@ -539,7 +549,7 @@ export default function CrmDashboardPage() {
                     </p>
                   </div>
                   <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
-                    {fmtKr(metrics.closedValueThisMonth, displayCurrency)}
+                    {fmtKr(metrics.closedOrderValue, displayCurrency)}
                   </p>
                 </div>
                 <div className="h-12 w-px bg-white/15" aria-hidden />
@@ -648,7 +658,7 @@ export default function CrmDashboardPage() {
         {/* SELLER COCKPIT — Lead focus + Budget focus (switcher hidden; controlled by top filter) */}
         <SellerCockpitSection
           isAdmin={isAdmin}
-          sellerEmail={appUser?.email ?? null}
+          sellerEmail={getEffectiveSellerEmail(appUser) ?? appUser?.email ?? null}
           sellerId={sellerId}
           controlledInitials={isAdmin ? topSellerInitials : undefined}
         />
@@ -830,13 +840,13 @@ export default function CrmDashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={(['price','lead','comp','other'] as const)
+                        data={(['price','lead','comp','not_relevant','other'] as const)
                           .map(k => ({ name: T[`reason_${k}`][lang], value: metrics.lostReasons.items[k].count, fill: REASON_HEX[k] }))
                           .filter(d => d.value > 0)}
                         dataKey="value" innerRadius={42} outerRadius={64} paddingAngle={3}
                         stroke="white" strokeWidth={2}
                       >
-                        {(['price','lead','comp','other'] as const).map(k => (
+                        {(['price','lead','comp','not_relevant','other'] as const).map(k => (
                           <Cell key={k} fill={REASON_HEX[k]} />
                         ))}
                       </Pie>
@@ -845,7 +855,7 @@ export default function CrmDashboardPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="space-y-2.5">
-                  {(['price','lead','comp','other'] as const).map(key => {
+                  {(['price','lead','comp','not_relevant','other'] as const).map(key => {
                     const item = metrics.lostReasons.items[key];
                     const total = Math.max(1, metrics.lostReasons.total);
                     const pct = Math.round((item.count / total) * 100);
@@ -1211,17 +1221,17 @@ interface DerivedMetrics {
   wonPctChange: number;
   winRate: number;
   avgSalesDays: number;
-  closedValueThisMonth: number;
+  closedOrderValue: number;
   closedCountThisMonth: number;
   closedPctChange: number;
   pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
-  lostReasons: { total: number; items: Record<'price'|'lead'|'comp'|'other', { count: number }> };
+  lostReasons: { total: number; items: Record<CrmLostReasonAnalyticsCategory, { count: number }> };
   inactiveAccounts: (accounts: CrmAccount[]) => CrmAccount[];
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
   latestSoldUnits: Array<{ id: string; dealer: string; closedAt: string; units: Array<{ key: string; qty: number }>; totalUnits: number }>;
 }
 
-function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _isAdmin: boolean): DerivedMetrics {
+function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], leads: CrmLead[], _isAdmin: boolean): DerivedMetrics {
   void _isAdmin;
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -1258,7 +1268,8 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   // is also counted here. Old "won" activities are no longer used for
   // closed-orders KPIs to avoid double counting and seller/dealer mismatches.
   const lost = staged.filter(s => s.stage === 'lost');
-  const wonOrdersCount = orders.length;
+  const orderValueSummary = summarizeWonOrderValues(orders);
+  const wonOrdersCount = orderValueSummary.wonOrdersCount;
   const winRate = (wonOrdersCount + lost.length) === 0
     ? 0
     : Math.round((wonOrdersCount / (wonOrdersCount + lost.length)) * 100);
@@ -1270,31 +1281,14 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   });
   const wonPctChange = pctChange(ordersThis.length, ordersPrev.length);
 
-  // Avg sales days
-  const quoteDates = new Map<string, number>();
-  for (const a of activities) {
-    if (a.activity_type === 'quote_created' && a.configuration_id) {
-      const t = new Date(a.activity_date).getTime();
-      const prev = quoteDates.get(a.configuration_id);
-      if (prev === undefined || t < prev) quoteDates.set(a.configuration_id, t);
-    }
-  }
-  const cycles: number[] = [];
-  for (const o of orders) {
-    const start = quoteDates.get(o.id);
-    if (start !== undefined) {
-      const days = (new Date(o.closed_at).getTime() - start) / (1000 * 60 * 60 * 24);
-      if (days >= 0 && days < 365) cycles.push(days);
-    }
-  }
-  const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
+  const avgSalesDays = calculateAverageSalesCycle(leads, orders).averageDays;
 
   const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedCountThisMonth = ordersThis.length;
   const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
 
-  const reasonCounts = { price: 0, lead: 0, comp: 0, other: 0 };
+  const reasonCounts: Record<CrmLostReasonAnalyticsCategory, number> = { price: 0, lead: 0, comp: 0, not_relevant: 0, other: 0 };
   for (const s of lost) reasonCounts[classifyLostReason(s.a)] += 1;
   const lostReasons = {
     total: lost.length,
@@ -1302,6 +1296,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
       price: { count: reasonCounts.price },
       lead:  { count: reasonCounts.lead },
       comp:  { count: reasonCounts.comp },
+      not_relevant: { count: reasonCounts.not_relevant },
       other: { count: reasonCounts.other },
     },
   };
@@ -1341,7 +1336,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     activeLeads, leadsPctChange,
     wonOrdersCount, wonPctChange,
     winRate, avgSalesDays,
-    closedValueThisMonth, closedCountThisMonth, closedPctChange,
+    closedOrderValue: orderValueSummary.valueDkk, closedCountThisMonth, closedPctChange,
     pipelineByStage: byStage,
     lostReasons,
     latestSoldUnits,
@@ -1477,7 +1472,7 @@ function buildPipelineRows(args: {
     if (status === 'Vundet') bucket = 'won';
     else if (status === 'Tabt') bucket = 'lost';
     else if (status === 'Tilbud sendt') continue; // handled via openQuotes
-    else if (status === 'Demo planlagt') bucket = 'demo';
+    else if (status === 'Demo aftalt') bucket = 'demo';
     else bucket = 'lead';
     const row: PipelineRow = {
       id: l.id,
@@ -1495,7 +1490,7 @@ function buildPipelineRows(args: {
     out[bucket].push(row);
   }
 
-  // Demo planlagt → crm_calendar_activities (type=demo, status=planned)
+  // Demo aftalt → crm_calendar_activities (type=demo, status=planned)
   for (const c of args.calendar) {
     if (c.activity_type !== 'demo') continue;
     if (c.status && c.status !== 'planned') continue;

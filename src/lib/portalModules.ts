@@ -6,6 +6,7 @@ import { AppUser } from '@/data/appUsers';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 import { Wrench, Calculator, Film, FileText, FileSignature, LifeBuoy, MapPinned, LucideIcon } from 'lucide-react';
+import { portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 export type PortalModuleId =
   | 'configurator'
@@ -76,7 +77,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       pl: 'Otwórz konfigurator', cs: 'Otevřít konfigurátor',
     },
     icon: Wrench,
-    href: '/configurator',
+    href: portalCapabilityRoute('sales.configurator'),
     enabled: true,
     accent: 'primary',
   },
@@ -104,7 +105,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Se videor', fr: 'Voir les vidéos', pl: 'Obejrzyj filmy', cs: 'Sledovat videa',
     },
     icon: Film,
-    href: '/portal/videos',
+    href: portalCapabilityRoute('sales.videos'),
     enabled: true,
     accent: 'violet',
   },
@@ -131,7 +132,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Öppna beräknare', fr: 'Ouvrir les calculateurs', pl: 'Otwórz kalkulatory', cs: 'Otevřít kalkulačky',
     },
     icon: Calculator,
-    href: '/portal/resources',
+    href: portalCapabilityRoute('sales.resources'),
     enabled: true,
     accent: 'sky',
   },
@@ -158,7 +159,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Öppna partnerkarta', fr: 'Ouvrir la carte', pl: 'Otwórz mapę partnerów', cs: 'Otevřít mapu partnerů',
     },
     icon: MapPinned,
-    href: '/portal/misc/partner-map',
+    href: portalCapabilityRoute('sales.partner_map'),
     enabled: true,
     accent: 'primary',
   },
@@ -184,7 +185,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Öppna formulär', fr: 'Ouvrir les formulaires', pl: 'Otwórz formularze', cs: 'Otevřít formuláře',
     },
     icon: FileText,
-    href: '/portal/misc/forms',
+    href: portalCapabilityRoute('sales.forms'),
     enabled: true,
     accent: 'slate',
   },
@@ -211,7 +212,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Öppna avtal', fr: 'Ouvrir les contrats', pl: 'Otwórz umowy', cs: 'Otevřít smlouvy',
     },
     icon: FileSignature,
-    href: '/portal/contracts',
+    href: portalCapabilityRoute('sales.contracts'),
     enabled: true,
     accent: 'amber',
   },
@@ -237,7 +238,7 @@ export const PORTAL_MODULES: PortalModule[] = [
       sv: 'Öppna ärenden', fr: 'Ouvrir les dossiers', pl: 'Otwórz sprawy', cs: 'Otevřít případy',
     },
     icon: LifeBuoy,
-    href: '/portal/service/claims',
+    href: portalCapabilityRoute('service.claims'),
     enabled: true,
     accent: 'rose',
   },

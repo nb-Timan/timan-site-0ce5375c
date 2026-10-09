@@ -3,6 +3,8 @@ import type { DashboardCurrencyFilter, DealerDashboardFilters } from "@/lib/crmD
 
 export type DealerDashboardSeriesPoint = {
   name: string;
+  /** Canonical activity date for daily chart points; `name` remains backward compatible. */
+  date?: string;
   value?: number;
   standard?: number;
   extra?: number;
@@ -28,7 +30,12 @@ export type DealerDashboardLiveRow = {
   currency: "DKK" | "EUR";
   standard_discount_pct: number;
   extra_discount_pct: number;
+  extra_discount_value: number | null;
+  extra_discount_available: boolean;
   payment_delivery_discount_pct: number | null;
+  payment_delivery_discount_value: number | null;
+  payment_delivery_discount_available: boolean;
+  discount_component_source: "pricing_snapshot" | "legacy_frozen_totals" | "unavailable";
   total_discount_pct: number | null;
   discount_value: number;
 };
@@ -41,9 +48,11 @@ export type DealerDashboardLiveData = {
     machine_count: number;
     average_discount_pct: number;
     extra_discount_value: number | null;
+    extra_discount_missing_count: number;
     payment_delivery_discount_value: number | null;
-    top_country: string;
-    top_dealer: string;
+    payment_delivery_discount_missing_count: number;
+    top_country: string | null;
+    top_dealer: string | null;
     quote_count: number;
   };
   charts: Record<string, DealerDashboardSeriesPoint[]>;

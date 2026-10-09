@@ -40,6 +40,7 @@
  *    UI already renders any extra entries that appear in that array.
  */
 import { supabase } from "@/lib/supabase";
+import { fetchMachineRegistryPage, type RegistryMachineRow } from "@/lib/machineRegistryPageService";
 import { resolveMachineHealth, SERVICE_DUE_SOON_DAYS, SERVICE_OVERDUE_DAYS } from "@/lib/machineHealth";
 import { fetchWarrantyRegistrations, DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
 import { listServiceRegistrations, ServiceRegistration } from "@/lib/serviceMaintenanceService";
@@ -215,6 +216,9 @@ export interface JournalSummary {
   hoursRegression: HoursRegressionWarning | null;
   status: "active" | "archived" | null;
   machineRecord: MachineRecord | null;
+  /** Canonical deduplicated registry row. This is populated even for an
+   * MO-only legacy machine that has no standalone `machines` row. */
+  registryRecord: RegistryMachineRow | null;
   /** True when no source record carries any dealer link. Internal UI
    *  renders "Maskinen mangler forhandlerkobling" when this is set. */
   dealerLinkMissing: boolean;
@@ -863,6 +867,7 @@ export async function loadMachineJournal(
       registrationDate: null, currentHours: null, latestServiceDate: null,
       openTickets: 0, openClaims: 0, tsbPending: 0, openItemsCount: 0,
       hoursRegression: null, status: null, machineRecord: null,
+      registryRecord: null,
       dealerLinkMissing: false,
       statusItems: [],
       health: { level: "healthy", reasons: [] },
@@ -895,11 +900,20 @@ export async function loadMachineJournal(
     } catch { return null; }
   })();
 
-  const [machinesRes, warrantiesAll, serviceRegsRaw, tickets] = await Promise.all([
+  const registryLookup = fetchMachineRegistryPage({
+    allowedDealers: scope.unrestricted ? null : Array.from(scope.dealerNumbers),
+    query: display, dealer: "", model: "all", warrantyType: "all", health: "all",
+    warrantyMatch: "all", dateFrom: "", dateTo: "", sort: "serial", direction: "asc",
+    page: 1, pageSize: 10,
+  }).then((page) => page.rows.find((row) => serialMatches(row.serial, display)) ?? null)
+    .catch(() => null as RegistryMachineRow | null);
+
+  const [machinesRes, warrantiesAll, serviceRegsRaw, tickets, registryRecord] = await Promise.all([
     machineLookup,
     fetchWarrantyRegistrations().catch(() => [] as DbWarrantyRegistration[]),
     listServiceRegistrations({ serialNumber: display }).catch(() => [] as ServiceRegistration[]),
     fetchVisibleServiceTickets(500).catch(() => [] as ServiceTicket[]),
+    registryLookup,
   ]);
 
   let machine = machinesRes;
@@ -954,6 +968,7 @@ export async function loadMachineJournal(
 
   // Found if ANY source has a record.
   journal.found = !!machine
+    || !!registryRecord
     || warranties.length > 0
     || serviceRegs.length > 0
     || ticketsForSerial.length > 0
@@ -1022,11 +1037,13 @@ export async function loadMachineJournal(
   const tsbPending = tsbForSerial.filter((t) => t.status === "afventer").length;
 
   const dealerName = machine?.dealer_name
+    ?? registryRecord?.dealerName
     ?? firstWarranty?.dealerName
     ?? serviceRegs[0]?.dealer_name
     ?? claimsForSerial[0]?.dealer
     ?? null;
   const dealerNumber = machine?.dealer_number
+    ?? registryRecord?.dealerNumber
     ?? firstWarranty?.dealerAccountNumber
     ?? serviceRegs[0]?.dealer_number
     ?? null;
@@ -1125,7 +1142,7 @@ export async function loadMachineJournal(
   //   - Prefer delivery_date from warranty registration + 12 months.
   //   - Fall back to machine.warranty_end_date if no registration delivery date.
   //   - Demo-specific rules will arrive later.
-  const deliveryDate = firstWarranty?.deliveryDate ?? null;
+  const deliveryDate = firstWarranty?.deliveryDate ?? registryRecord?.deliveryDate ?? null;
   let computedWarrantyEnd: string | null = null;
   if (deliveryDate) {
     const d = new Date(deliveryDate);
@@ -1211,14 +1228,15 @@ export async function loadMachineJournal(
   });
 
   journal.summary = {
-    serial: machine?.serial_number || firstWarranty?.machineSerial || serviceRegs[0]?.serial_number || display,
+    serial: machine?.serial_number || registryRecord?.serial || firstWarranty?.machineSerial || serviceRegs[0]?.serial_number || display,
     normalizedSerial: target,
     machineType: machine?.machine_type
+      ?? registryRecord?.machineModel
       ?? firstWarranty?.machineType
       ?? serviceRegs[0]?.machine_type
       ?? claimsForSerial[0]?.machineType
       ?? null,
-    model: machine?.model ?? null,
+    model: machine?.model ?? registryRecord?.machineModel ?? null,
     customerName: machine?.customer_name
       ?? firstWarranty?.customer
       ?? serviceRegs[0]?.customer_name
@@ -1228,7 +1246,7 @@ export async function loadMachineJournal(
     importerName,
     servicePartnerName,
     sellerLabel: effectiveSellerLabel,
-    warrantyStart: machine?.warranty_start_date ?? firstWarranty?.deliveryDate ?? null,
+    warrantyStart: machine?.warranty_start_date ?? firstWarranty?.deliveryDate ?? registryRecord?.deliveryDate ?? null,
     warrantyEnd,
     registrationDate: firstWarranty?.registrationDate ?? null,
     currentHours: machine?.current_hours ?? (latestService?.operating_hours ?? null),
@@ -1240,8 +1258,10 @@ export async function loadMachineJournal(
     hoursRegression,
     status: machine ? "active" : (firstWarranty?.status === "archived" ? "archived" : "active"),
     machineRecord: machine ?? null,
+    registryRecord,
     dealerLinkMissing: !(
       (machine && (machine.dealer_number || machine.dealer_account_id || machine.dealer_name)) ||
+      (registryRecord && (registryRecord.dealerNumber || registryRecord.dealerName)) ||
       warranties.some((w) => w.dealerAccountNumber || w.dealerAccountId || w.dealerName) ||
       serviceRegs.some((s) => s.dealer_number || s.dealer_name) ||
       ticketsForSerial.some((t) => (t as { dealer_number?: string | null }).dealer_number || t.dealer_name) ||

@@ -33,6 +33,9 @@ const ROLE_DESCRIPTION: Record<PortalRole, string> = {
 };
 
 const AREA_LABEL: Record<AreaKey, string> = {
+  planning: "Planlægning",
+  loans: "Lån af maskiner",
+  calendar: "Kalender",
   salg_marketing: "Salg",
   marketing: "Marketing",
   teknik_service: "Teknik & Service",

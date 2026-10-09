@@ -73,6 +73,8 @@ function dealer(overrides: Partial<DealerAccount> = {}): DealerAccount {
     geocoded_at: null,
     geocoding_status: null,
     geocoding_error: null,
+    geocoding_address_hash: null,
+    geocoding_retry_after: null,
     google_place_id: null,
     successor_dealer_id: null,
     successor_dealer_account_number: null,

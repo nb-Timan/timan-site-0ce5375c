@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PORTAL_AREAS } from '@/lib/portalAreas';
-import { sortPortalHomeCards, type PortalHomeCard } from '@/lib/portalHomeOrder';
+import { PORTAL_HOME_AREA_ORDER, sortPortalHomeCards, type PortalHomeCard } from '@/lib/portalHomeOrder';
 
 function cards(ids: PortalHomeCard['id'][]): PortalHomeCard[] {
   return ids.map((id) => id === 'messe'
@@ -13,6 +13,10 @@ function ids(input: PortalHomeCard[]) {
 }
 
 describe('portal home module order', () => {
+  it('keeps Loans nested under Sales instead of ordering it as a home card', () => {
+    expect(PORTAL_HOME_AREA_ORDER).not.toContain('loans');
+  });
+
   it('sorts a backend user with full access into the fixed global order', () => {
     expect(ids(cards([
       'teknik_service',

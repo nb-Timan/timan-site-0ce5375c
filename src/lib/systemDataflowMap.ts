@@ -38,7 +38,7 @@ import { PORTAL_HOME_AREA_ORDER, type PortalHomeAreaOrderId } from "@/lib/portal
 import { SYSTEM_DNA_INITIAL_ZOOM, SYSTEM_DNA_MAX_ZOOM } from "@/lib/systemDnaViewport";
 
 export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration" | "process" | "tool";
-export type SystemMapArea = "crm" | "sales" | "marketing" | "dealer_data" | "service" | "calendar" | "projects" | "messe" | "import" | "system";
+export type SystemMapArea = "crm" | "sales" | "planning" | "marketing" | "dealer_data" | "service" | "calendar" | "projects" | "messe" | "import" | "system";
 export type SystemMapNodeId = string;
 
 export interface SystemMapNode {
@@ -65,6 +65,7 @@ export interface SystemMapNode {
 const AREA_COLORS: Record<SystemMapArea, string> = {
   crm: "emerald",
   sales: "blue",
+  planning: "teal",
   marketing: "purple",
   dealer_data: "amber",
   service: "cyan",
@@ -170,6 +171,25 @@ const baseNodes: SystemMapNode[] = [
     explanation: "Salg gemmer konfigurator-sager i configurations og bruger samme data til tilbud, ordrer, PDF og webhooks.",
   },
   {
+    id: "planning",
+    title: "Planlægning",
+    subtitle: "Maskiner, tilbehør og reservationer",
+    kind: "module",
+    area: "planning",
+    color: "teal",
+    position: { x: 59, y: 43 },
+    dnaPosition: { x: 1690, y: 760 },
+    minZoom: 0.35,
+    icon: ClipboardList,
+    tables: ["planning_supply_units", "planning_supply_lots", "planning_reservations"],
+    services: ["planningService"],
+    routes: ["/portal/planning"],
+    receivesFrom: ["Konfigurator tilbud og ordrer", "Forsyningsdata"],
+    sendsTo: ["Tilgængelighed", "Leveringsoverblik"],
+    integrations: ["Supabase"],
+    explanation: "Planlægning viser adgangsstyret forsyning og reservationer for maskiner og tilbehør.",
+  },
+  {
     id: "marketing",
     title: "Marketing",
     subtitle: "Nyheder og site features",
@@ -218,7 +238,7 @@ const baseNodes: SystemMapNode[] = [
     dnaPosition: { x: 1990, y: 1040 },
     minZoom: 0.35,
     icon: Wrench,
-    tables: ["warranty_registrations", "warranty_registration_history", "service_machines", "service_registrations"],
+    tables: ["warranty_registrations", "warranty_registration_history", "service_registrations", "service_registration_parts", "machine_service_user_history"],
     services: ["warrantyRegistrationsService", "warrantyMachinePinsService", "machineJournalService", "serviceMaintenanceService"],
     routes: ["/portal/service/warranty", "/portal/service/tsb", "/portal/service/machines"],
     receivesFrom: ["SharePoint warranty-sync", "Partnerdata", "Maskinregistreringer"],
@@ -324,6 +344,7 @@ const baseNodes: SystemMapNode[] = [
 ];
 
 export const SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_BY_AREA: Record<PortalHomeAreaOrderId, SystemMapNodeId> = {
+  planning: "planning",
   salg_marketing: "sales",
   dealer_data: "dealer_data",
   timan_crm: "crm",
@@ -427,8 +448,8 @@ const integrationNodes: SystemMapNode[] = [
     dnaPosition: { x: 2550, y: 1290 },
     minZoom: 0.35,
     icon: Mail,
-    tables: ["configuration_email_log", "crm_calendar_activities"],
-    services: ["webhookUrls", "configurationEmailLogService", "crmCalendarService"],
+    tables: ["mail_audit_events", "crm_calendar_activities"],
+    services: ["webhookUrls", "mailAuditService", "configurationEmailLogService", "crmCalendarService"],
     routes: ["/portal/backend/data"],
     receivesFrom: ["Salg", "Messe", "CRM kalender"],
     sendsTo: ["Modtagere", "n8n workflows", "Mail-log"],
@@ -522,7 +543,7 @@ const featureNodes: SystemMapNode[] = [
 
   node("warranty", "Warranty", "Garantiregistreringer", "feature", "service", "service", 2150, 1210, 0.9, ShieldCheck, ["warranty_registrations"], ["warrantyRegistrationsService"], ["/portal/service/warranty"], "Warranty samler garantiregistreringer og matching."),
   node("tsb", "TSB", "Technical Service Bulletins", "feature", "service", "service", 2320, 1330, 0.95, ClipboardList, ["tsb records"], ["TsbAccessGuard"], ["/portal/service/tsb"], "TSB-området håndterer tekniske service bulletins."),
-  node("machine_journal", "Maskinjournal", "Maskiner og historik", "feature", "service", "service", 2050, 1390, 1.0, Wrench, ["service_machines", "service_registrations"], ["machineJournalService"], ["/portal/service/machines"], "Maskinjournal samler servicehistorik pr. serienummer."),
+  node("machine_journal", "Maskinjournal", "Maskiner og historik", "feature", "service", "service", 2050, 1390, 1.0, Wrench, ["warranty_registrations", "service_registrations"], ["machineJournalService"], ["/portal/service/machines"], "Maskinjournal samler servicehistorik pr. serienummer."),
   node("claims", "Claims", "Reklamationer", "feature", "service", "service", 2240, 1510, 1.05, ClipboardList, ["claims"], ["claimsService"], ["/portal/service/claims"], "Claims bruges til reklamationer og sagsbehandling."),
 
   node("dealer_import", "Dealer Import", "Forhandlerimport", "feature", "import", "import", 1210, 1880, 0.95, Upload, ["dealer_accounts", "sharepoint_sync_logs"], ["dealerImportService"], ["/portal/backend/dealer-import"], "Dealer Import opdaterer forhandlerdata fra eksterne kilder."),

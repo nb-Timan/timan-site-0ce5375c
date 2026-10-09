@@ -1,7 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import { getDealerContractOverviewStatusLabel, getDealerContractOverviewActionLabel } from '@/lib/contractOverviewLabels';
+export { getDealerContractOverviewStatusLabel } from '@/lib/contractOverviewLabels';
 import {
   CONTRACT_VERSION,
-  CONTRACT_STEPS,
+  getContractSteps,
   normalizeContractConfirmations,
   type ContractConfirmations,
   type ContractFormData,
@@ -274,8 +276,9 @@ export function buildNewDealerContractDraftKey(ownerEmail: string, dealerAccount
   return `${buildDealerContractDraftKey(ownerEmail, dealerAccountNumber)}:new:${instance || "manual"}`;
 }
 
-export function getCurrentStepId(activeStepIndex: number) {
-  return CONTRACT_STEPS[Math.min(Math.max(activeStepIndex, 0), CONTRACT_STEPS.length - 1)]?.id ?? "parties";
+export function getCurrentStepId(activeStepIndex: number, partnerType: ContractFormData['partnerType'] = 'dealer') {
+  const steps = getContractSteps(partnerType);
+  return steps[Math.min(Math.max(activeStepIndex, 0), steps.length - 1)]?.id ?? "parties";
 }
 
 function removeSignatureFromFormData(form: ContractFormData) {
@@ -549,26 +552,8 @@ export function getDealerContractOverviewStatusGroup(
   return "pending";
 }
 
-export function getDealerContractOverviewStatusLabel(status: ContractWorkflowStatus) {
-  if (status === "pending_decision") return "Afventer";
-  if (status === "draft") return "Kladde";
-  if (status === "guided_review") return "Klargjort / klar til gennemgang";
-  if (status === "ready_for_signature" || status === "awaiting_signed_upload") return "Gennemgang / afventer partner";
-  if (status === "submitted_for_approval") return "Modtaget / afventer Timan";
-  if (status === "approved") return "Godkendt";
-  if (status === "changes_requested") return "Ikke godkendt / afvist";
-  return "Opsagt / ophørt";
-}
-
 export function canHardDeleteDealerContract(status: ContractWorkflowStatus | null | undefined): boolean {
   return status !== "approved" && status !== "archived";
-}
-
-function getDealerContractOverviewActionLabel(status: ContractWorkflowStatus) {
-  if (status === "pending_decision") return "Start";
-  if (status === "draft" || status === "guided_review") return "Fortsæt";
-  if (status === "approved" || status === "archived") return "Åbn";
-  return "Gennemgå";
 }
 
 type DealerContractOverviewRpcRow = {
@@ -588,7 +573,7 @@ function buildOverviewRowFromRpc(raw: DealerContractOverviewRpcRow): DealerContr
   const statusGroup = getDealerContractOverviewStatusGroup(contract.contract_status);
   return {
     contract,
-    partnerName: raw.partner_name || "Ukendt partner",
+    partnerName: raw.partner_name || "",
     accountNumber: raw.account_number || contract.dealer_account_number || "",
     partnerType: raw.partner_type || "",
     country: raw.country || "",
@@ -667,8 +652,8 @@ export async function saveDealerContractDraft(
     dealer_account_id: dealerAccountId,
     owner_email: input.ownerEmail.trim().toLowerCase(),
     owner_name: input.ownerName || null,
-    current_step: getCurrentStepId(input.activeStepIndex),
-    completed_steps: getCompletedContractStepIds(input.activeStepIndex, input.confirmations),
+    current_step: getCurrentStepId(input.activeStepIndex, input.form.partnerType),
+    completed_steps: getCompletedContractStepIds(input.activeStepIndex, input.confirmations, input.form.partnerType),
     confirmations: input.confirmations,
     form_data: removeSignatureFromFormData(input.form),
     contract_version: CONTRACT_VERSION,
@@ -781,6 +766,13 @@ export async function addSignedUrlsToDocumentVersions(rows: DealerContractDocume
       .createSignedUrl(document.storage_path, 60 * 10);
     return { ...document, signed_url: error ? null : data?.signedUrl ?? null };
   }));
+}
+
+export async function downloadDealerContractDocument(document: DealerContractDocumentVersion) {
+  const { data, error } = await supabase.storage
+    .from(document.storage_bucket)
+    .download(document.storage_path);
+  return { blob: data ?? null, error: error?.message ?? null };
 }
 
 export async function prepareDealerContractDocument(input: {
@@ -1055,6 +1047,31 @@ export async function deleteDealerContract(contractId: string): Promise<{ delete
     return { deleted: false, error: serverMsg ?? error.message };
   }
   if (!data?.ok) return { deleted: false, error: data?.error ?? "Kontrakten kunne ikke slettes." };
+  return { deleted: true, error: null };
+}
+
+export async function resetDealerContractTestData(contractId: string): Promise<{ deleted: boolean; error: string | null }> {
+  const { data, error } = await supabase.functions.invoke("admin-contract-actions", {
+    body: {
+      action: "reset_test_contract",
+      contract_id: contractId,
+    },
+  });
+
+  if (error) {
+    let serverMsg: string | null = null;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.json();
+        serverMsg = body?.error ?? null;
+      }
+    } catch {
+      /* ignore */
+    }
+    return { deleted: false, error: serverMsg ?? error.message };
+  }
+  if (!data?.ok) return { deleted: false, error: data?.error ?? "QA-kontrakten kunne ikke nulstilles." };
   return { deleted: true, error: null };
 }
 

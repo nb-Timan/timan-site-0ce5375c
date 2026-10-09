@@ -1,10 +1,8 @@
 alter table public.price_list_items
   add column if not exists renamed_from_item_number text;
-
 create unique index if not exists price_list_items_renamed_from_item_number_idx
 on public.price_list_items (renamed_from_item_number)
 where renamed_from_item_number is not null;
-
 create or replace function public.update_price_list_item(
   p_item_number text,
   p_new_item_number text,
@@ -109,6 +107,5 @@ begin
   return out_row;
 end;
 $$;
-
 revoke all on function public.update_price_list_item(text, text, text, numeric, numeric, numeric, numeric) from public, anon;
 grant execute on function public.update_price_list_item(text, text, text, numeric, numeric, numeric, numeric) to authenticated;

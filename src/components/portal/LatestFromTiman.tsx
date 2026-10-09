@@ -4,8 +4,9 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import { resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
-import { readNewsHomepageFocus } from '@/features/news-cms/lib/newsHomepageFocus';
+import { readNewsHomepageFocus, resolveNewsHomepageMedia } from '@/features/news-cms/lib/newsHomepageFocus';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
+import { academySandbox, PORTAL_BASICS_NEWS_ID, PORTAL_BASICS_NEWS_TITLE } from '@/lib/academySandbox';
 
 interface Props {
   language: PortalUiLanguage;
@@ -74,11 +75,29 @@ function buildPlaceholders(language: PortalUiLanguage): NewsPost[] {
   ];
 }
 
+function buildAcademyNews(): NewsPost[] {
+  return [{
+    id: PORTAL_BASICS_NEWS_ID,
+    title: PORTAL_BASICS_NEWS_TITLE,
+    excerpt: 'Lokalt Academy-eksempel til Portal Basics.',
+    image_url: null,
+    link_url: null,
+    category: 'NYHED',
+    published_at: '2026-01-01T00:00:00.000Z',
+    is_active: true,
+    source: 'academy',
+  }];
+}
+
 export default function LatestFromTiman({ language }: Props) {
   const [posts, setPosts] = useState<NewsPost[] | null>(null);
   const [openPost, setOpenPost] = useState<NewsPost | null>(null);
 
   useEffect(() => {
+    if (academySandbox.isActive()) {
+      setPosts(buildAcademyNews());
+      return;
+    }
     let cancelled = false;
     fetchLatestNews(3, language).then((rows) => {
       if (cancelled) return;
@@ -107,15 +126,15 @@ export default function LatestFromTiman({ language }: Props) {
                 mainImage: localizedItem.image_url,
               })
             : {};
-          const heroFocus = template?.id === 'template-03-hero-news'
-            ? readNewsHomepageFocus(renderContent.heroHomepageFocus)
-            : undefined;
+          const homepageMedia = template ? resolveNewsHomepageMedia(template.id, renderContent) : null;
+          const heroFocus = template ? readNewsHomepageFocus(renderContent.heroHomepageFocus) : undefined;
+          const homepageImage = homepageMedia?.imageUrl || localizedItem.image_url || FALLBACK_IMAGE;
 
           const inner = (
             <div className="flex h-full flex-col text-left">
               <div className="mb-4 aspect-square w-full overflow-hidden rounded-lg bg-gray-100">
                 <img
-                  src={localizedItem.image_url || FALLBACK_IMAGE}
+                  src={homepageImage}
                   alt=""
                   onError={(event) => {
                     event.currentTarget.src = FALLBACK_IMAGE;
@@ -159,7 +178,10 @@ export default function LatestFromTiman({ language }: Props) {
               key={item.id}
               type="button"
               onClick={() => {
-                if (opensInModal) setOpenPost(item);
+                if (opensInModal) {
+                  if (academySandbox.isActive()) academySandbox.trackPortalBasicsNews(item.id);
+                  setOpenPost(item);
+                }
               }}
               className="block bg-white border border-gray-100 rounded-xl p-4 transition-all hover:border-gray-200 hover:shadow-md disabled:hover:shadow-none"
               disabled={!opensInModal}

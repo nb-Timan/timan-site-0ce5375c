@@ -37,15 +37,15 @@ describe("budget reference lead/demo options", () => {
 
   it("combines canonical lead and demo references in one dropdown model", () => {
     expect(buildBudgetReferenceCrmOptions([lead], [demo])).toEqual(expect.arrayContaining([
-      expect.objectContaining({ value: "lead:L-1023", kind: "lead", label: "L-1023 · Weed brush · Åben" }),
-      expect.objectContaining({ value: "demo:D-1044", kind: "demo", label: "D-1044 · Demo RC-1000s · Demo" }),
+      expect.objectContaining({ value: "lead:lead-row-id", kind: "lead", label: "L-1023 · Weed brush · Åben" }),
+      expect.objectContaining({ value: "demo:demo-row-id", kind: "demo", label: "D-1044 · Demo RC-1000s · Demo" }),
     ]));
   });
 
   it("keeps the source kind so existing lead and demo persistence stay separate", () => {
     const options = buildBudgetReferenceCrmOptions([lead], [demo]);
-    expect(options.find((option) => option.value === "lead:L-1023")?.reference).toBe("L-1023");
-    expect(options.find((option) => option.value === "demo:D-1044")?.reference).toBe("D-1044");
+    expect(options.find((option) => option.value === "lead:lead-row-id")?.reference).toBe("lead-row-id");
+    expect(options.find((option) => option.value === "demo:demo-row-id")?.reference).toBe("demo-row-id");
   });
 
   it("matches leads using either the canonical dealer UUID or legacy account number", () => {

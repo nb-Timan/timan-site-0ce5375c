@@ -1,4 +1,12 @@
-import { Machine, Accessory, Language } from '@/types/configurator';
+import { Machine, Accessory, Language, type ConfiguratorLocale } from '@/types/configurator';
+import { getCurrentProductPrice, notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
+import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
+import { convertCurrency, currencyFromLanguage, type Currency } from '@/lib/currency';
+import {
+  buildConfiguratorProductHierarchy,
+  replaceConfiguratorProductRelations,
+  type ConfiguratorProductRelation,
+} from '@/lib/configuratorProductHierarchy';
 
 // ===== CONSTANTS =====
 export const ACC_ID_WIRE_HARNESS = '412614';
@@ -8,11 +16,13 @@ export const ACC_ID_FLASH_LIGHT = '411630';
 export const ACC_ID_WORK_LIGHT = '412594';
 export const ACC_ID_WARRANTY_1000 = '795016';
 export const ACC_ID_WARRANTY_751 = '795015';
+export const ACC_ID_WARRANTY_3330 = '795018';
 export const ACC_ID_OIL_NORMAL = '13101003';
 export const ACC_ID_OIL_BIO = '13101005';
 export const ACC_ID_RAL_COLOR = '961050';
 export const RAL_ALLOWED_IDS = new Set([ACC_ID_RAL_COLOR, 'V34-165']);
 export const DEMO_ELIGIBLE_VARENR = new Set(['411000', '410040', '712000']);
+export const DEMO_FEE_ITEM_NUMBER = '795002';
 export const DEMO_FEE_DKK = 75;
 export const DEMO_FEE_EUR = 10;
 export const LOOSE_TOOL_KEY = 'LOOSE_TOOL';
@@ -20,19 +30,104 @@ export const PACKAGING_COST_ID = '725789';
 export const PACKAGING_TRIGGER_IDS = ['720125', '720130', '720132', '720133'];
 export const ACC_ID_OIL_1000_PARENT = '445566778899';
 
+/** Approved Backend prices overlay the static catalogue for fresh sessions. */
+export type PublishedConfiguratorPrice = PublishedProductMaster;
+
+type CatalogItem = Machine | Accessory;
+
+function withCanonicalGermanText<T extends CatalogItem>(item: T): T {
+  const german = canonicalGermanProductText(item.varenr);
+  const name = german
+    ? typeof item.name === 'string'
+      ? { da: item.name, en: item.name, de: german }
+      : { ...item.name, de: german }
+    : item.name;
+  const subItems = 'subItems' in item && item.subItems
+    ? item.subItems.map((subItem) => withCanonicalGermanText(subItem as Accessory))
+    : undefined;
+  return {
+    ...item,
+    name,
+    ...(subItems ? { subItems } : {}),
+  } as T;
+}
+
+function resolveCatalogProduct<T extends CatalogItem>(item: T): T {
+  return resolvePublishedProduct(withCanonicalGermanText(item));
+}
+
+function resolveCatalogAccessory(item: Accessory): Accessory {
+  const localized = withCanonicalGermanText(item);
+  return {
+    ...resolvePublishedProduct(localized),
+    ...(localized.subItems ? { subItems: localized.subItems.map((sub) => resolveCatalogAccessory(sub as Accessory)) } : {}),
+  };
+}
+
+export function replacePublishedConfiguratorPrices(rows: PublishedConfiguratorPrice[]): void {
+  replaceProductMaster(rows);
+  PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]));
+  ACCESSORIES = resolveAccessories();
+  notifyProductMaster();
+}
+
+export function replacePublishedConfiguratorRelations(rows: ConfiguratorProductRelation[]): void {
+  replaceConfiguratorProductRelations(rows);
+  ACCESSORIES = resolveAccessories();
+  notifyProductMaster();
+}
+
+export function replacePublishedConfiguratorCatalog(
+  rows: PublishedConfiguratorPrice[],
+  relations: ConfiguratorProductRelation[],
+): void {
+  replaceProductMaster(rows);
+  replaceConfiguratorProductRelations(relations);
+  PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]));
+  ACCESSORIES = resolveAccessories();
+  notifyProductMaster();
+}
+
+export function clearPublishedConfiguratorPricesForTest(): void {
+  replacePublishedConfiguratorPrices([]);
+}
+
 // ===== SUB-ITEMS FACTORY =====
 const SWEEPER_SUB_ITEMS_TEMPLATE = [
   { id: '721122', varenr: '721122',
-    name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz' },
+    name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz', sv: 'Fabriksmontering av centerslang för sop-/sugenhet T2 och T3', fr: 'Montage en usine du flexible central pour balayeuse-aspiratrice T2 et T3', pl: 'Montaż fabryczny węża centralnego do zamiatarko-odkurzacza T2 i T3', cs: 'Tovární montáž středové hadice pro zametací/sací jednotku T2 a T3' },
     priceDKK: 3100, priceEUR: 420
   },
   { id: 'V34-029', varenr: 'V34-029',
-    name: { da: 'Vogn for afmontering af redskaber bag', en: 'Trolley for removing rear implements', de: 'Wagen zum Abmontieren von Heckgeräten', it: 'Carrello per smontaggio attrezzi posteriori', hu: 'Kocsi a hátsó eszközök leszereléséhez' },
+    name: { da: 'Vogn for afmontering af redskaber bag', en: 'Trolley for removing rear implements', de: 'Wagen zum Abmontieren von Heckgeräten', it: 'Carrello per smontaggio attrezzi posteriori', hu: 'Kocsi a hátsó eszközök leszereléséhez', sv: 'Vagn för demontering av bakre redskap', fr: 'Chariot pour le démontage des outils arrière', pl: 'Wózek do demontażu osprzętu tylnego', cs: 'Vozík pro demontáž zadního nářadí' },
     priceDKK: 6600, priceEUR: 890,
     videoUrl: 'https://www.youtube.com/watch?v=7_rCEdoygp8',
     imageUrl: 'https://img.youtube.com/vi/7_rCEdoygp8/maxresdefault.jpg'
   }
 ];
+
+const SWEEPER_PRODUCT_GROUPS: Record<string, Accessory> = {
+  '720131': {
+    id: '720131', varenr: '720131', priceDKK: 0, priceEUR: 0,
+    name: {
+      da: 'T2 Opsamlingstank med recirkulering', en: 'T2 collection tank with recirculation',
+      de: 'T2 Sammelbehälter mit Rezirkulation', it: 'Serbatoio di raccolta T2 con ricircolo',
+      hu: 'T2 gyűjtőtartály recirkulációval', sv: 'T2 uppsamlingstank med recirkulation',
+      fr: 'Cuve de récupération T2 avec recirculation', pl: 'Zbiornik zbiorczy T2 z recyrkulacją',
+      cs: 'Sběrná nádrž T2 s recirkulací',
+    },
+  },
+  '331122': {
+    id: '331122', varenr: '331122', priceDKK: 0, priceEUR: 0,
+    name: {
+      da: 'T3 Opsamlingstank med tørsug', en: 'T3 collection tank with dry vacuum',
+      de: 'T3 Sammelbehälter mit Trockensaugung', it: 'Serbatoio di raccolta T3 con aspirazione a secco',
+      hu: 'T3 gyűjtőtartály száraz szívással', sv: 'T3 uppsamlingstank med torrsug',
+      fr: 'Cuve de récupération T3 avec aspiration à sec', pl: 'Zbiornik zbiorczy T3 z odsysaniem na sucho',
+      cs: 'Sběrná nádrž T3 se suchým odsáváním',
+    },
+  },
+};
 
 function createUniqueSweeperSubItems(parentId: string) {
   return SWEEPER_SUB_ITEMS_TEMPLATE.map(item => ({
@@ -44,10 +139,10 @@ function createUniqueSweeperSubItems(parentId: string) {
 }
 
 // ===== PRODUCTS =====
-export const PRODUCTS: Record<string, Machine> = {
+const BASE_PRODUCTS: Record<string, Machine> = {
   'RC-1000S': {
     id: 'RC-1000S',
-    name: 'RC-1000s Basismaskine',
+    name: { da: 'RC-1000s Basismaskine', en: 'RC-1000s Base machine', de: 'RC-1000s Basismaschine', sv: 'RC-1000s basmaskin' },
     nameShort: 'RC-1000S_SHORT',
     priceDKK: 235000,
     priceEUR: 31590,
@@ -57,8 +152,8 @@ export const PRODUCTS: Record<string, Machine> = {
     imageUrl: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg' }],
     techSpecs: [
-      { label: 'Motor', value: 'Vanguard, 23 HK' },
-      { label: 'Max. hældning', value: '50 grader' },
+      { label: 'Motor', value: { da: 'Vanguard, 23 HK', en: 'Vanguard, 23 HP', de: 'Vanguard, 23 PS', sv: 'Vanguard, 23 hk' } },
+      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad', sv: '50 grader' } },
       { label: 'Vægt (Basis)', value: '440 kg' },
       { label: 'Klippebredde', value: '1000 mm' },
     ],
@@ -68,7 +163,8 @@ export const PRODUCTS: Record<string, Machine> = {
         en: `RC 1000s – a new generation of remote-controlled power, precision, and performance. Experience the fully hydraulic tool carrier of the future, designed to be safer, more efficient, and user-friendly. Its versatility and reliability make it the best choice for both varied and demanding terrain all year round. RC 1000s handles mowing, stump grinding, and snow removal on slopes up to 50 degrees with ease.`,
         de: `RC 1000s – eine neue Generation von ferngesteuerter Kraft, Präzision und Leistung. Erleben Sie den vollhydraulischen Geräteträger der Zukunft, entwickelt für mehr Sicherheit, Effizienz und Benutzerfreundlichkeit. Seine Vielseitigkeit macht ihn zur besten Wahl für sowohl normales als auch anspruchsvolles Gelände das ganze Jahr über. Der RC 1000s bewältigt Mähen, Stubbenfräsen und Schneeräumen an Hängen bis zu 50 Grad.`,
         it: `RC 1000s – una nuova generazione di potenza, precisione e prestazioni a controllo remoto. Sperimenta il porta attrezzi completamente idraulico del futuro, progettato per essere più sicuro, efficiente e facile da usare. La sua versatilità e affidabilità lo rendono la scelta migliore per terreni vari e impegnativi tutto l'anno. L'RC 1000s gestisce falciatura, triturazione di ceppi e rimozione della neve su pendenze fino a 50 gradi con facilità.`,
-        hu: `RC 1000s – a távirányítású erő, pontosság és teljesítmény új generációja. Tapasztalja meg a jövő teljesen hidraulikus szerszámhordozóját, amelyet biztonságosabbá, hatékonyabbá és felhasználóbarátabbá terveztek. Sokoldalúsága és megbízhatósága a legjobb választássá teszi mind a változatos, mind a kihívásokkal teli terepen egész évben. Az RC 1000s könnyedén megbirkózik a kaszálással, tuskómarással és hóeltakarítással akár 50 fokos lejtőn is.`
+        hu: `RC 1000s – a távirányítású erő, pontosság és teljesítmény új generációja. Tapasztalja meg a jövő teljesen hidraulikus szerszámhordozóját, amelyet biztonságosabbá, hatékonyabbá és felhasználóbarátabbá terveztek. Sokoldalúsága és megbízhatósága a legjobb választássá teszi mind a változatos, mind a kihívásokkal teli terepen egész évben. Az RC 1000s könnyedén megbirkózik a kaszálással, tuskómarással és hóeltakarítással akár 50 fokos lejtőn is.`,
+        sv: `RC 1000s är en ny generation fjärrstyrd kraft, precision och prestanda. Den helhydrauliska redskapsbäraren är utvecklad för säkrare, effektivare och mer användarvänligt arbete. Maskinen klarar klippning, stubbfräsning och snöröjning i sluttningar på upp till 50 grader.`,
       },
       bullets: {
         da: [
@@ -89,7 +185,7 @@ export const PRODUCTS: Record<string, Machine> = {
           'Raupen mit unabhängiger Aufhängung, vollem Bodenkontakt und hoher Stabilität an steilen Hängen.',
           'Die kompakteste ihrer Klasse, was ein müheloses Arbeiten an engen und unzugänglichen Stellen ermöglicht.',
           'Breites Geräteprogramm deckt alle Jahreszeiten ab.',
-          'Fjernbetjening: 2,4 Ghz, max. 150 m Reichweite. Aufladen direkt an der Maschine möglich.',
+          'Fernsteuerung: 2,4 GHz, max. 150 m Reichweite. Aufladen direkt an der Maschine möglich.',
           'Leichter Zugang zum Motorraum, keine rotierenden Teile zum Spannen/Schmieren (keine Keilriemen). Selbstreinigender Ölkühler.'
         ],
         it: [
@@ -105,23 +201,35 @@ export const PRODUCTS: Record<string, Machine> = {
           'Széles felszerelési program fedi le az összes szezont.',
           'Távirányító: 2,4 GHz, max. 150 m hatótávolság. Töltés közvetlenül a gépen is elérhető.',
           'Könnyű hozzáférés a motortérhez, nincs forgó alkatrész, amit meg kell húzni/kenni (nincsenek ékszíjak). Öntisztító olajhűtő.'
-        ]
+        ],
+        sv: [
+          'Banden har oberoende fjädring, full markkontakt och hög stabilitet i branta sluttningar.',
+          'Den kompakta konstruktionen gör det enkelt att arbeta på trånga och svårtillgängliga platser.',
+          'Det breda redskapsprogrammet täcker alla årstider.',
+          'Fjärrkontroll: 2,4 GHz och upp till 150 m räckvidd. Laddning finns direkt på maskinen.',
+          'Enkel åtkomst till motorrummet och självrengörande oljekylare.',
+        ],
       },
       dimensions: [
-        { label: 'Længde (Basis)', value: '1.310 mm' },
-        { label: 'Bredde (Basis)', value: '1.000 mm' },
-        { label: 'Højde (Basis)', value: '685 mm' },
+        { label: 'Bredde (Basis)', value: '995 mm' },
+        { label: 'Højde (Basis)', value: '692 mm' },
         { label: 'Vægt (Basis)', value: '440 kg' },
-        { label: 'Længde (m/ Slagleklipper)', value: '1.970 mm' },
-        { label: 'Klippebredde', value: '1.000 mm' },
+        { label: 'Længde (uden slagleklipper)', value: '1.313 mm' },
+        { label: 'Længde (med slagleklipper)', value: '1.970 mm' },
+        { label: 'Snitbredde', value: '1.000 mm' },
         { label: 'Teoretisk maks. output', value: '6.000 m2/t' },
         { label: 'Transmission til bælter/redskab', value: 'Hydraulisk' },
       ],
+      overviewImageUrls: [
+        '/images/rc-1000s/rc-1000s-dimensions-overview.png',
+        '/images/rc-1000s/rc-1000s-flail-mower-dimensions.png',
+      ],
+      preferCanonicalDimensions: true,
     },
   },
   'RC-751': {
     id: 'RC-751',
-    name: 'RC-751 Basismaskine',
+    name: { da: 'RC-751 Basismaskine', en: 'RC-751 Base machine', de: 'RC-751 Basismaschine', sv: 'RC-751 basmaskin' },
     nameShort: 'RC-751_SHORT',
     priceDKK: 167500,
     priceEUR: 22515,
@@ -131,8 +239,8 @@ export const PRODUCTS: Record<string, Machine> = {
     imageUrl: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg' }],
     techSpecs: [
-      { label: 'Motor', value: 'B&S, 14 HK' },
-      { label: 'Max. hældning', value: '50 grader' },
+      { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS', sv: 'B&S, 14 hk' } },
+      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad', sv: '50 grader' } },
       { label: 'Vægt (Basis)', value: '345 kg' },
       { label: 'Klippebredde', value: '750 mm' },
     ],
@@ -142,7 +250,8 @@ export const PRODUCTS: Record<string, Machine> = {
         en: `RC-751 is a compact and powerful remote-controlled mowing solution, developed for safe and efficient operation in demanding terrain. With a low overall height of just 60 cm and a low center of gravity, it handles slopes and embankments up to 50 degrees. The hydraulic track drive and mechanical flail mower transmission ensure stable operation in dense vegetation and tall grass. RC-751 is built for hard-to-reach areas where precision and control are essential.`,
         de: `Der RC-751 ist eine kompakte und leistungsstarke ferngesteuerte Mählösung, entwickelt für sicheres und effizientes Arbeiten in anspruchsvollem Gelände. Mit einer niedrigen Bauhöhe von nur 60 cm und einem niedrigen Schwerpunkt bewältigt er Hänge und Böschungen bis zu 50 Grad. Der hydraulische Raupenantrieb und der mechanische Antrieb des Schlegelmähers sorgen für einen stabilen Betrieb in dichter Vegetation und hohem Gras. Der RC-751 ist für schwer zugängliche Bereiche konzipiert, in denen Präzision und Kontrolle entscheidend sind.`,
         it: `RC-751 è una soluzione di taglio compatta e potente a controllo remoto, sviluppata per lavorare in modo sicuro ed efficiente su terreni impegnativi. Con un'altezza complessiva di soli 60 cm e un baricentro basso, affronta pendenze e scarpate fino a 50 gradi. La trazione idraulica su cingoli e la trasmissione meccanica della trinciatrice garantiscono un funzionamento stabile in vegetazione fitta ed erba alta. RC-751 è progettata per aree difficili da raggiungere, dove precisione e controllo sono fondamentali.`,
-        hu: `Az RC-751 egy kompakt és erős, távirányítású kaszálási megoldás, amelyet biztonságos és hatékony munkavégzésre fejlesztettek ki nehéz terepviszonyok között. Mindössze 60 cm-es magasságával és alacsony súlypontjával akár 50 fokos lejtőkön és rézsűkön is dolgozik. A hidraulikus lánctalpas meghajtás és a szárzúzó mechanikus hajtása stabil működést biztosít sűrű növényzetben és magas fűben. Az RC-751 nehezen megközelíthető területekre készült, ahol a pontosság és az irányíthatóság kulcsfontosságú.`
+        hu: `Az RC-751 egy kompakt és erős, távirányítású kaszálási megoldás, amelyet biztonságos és hatékony munkavégzésre fejlesztettek ki nehéz terepviszonyok között. Mindössze 60 cm-es magasságával és alacsony súlypontjával akár 50 fokos lejtőkön és rézsűkön is dolgozik. A hidraulikus lánctalpas meghajtás és a szárzúzó mechanikus hajtása stabil működést biztosít sűrű növényzetben és magas fűben. Az RC-751 nehezen megközelíthető területekre készült, ahol a pontosság és az irányíthatóság kulcsfontosságú.`,
+        sv: `RC-751 är en kompakt och kraftfull fjärrstyrd klipplösning för säkert och effektivt arbete i krävande terräng. Den låga höjden och tyngdpunkten ger stabil drift i sluttningar på upp till 50 grader. Hydraulisk banddrift och mekanisk drivning av slaghacken ger säker drift i tät vegetation och högt gräs.`,
       },
       bullets: {
         da: [
@@ -169,15 +278,25 @@ export const PRODUCTS: Record<string, Machine> = {
           'A lánctalpak független felfüggesztéssel rendelkeznek, teljes talajkapcsolatot és nagy stabilitást biztosítva meredek lejtőkön.',
           'Az RC-751 a lánctalpak szélességén túl kaszál, így közvetlenül falak mentén is dolgozhat.',
           'Munkakörnyezet: Kíméli a hátat, csípőt és bokát, valamint csökkenti a munkahelyi sérülések kockázatát.'
-        ]
+        ],
+        sv: [
+          'Banden har oberoende fjädring, full markkontakt och hög stabilitet i branta sluttningar.',
+          'RC-751 klipper utanför bandbredden så att du kan klippa direkt intill väggar och kanter.',
+          'Arbetsmiljö: Minska belastningen på rygg, höfter och fotleder samt risken för arbetsolyckor.',
+        ],
       },
       dimensions: [
-        { label: 'Motor', value: 'B&S, 14 HK' },
-        { label: 'Max. hældning', value: '50 grader' },
+        { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS', sv: 'B&S, 14 hk' } },
+        { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad', sv: '50 grader' } },
         { label: 'Vægt (Basis)', value: '345 kg' },
         { label: 'Klippebredde', value: '750 mm' },
-        { label: 'Højde', value: '600 mm' },
+        { label: 'Højde', value: '603 mm' },
+        { label: 'Længde', value: '1876 mm' },
       ],
+      overviewImageUrls: [
+        '/images/rc-751/rc-751-dimensions-overview.png',
+      ],
+      preferCanonicalDimensions: true,
     },
   },
   'Timan 3330': {
@@ -191,10 +310,10 @@ export const PRODUCTS: Record<string, Machine> = {
     videoUrl: 'https://www.youtube.com/watch?v=Q1vii5cZvgw',
     imageUrl: 'https://img.youtube.com/vi/Q1vii5cZvgw/maxresdefault.jpg',
     techSpecs: [
-      { label: 'Motor', value: 'Kubota benzinmotor' },
-      { label: 'HK', value: '33 HK' },
-      { label: 'Brændstof', value: 'Benzin' },
-      { label: 'Tophastighed', value: '28 km/t' },
+      { label: 'Motor', value: { da: 'Kubota benzinmotor', en: 'Kubota petrol engine', de: 'Kubota-Benzinmotor', sv: 'Kubota bensinmotor' } },
+      { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS', sv: '33 hk' } },
+      { label: 'Brændstof', value: { da: 'Benzin', en: 'Petrol', de: 'Benzin', sv: 'Bensin' } },
+      { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h', sv: '28 km/h' } },
       { label: 'Lydniveau i kabine', value: '79 dB' },
       { label: 'Køreklar vægt', value: '1.185 kg' },
     ],
@@ -205,6 +324,7 @@ export const PRODUCTS: Record<string, Machine> = {
         de: `Timan 3330 ist ein vielseitiger Geräteträger für Komfort und Effizienz das ganze Jahr über.`,
         it: `Timan 3330 è un porta-attrezzi versatile progettato per comfort ed efficienza tutto l'anno.`,
         hu: `A Timan 3330 sokoldalú eszközhordozó, egész éves használatra.`,
+        sv: `Timan 3330 är en mångsidig redskapsbärare som är konstruerad för komfort och effektivitet året runt.`,
       },
       bullets: {
         da: ['Dansk produceret kvalitet.', 'Lavt støjniveau i kabinen.', 'Hurtigt skift af redskaber.', '4-hjulstræk for optimalt greb.'],
@@ -212,33 +332,34 @@ export const PRODUCTS: Record<string, Machine> = {
         de: ['Dänische Qualitätsproduktion.', 'Niedriger Geräuschpegel in der Kabine.', 'Schneller Gerätewechsel.', 'Allradantrieb für optimalen Grip.'],
         it: ['Qualità prodotta in Danimarca.', 'Basso livello di rumore in cabina.', 'Cambio rapido degli attrezzi.', 'Trazione integrale per presa ottimale.'],
         hu: ['Dániában gyártott minőség.', 'Alacsony zajszint a fülkében.', 'Gyors eszközcsere.', '4 kerék meghajtás az optimális tapadásért.'],
+        sv: ['Dansktillverkad kvalitet.', 'Låg ljudnivå i hytten.', 'Snabba redskapsbyten.', 'Fyrhjulsdrift för optimalt grepp.'],
       },
       dimensions: [
         // --- Motor ---
         { label: 'Motor', isHeader: true },
-        { label: 'Motortype', value: { da: 'Kubota benzin', en: 'Kubota petrol', de: 'Kubota Benzin', it: 'Kubota benzina', hu: 'Kubota benzinmotor' } },
-        { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS', it: '33 CV', hu: '33 LE' } },
+        { label: 'Motortype', value: { da: 'Kubota benzin', en: 'Kubota petrol', de: 'Kubota Benzin', it: 'Kubota benzina', hu: 'Kubota benzinmotor', sv: 'Kubota bensin' } },
+        { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS', it: '33 CV', hu: '33 LE', sv: '33 hk' } },
         { label: 'EU-norm', value: 'Stage 5' },
         { label: 'Slagvolumen', value: '962 cm³' },
         { label: 'Effekt', value: '24 kW' },
-        { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h', it: '28 km/h', hu: '28 km/h' } },
+        { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h', it: '28 km/h', hu: '28 km/h', sv: '28 km/h' } },
         { label: 'Benzintank', value: '37 L' },
         // --- Transmission ---
         { label: 'Transmission', isHeader: true },
-        { label: 'Type', value: { da: 'Stempelpumpe', en: 'Piston pump', de: 'Kolbenpumpe', it: 'Pompa a pistoni', hu: 'Dugattyús szivattyú' } },
-        { label: 'Hjulmotorer', value: { da: '4 stk. Orbitmotorer', en: '4 pcs. orbit motors', de: '4 Stk. Orbitmotoren', it: '4 motori orbit', hu: '4 db orbitmotor' } },
-        { label: 'Kølesystem', value: { da: 'Vandkøling (45°C udetemperatur)', en: 'Water cooling (45°C ambient)', de: 'Wasserkühlung (45°C Außentemperatur)', it: 'Raffreddamento ad acqua (45°C esterni)', hu: 'Víz hűtés (45°C környezet)' } },
+        { label: 'Type', value: { da: 'Stempelpumpe', en: 'Piston pump', de: 'Kolbenpumpe', it: 'Pompa a pistoni', hu: 'Dugattyús szivattyú', sv: 'Kolvpump' } },
+        { label: 'Hjulmotorer', value: { da: '4 stk. Orbitmotorer', en: '4 pcs. orbit motors', de: '4 Stk. Orbitmotoren', it: '4 motori orbit', hu: '4 db orbitmotor', sv: '4 st. orbitmotorer' } },
+        { label: 'Kølesystem', value: { da: 'Vandkøling (45°C udetemperatur)', en: 'Water cooling (45°C ambient)', de: 'Wasserkühlung (45°C Außentemperatur)', it: 'Raffreddamento ad acqua (45°C esterni)', hu: 'Víz hűtés (45°C környezet)', sv: 'Vattenkylning (45 °C omgivning)' } },
         // --- Arbejdshydraulik ---
         { label: 'Arbejdshydraulik', isHeader: true },
-        { label: 'Type', value: { da: 'Tandhjulspumpe', en: 'Gear pump', de: 'Zahnradpumpe', it: 'Pompa a ingranaggi', hu: 'Fogaskerék-szivattyú' } },
+        { label: 'Type', value: { da: 'Tandhjulspumpe', en: 'Gear pump', de: 'Zahnradpumpe', it: 'Pompa a ingranaggi', hu: 'Fogaskerék-szivattyú', sv: 'Kugghjulspump' } },
         { label: 'Kapacitet udtag bag', value: '48 L/min (nominel), 180 Bar' },
         { label: 'Kapacitet udtag front', value: '48 L/min (nominel), 180 Bar' },
-        { label: 'Olieudtag front', value: { da: '1 dobbeltvirkende m. flydestilling, 150 Bar', en: '1 double-acting w/ float, 150 Bar', de: '1 doppeltwirkend mit Schwimmstellung, 150 Bar', it: '1 doppio effetto con flottante, 150 Bar', hu: '1 kettős működésű úszóállással, 150 Bar' } },
-        { label: 'Olieudtag bag', value: { da: '1 dobbeltvirkende, 150 Bar', en: '1 double-acting, 150 Bar', de: '1 doppeltwirkend, 150 Bar', it: '1 doppio effetto, 150 Bar', hu: '1 kettős működésű, 150 Bar' } },
+        { label: 'Olieudtag front', value: { da: '1 dobbeltvirkende m. flydestilling, 150 Bar', en: '1 double-acting w/ float, 150 Bar', de: '1 doppeltwirkend mit Schwimmstellung, 150 Bar', it: '1 doppio effetto con flottante, 150 Bar', hu: '1 kettős működésű úszóállással, 150 Bar', sv: '1 dubbelverkande med flytläge, 150 bar' } },
+        { label: 'Olieudtag bag', value: { da: '1 dobbeltvirkende, 150 Bar', en: '1 double-acting, 150 Bar', de: '1 doppeltwirkend, 150 Bar', it: '1 doppio effetto, 150 Bar', hu: '1 kettős működésű, 150 Bar', sv: '1 dubbelverkande, 150 bar' } },
         // --- Liftarm ---
         { label: 'Liftarm', isHeader: true },
-        { label: 'Standard funktioner', value: { da: 'Flydestilling og parallelløft som standard', en: 'Float position and parallel lift as standard', de: 'Schwimmstellung und Parallelhub serienmäßig', it: 'Posizione flottante e sollevamento parallelo di serie', hu: 'Úszóállás és párhuzamos emelés alapfelszereltség' } },
-        { label: 'Løftekapacitet', value: { da: '150 kg, 80 cm ud fra hurtigskift / 300 kg ved hurtigskiftet', en: '150 kg, 80 cm from quick hitch / 300 kg at quick hitch', de: '150 kg, 80 cm vom Schnellwechsel / 300 kg am Schnellwechsel', it: '150 kg a 80 cm dal cambio rapido / 300 kg al cambio rapido', hu: '150 kg 80 cm-re a gyorscsatlakozótól / 300 kg a gyorscsatlakozónál' } },
+        { label: 'Standard funktioner', value: { da: 'Flydestilling og parallelløft som standard', en: 'Float position and parallel lift as standard', de: 'Schwimmstellung und Parallelhub serienmäßig', it: 'Posizione flottante e sollevamento parallelo di serie', hu: 'Úszóállás és párhuzamos emelés alapfelszereltség', sv: 'Flytläge och parallelllyft som standard' } },
+        { label: 'Løftekapacitet', value: { da: '150 kg, 80 cm ud fra hurtigskift / 300 kg ved hurtigskiftet', en: '150 kg, 80 cm from quick hitch / 300 kg at quick hitch', de: '150 kg, 80 cm vom Schnellwechsel / 300 kg am Schnellwechsel', it: '150 kg a 80 cm dal cambio rapido / 300 kg al cambio rapido', hu: '150 kg 80 cm-re a gyorscsatlakozótól / 300 kg a gyorscsatlakozónál', sv: '150 kg, 80 cm från snabbfästet / 300 kg vid snabbfästet' } },
         // --- Elsystem ---
         { label: 'Elsystem', isHeader: true },
         { label: 'Spænding', value: { da: '12 volt', en: '12 V', de: '12 V', it: '12 V', hu: '12 V' } },
@@ -276,13 +397,12 @@ export const PRODUCTS: Record<string, Machine> = {
     varenr: '761000',
     isDiscountEligible: true,
     techSpecs: [
-      { label: 'Motor', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
-      { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
-      { label: 'Cylindre', value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
-      { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel' } },
-      { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
-      { label: 'Træk', value: { da: '4-hjulstræk', en: '4-wheel drive', de: 'Allradantrieb', it: 'Trazione integrale', hu: '4 kerék hajtás' } },
-      { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul' } },
+      { label: 'Motor', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11', sv: 'Perkins 403J-11' } },
+      { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW', sv: '25 hk / 18,4 kW' } },
+      { label: 'Cylindre / Træk', value: { da: '3 / 4-hjulstræk', en: '3 / 4-wheel drive', de: '3 / Allradantrieb', it: '3 / Trazione integrale', hu: '3 / 4 kerék hajtás', sv: '3 / fyrhjulsdrift' } },
+      { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel', sv: 'Diesel / HVO-biodiesel' } },
+      { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h', sv: '20 km/h' } },
+      { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul', sv: '1 020 mm utan hytt' } },
     ],
     machineDetails: {
       main: {
@@ -291,6 +411,7 @@ export const PRODUCTS: Record<string, Machine> = {
         de: 'Timan 2620 ist ein kompakter Diesel-Geräteträger mit Perkins Stage-V-Motor, 25 PS / 18,4 kW, Allradantrieb und flexibler Ausstattung für Ganzjahresaufgaben.',
         it: 'Timan 2620 e un porta-attrezzi diesel compatto con motore Perkins Stage V, 25 CV / 18,4 kW, trazione integrale e attrezzature flessibili per lavori tutto lanno.',
         hu: 'A Timan 2620 kompakt dizel eszkozhordozo Perkins Stage V motorral, 25 LE / 18,4 kW teljesitmennyel, 4 kerek hajtassal es egesz eves feladatokra valo felszerelessel.',
+        sv: 'Timan 2620 är en kompakt dieselredskapsbärare med Perkins Stage V-motor, 25 hk / 18,4 kW, fyrhjulsdrift och flexibel utrustning för helårsarbete.',
       },
       bullets: {
         da: ['Perkins 403J-11 dieselmotor med 25 hk / 18,4 kW.', 'Maskinbredde på 1.020 mm uden kabine og indvendig venderadius på 565 mm.', 'Stor olieudtag: 40 l/min ved 250 bar.'],
@@ -298,28 +419,29 @@ export const PRODUCTS: Record<string, Machine> = {
         de: ['Perkins 403J-11 Dieselmotor mit 25 PS / 18,4 kW.', 'Maschinenbreite von 1.020 mm ohne Kabine und innerer Wenderadius von 565 mm.', 'Großer Ölanschluss: 40 l/min bei 250 bar.'],
         it: ['Motore diesel Perkins 403J-11 con 25 CV / 18,4 kW.', 'Larghezza macchina di 1.020 mm senza cabina e raggio di sterzata interno di 565 mm.', 'Grande presa olio: 40 l/min a 250 bar.'],
         hu: ['Perkins 403J-11 dizelmotor 25 LE / 18,4 kW teljesitmennyel.', '1.020 mm gep szelesseg fulke nelkul es 565 mm belso fordulasi sugar.', 'Nagy olajcsatlakozo: 40 l/min 250 bar nyomason.'],
+        sv: ['Perkins 403J-11 dieselmotor med 25 hk / 18,4 kW.', 'Maskinbredd 1 020 mm utan hytt och inre vändradie 565 mm.', 'Hydrauluttag med hög kapacitet: 40 l/min vid 250 bar.'],
       },
       dimensions: [
         { label: 'Motor', isHeader: true },
-        { label: 'Motortype', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
-        { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
-        { label: 'Cylindre', value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
-        { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel' } },
+        { label: 'Motortype', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11', sv: 'Perkins 403J-11' } },
+        { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW', sv: '25 hk / 18,4 kW' } },
+        { label: 'Cylindre', value: { da: '3', en: '3', de: '3', it: '3', hu: '3', sv: '3' } },
+        { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel', sv: 'Diesel / HVO-biodiesel' } },
         { label: 'EU-norm', value: 'Stage V' },
-        { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
-        { label: 'Træk', value: { da: '4-hjulstræk', en: '4-wheel drive', de: 'Allradantrieb', it: 'Trazione integrale', hu: '4 kerék hajtás' } },
+        { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h', sv: '20 km/h' } },
+        { label: 'Træk', value: { da: '4-hjulstræk', en: '4-wheel drive', de: 'Allradantrieb', it: 'Trazione integrale', hu: '4 kerék hajtás', sv: 'Fyrhjulsdrift' } },
         { label: 'Mål og manøvrering', isHeader: true },
-        { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul' } },
+        { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul', sv: '1 020 mm utan hytt' } },
         { label: 'Venderadius indvendig', value: { da: '565 mm', en: '565 mm', de: '565 mm', it: '565 mm', hu: '565 mm' } },
         { label: 'Arbejdshydraulik', isHeader: true },
-        { label: 'Olieudtag', value: { da: '40 l/min ved 250 bar', en: '40 l/min at 250 bar', de: '40 l/min bei 250 bar', it: '40 l/min a 250 bar', hu: '40 l/min 250 bar nyomason' } },
-        { label: 'Funktioner', value: { da: 'Dobbeltvirkende funktioner', en: 'Double-acting functions', de: 'Doppeltwirkende Funktionen', it: 'Funzioni a doppio effetto', hu: 'Kettos mukodesu funkciok' } },
+        { label: 'Olieudtag', value: { da: '40 l/min ved 250 bar', en: '40 l/min at 250 bar', de: '40 l/min bei 250 bar', it: '40 l/min a 250 bar', hu: '40 l/min 250 bar nyomason', sv: '40 l/min vid 250 bar' } },
+        { label: 'Funktioner', value: { da: 'Dobbeltvirkende funktioner', en: 'Double-acting functions', de: 'Doppeltwirkende Funktionen', it: 'Funzioni a doppio effetto', hu: 'Kettos mukodesu funkciok', sv: 'Dubbelverkande funktioner' } },
       ],
     },
   },
   'Loader Line': {
     id: 'Loader Line',
-    name: { da: 'Loader-Line & CS-200 Traktor', en: 'Loader-Line & CS-200 Tractor', de: 'Loader-Line & CS-200 Traktor', it: 'Loader-Line & CS-200 Trattore', hu: 'Loader-Line & CS-200 Traktor' },
+    name: { da: 'Loader-Line & CS-200 Traktor', en: 'Loader-Line & CS-200 Tractor', de: 'Loader-Line & CS-200 Traktor', it: 'Loader-Line & CS-200 Trattore', hu: 'Loader-Line & CS-200 Traktor', sv: 'Loader-Line & CS-200 traktor' },
     nameShort: 'LOADER LINE',
     priceDKK: 0,
     priceEUR: 0,
@@ -330,17 +452,18 @@ export const PRODUCTS: Record<string, Machine> = {
       main: {
         da: 'Loader Line — redskaber til Weidemann og lignende læssere.',
         en: 'Loader Line — implements for Weidemann and similar loaders.',
-        de: 'Loader Line — implements for Weidemann and similar loaders.',
+        de: 'Loader-Line — Anbaugeräte für Weidemann und vergleichbare Lader.',
         it: 'Loader Line — implements for Weidemann and similar loaders.',
         hu: 'Loader Line — implements for Weidemann and similar loaders.',
+        sv: 'Loader Line — redskap för Weidemann och liknande lastare.',
       },
-      bullets: { da: [], en: [], de: [], it: [], hu: [] },
+      bullets: { da: [], en: [], de: [], it: [], hu: [], sv: [] },
       dimensions: [],
     },
   },
   'LOOSE_TOOL': {
     id: 'LOOSE_TOOL',
-    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Loses Anbaugerät', it: 'Attrezzo sciolto', hu: 'Külön tartozék' },
+    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Loses Anbaugerät', it: 'Attrezzo sciolto', hu: 'Külön tartozék', sv: 'Löst redskap' },
     nameShort: 'LOOSE_TOOL_SHORT',
     priceDKK: 0,
     priceEUR: 0,
@@ -353,16 +476,17 @@ export const PRODUCTS: Record<string, Machine> = {
         en: `Select this if you only need implements/equipment without a machine.`,
         de: `Wählen Sie dies, wenn Sie nur Anbaugeräte/Zubehör ohne Maschine bestellen möchten.`,
         it: `Seleziona questo se ti servono solo attrezzi/accessori senza macchina.`,
-        hu: `Válaszd ezt, ha csak eszközöket/kiegészítőket rendelsz gép nélkül.`
+        hu: `Válaszd ezt, ha csak eszközöket/kiegészítőket rendelsz gép nélkül.`,
+        sv: `Välj detta om du bara behöver beställa redskap eller utrustning utan maskin.`,
       },
-      bullets: { da: [], en: [], de: [], it: [], hu: [] },
+      bullets: { da: [], en: [], de: [], it: [], hu: [], sv: [] },
       dimensions: [],
     },
   },
 };
 
 // ===== ACCESSORIES =====
-export const ACCESSORIES: Record<string, Accessory[]> = {
+const BASE_ACCESSORIES: Record<string, Accessory[]> = {
   'RC-1000S': [
     // Oil group (mandatory)
     { id: ACC_ID_OIL_NORMAL, varenr: '13101003', name: { da: 'Standard olie - Texaco HDZ46', en: 'Standard oil - Texaco HDZ46', de: 'Standardöl - Texaco HDZ46', it: 'Olio standard - Texaco HDZ46', hu: 'Standard olaj - Texaco HDZ46' }, priceDKK: 0, priceEUR: 0, group: 'oil_1000', sectionStart: 'oil_section',
@@ -372,7 +496,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
       specs: [{ label: 'Beskrivelse', value: { da: `Pris incl. afgift og emb. afgift (20L)\n\nBiohydran TMP 46 er en bionedbrydelig hydraulikolie med en viskositet på 46 cSt ved 40 °C. Den anvendes typisk i hydrauliksystemer, hvor der er behov for en biologisk nedbrydelig olie, f.eks. i landbrug, skovbrug, marine og andre industrier.`, en: `Price incl. tax and packaging tax (20L)\n\nBiohydran TMP 46 is a biodegradable hydraulic oil with a viscosity of 46 cSt at 40 °C.`, de: `Preis inkl. Abgabe und Verpackungsabgabe (20L)\n\nBiohydran TMP 46 ist ein biologisch abbaubares Hydrauliköl.`, it: `Prezzo incl. imposta e tassa imballaggio (20L)\n\nBiohydran TMP 46 è un olio idraulico biodegradabile.`, hu: `Az ár tartalmazza az adót és a csomagolási díjat (20L)\n\nA Biohydran TMP 46 egy biológiailag lebomló hidraulikaolaj.` } }]
     },
     // Equipment
-    { id: ACC_ID_WORK_LIGHT, varenr: '412594', name: { da: 'Arbejdslamper 2 stk.', en: 'Work Lights 2 pcs.', de: 'Arbeitsleuchten 2 Stk.', it: 'Luci da lavoro 2 pz.', hu: 'Munkalámpa 2 db' }, priceDKK: 1850, priceEUR: 250, sectionStart: 'Udstyr til RC-1000s',
+    { id: ACC_ID_WORK_LIGHT, varenr: '412594', name: { da: 'Arbejdslys 2 stk.', en: 'Work Lights 2 pcs.', de: 'Arbeitsleuchten 2 Stk.', it: 'Luci da lavoro 2 pz.', hu: 'Munkalámpa 2 db' }, priceDKK: 1850, priceEUR: 250, sectionStart: 'rc1000EquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'LED-arbejdslamper foran – maksimal synlighed\n\nKraftige LED-arbejdslamper monteret foran på maskinen sikrer effektiv belysning af arbejdsområdet og optimale arbejdsforhold – selv i mørke eller dårlige lysforhold.', en: 'LED work lights at the front – maximum visibility\n\nPowerful LED work lights mounted at the front of the machine ensure effective illumination of the working area and optimal working conditions – even in darkness or poor lighting.', de: 'LED-Arbeitsscheinwerfer vorne – maximale Sichtbarkeit', it: 'Luci da lavoro LED anteriori – massima visibilità', hu: 'Első LED munkalámpák – maximális láthatóság' } }]
     },
     { id: ACC_ID_FLASH_LIGHT, varenr: '411630', name: { da: 'Blitzlys 2 stk.', en: 'Flashing Lights 2 pcs.', de: 'Blitzlichter 2 Stk.', it: 'Luci lampeggianti 2 pz.', hu: 'Villogó lámpa 2 db' }, priceDKK: 2360, priceEUR: 320, auto: true,
@@ -497,8 +621,8 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '50101020', varenr: '50101020', name: { da: 'Børste Ø390/Ø600, 2 rækker stålwire', en: 'Brush Ø390/Ø600, 2 rows of steel wire' }, priceDKK: 5300, priceEUR: 715, videoUrl: 'https://www.youtube.com/watch?v=m4q_NlhLW74', imageUrl: 'https://img.youtube.com/vi/m4q_NlhLW74/maxresdefault.jpg', requires: ACC_ID_WEEDBRUSH, isQtyInput: true },
     { id: '412050', varenr: '412050', name: { da: 'Skovl RC-1000', en: 'Bucket RC-1000' }, priceDKK: 11800, priceEUR: 1610, isNew: true },
     // --- ØVRIGT UDSTYR ---
-    { id: ACC_ID_WIRE_HARNESS, varenr: '412614', name: { da: 'Ledningsnet til blitz/arbejdslys', en: 'Wiring Harness for Flashing/Work Lights' }, priceDKK: 890, priceEUR: 120, hidden: true, sectionStart: 'Udstyr til RC-1000s' },
-    { id: '411891', varenr: '411891', name: { da: 'Krogplade til udstyr', en: 'Hook Plate for Equipment', de: 'Hakenplatte für Ausrüstung', it: 'Piastra di aggancio per attrezzatura', hu: 'Kampós lemez felszereléshez' }, priceDKK: 700, priceEUR: 95, sectionStart: 'Øvrigt Udstyr',
+    { id: ACC_ID_WIRE_HARNESS, varenr: '412614', name: { da: 'Ledningsnet til blitz/arbejdslys', en: 'Wiring Harness for Flashing/Work Lights' }, priceDKK: 890, priceEUR: 120, hidden: true, sectionStart: 'rc1000EquipmentSection' },
+    { id: '411891', varenr: '411891', name: { da: 'Krogplade til udstyr', en: 'Hook Plate for Equipment', de: 'Hakenplatte für Ausrüstung', it: 'Piastra di aggancio per attrezzatura', hu: 'Kampós lemez felszereléshez' }, priceDKK: 700, priceEUR: 95, sectionStart: 'otherEquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'Krogplade – fleksibel montering af ekstraudstyr\n\nVed montering af ekstraudstyr på maskinen anbefales en krogplade. Den sikrer en stabil, fleksibel og effektiv montering af forskelligt udstyr.', en: 'Hook plate – flexible mounting of additional equipment\n\nWhen mounting additional equipment on the machine, a hook plate is recommended.' } }]
     },
     { id: '411906', varenr: '411906', name: { da: 'Bagvægt', en: 'Rear Weight', de: 'Heckgewicht', it: 'Contrappeso posteriore', hu: 'Hátsó súly' }, priceDKK: 2820, priceEUR: 379,
@@ -507,12 +631,12 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
         { label: 'Beskrivelse', value: { da: 'Bagvægt til montering på RC-1000s for bedre balance ved brug af tunge frontmonterede redskaber.', en: 'Rear weight for mounting on RC-1000s for better balance when using heavy front-mounted implements.' } }
       ]
     },
-    { id: ACC_ID_RAL_COLOR, varenr: ACC_ID_RAL_COLOR, name: { da: 'Farve efter eget ønske (RAL)', en: 'Custom Color (RAL)', de: 'Wunschfarbe (RAL)', it: 'Colore personalizzato (RAL)', hu: 'Egyedi szín (RAL)' }, priceDKK: 15000, priceEUR: 2015, isRAL: true, sectionStart: 'Øvrigt Udstyr',
+    { id: ACC_ID_RAL_COLOR, varenr: ACC_ID_RAL_COLOR, name: { da: 'Farve efter eget ønske (RAL)', en: 'Custom Color (RAL)', de: 'Wunschfarbe (RAL)', it: 'Colore personalizzato (RAL)', hu: 'Egyedi szín (RAL)' }, priceDKK: 15000, priceEUR: 2015, isRAL: true, sectionStart: 'otherEquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'Maskinen leveres i den ønskede RAL-farve. Angiv venligst RAL-kode (f.eks. 3003) i feltet.', en: 'The machine is supplied in the desired RAL color. Please specify the RAL code (e.g., 3003) in the field.' } }]
     },
   ],
   'RC-751': [
-    { id: '411687', varenr: '411687', name: { da: 'Blitzlys RC-751', en: 'Flashing Light RC-751', de: 'Blitzlicht RC-751', it: 'Luce lampeggiante RC-751', hu: 'Villogó lámpa RC-751' }, priceDKK: 2660, priceEUR: 360, sectionStart: 'Udstyr til RC-751',
+    { id: '411687', varenr: '411687', name: { da: 'Blitzlys RC-751', en: 'Flashing Light RC-751', de: 'Blitzlicht RC-751', it: 'Luce lampeggiante RC-751', hu: 'Villogó lámpa RC-751' }, priceDKK: 2660, priceEUR: 360, sectionStart: 'rc751EquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'Blitzlys til øget sikkerhed ved arbejde nær trafik\n\nMaskinen bliver udstyret med 2 kraftige blitzlys:\n\n1 stk. monteret foran\n1 stk. monteret bagpå', en: 'Beacon lights for increased safety when working near traffic' } }]
     },
     { id: '410106', varenr: '410106', name: { da: 'Lader 12V 7.5A', en: 'Charger 12V 7.5A', de: 'Ladegerät 12V 7.5A', it: 'Caricabatterie 12V 7,5A', hu: 'Töltő 12V 7,5A' }, priceDKK: 1500, priceEUR: 205,
@@ -561,7 +685,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: 'V34-165', varenr: 'V34-165', name: { da: 'Special farvevalg RAL', en: 'Special colour choice (RAL)', de: 'Sonderfarbwahl (RAL)', it: 'Scelta colore speciale (RAL)', hu: 'Egyedi színválasztás (RAL)' }, priceDKK: 9955, priceEUR: 1340, isRAL: true },
     { id: '712180', varenr: '712180', name: { da: 'Bio hydraulikolie', en: 'Bio hydraulic oil', de: 'Bio-Hydrauliköl', it: 'Olio idraulico bio', hu: 'Bio hidraulikaolaj' }, priceDKK: 4500, priceEUR: 610 },
     { id: '712176', varenr: '712176', name: { da: 'Pulverslukker', en: 'Powder extinguisher', de: 'Pulverlöscher', it: 'Estintore a polvere', hu: 'Porral oltó' }, priceDKK: 1150, priceEUR: 155 },
-    { id: '712187', varenr: '712187', name: { da: 'Sikkerhedskit førstehjælp og trekant.', en: 'Safety kit: first aid and warning triangle', de: 'Sicherheitskit: Erste Hilfe und Warndreieck', it: 'Kit sicurezza: primo soccorso e triangolo', hu: 'Biztonsági készlet: elsősegély és elakadásjelző háromszög' }, priceDKK: 1250, priceEUR: 160 },
+    { id: '712187', varenr: '712187', name: { da: 'Sikkerhedskit førstehjælp og trekant.', en: 'Safety kit: first aid and warning triangle', de: 'Sicherheitskit: Erste Hilfe und Warndreieck', it: 'Kit sicurezza: primo soccorso e triangolo', hu: 'Biztonsági készlet: elsősegély és elakadásjelző háromszög' }, priceDKK: 1250, priceEUR: 160, hidden: true },
     // Tow
     { id: '712169', varenr: '712169', name: { da: 'Kombitræk kugle/gaffel', en: 'Combo hitch (ball/pin)', de: 'Kombikupplung (Kugel/Gabel)', it: 'Gancio combinato (sfera/forcella)', hu: 'Kombinált vonófej (gömb/villa)' }, priceDKK: 1990, priceEUR: 270, sectionStart: 'tow_section' },
     { id: '712188', varenr: '712188', name: { da: 'Licence plate set EU, Timan Factory fitted', en: 'Licence plate set EU, Timan Factory fitted' }, priceDKK: 0, priceEUR: 130 },
@@ -572,10 +696,10 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '712174', varenr: '712174', name: { da: 'Solskærm justerbar', en: 'Adjustable sun visor', de: 'Verstellbare Sonnenblende', it: 'Aletta parasole regolabile', hu: 'Állítható napellenző' }, priceDKK: 775, priceEUR: 105, sectionStart: 'misc_section' },
     // Sweeper implements
     { id: 'SWEEP_HEADER', varenr: '', name: { da: 'Feje/Sug Redskaber', en: 'Sweep/Vac Implements', de: 'Kehr-/Sauggeräte', it: 'Attrezzature spazzatura/aspirazione', hu: 'Seprés/szívó eszközök' }, priceDKK: 0, priceEUR: 0, isHeader: true },
-    { id: '720125', varenr: '720125', name: { da: 'T2 Opsamlingstank uden højtryksslange', en: 'T2 collection tank without pressure washer hose', de: 'T2 Sammelbehälter ohne Hochdruckschlauch', it: 'Serbatoio di raccolta T2 senza tubo alta pressione', hu: 'T2 gyűjtőtartály magasnyomású tömlő nélkül' }, priceDKK: 94860, priceEUR: 12770, videoUrl: 'https://www.youtube.com/watch?v=3v-5j569Rik', imageUrl: 'https://img.youtube.com/vi/3v-5j569Rik/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720125') },
-    { id: '720130', varenr: '720130', name: { da: 'T2 Opsamlingstank inkl. højtryksrenser', en: 'T2 collection tank incl. pressure washer', de: 'T2 Sammelbehälter inkl. Hochdruckreiniger', it: 'Serbatoio di raccolta T2 incl. idropulitrice', hu: 'T2 gyűjtőtartály magasnyomású mosóval' }, priceDKK: 107800, priceEUR: 14510, videoUrl: 'https://www.youtube.com/watch?v=SNy30jHCCvo', imageUrl: 'https://img.youtube.com/vi/SNy30jHCCvo/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720130') },
-    { id: '720132', varenr: '720132', name: { da: 'T3 Opsamlingstank med tørsug', en: 'T3 collection tank with dry vacuum', de: 'T3 Sammelbehälter mit Trockensaugung', it: 'Serbatoio di raccolta T3 con aspirazione a secco', hu: 'T3 gyűjtőtartály száraz szívással' }, priceDKK: 84860, priceEUR: 10370, subItems: createUniqueSweeperSubItems('720132') },
-    { id: '720133', varenr: '720133', name: { da: 'T3 Opsamlingstank med tørsug og højtryksrenser', en: 'T3 collection tank with dry vacuum and pressure washer', de: 'T3 Sammelbehälter mit Trockensaugung und Hochdruckreiniger', it: 'Serbatoio di raccolta T3 con aspirazione a secco e idropulitrice', hu: 'T3 gyűjtőtartály száraz szívással és magasnyomású mosóval' }, priceDKK: 97860, priceEUR: 11440, subItems: createUniqueSweeperSubItems('720133') },
+    { id: '720125', varenr: '720125', name: { da: 'T2 Opsamlingstank uden højtryksslange', en: 'T2 collection tank without pressure washer hose', de: 'T2 Sammelbehälter ohne Hochdruckschlauch', it: 'Serbatoio di raccolta T2 senza tubo alta pressione', hu: 'T2 gyűjtőtartály magasnyomású tömlő nélkül', sv: 'T2 uppsamlingstank utan högtrycksslang', fr: 'Cuve de récupération T2 sans flexible haute pression', pl: 'Zbiornik zbiorczy T2 bez węża wysokociśnieniowego', cs: 'Sběrná nádrž T2 bez vysokotlaké hadice' }, priceDKK: 94860, priceEUR: 12770, videoUrl: 'https://www.youtube.com/watch?v=3v-5j569Rik', imageUrl: 'https://img.youtube.com/vi/3v-5j569Rik/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720125') },
+    { id: '720130', varenr: '720130', name: { da: 'T2 Opsamlingstank inkl. højtryksrenser', en: 'T2 collection tank incl. pressure washer', de: 'T2 Sammelbehälter inkl. Hochdruckreiniger', it: 'Serbatoio di raccolta T2 incl. idropulitrice', hu: 'T2 gyűjtőtartály magasnyomású mosóval', sv: 'T2 uppsamlingstank inkl. högtryckstvätt', fr: 'Cuve de récupération T2 avec nettoyeur haute pression', pl: 'Zbiornik zbiorczy T2 z myjką ciśnieniową', cs: 'Sběrná nádrž T2 včetně vysokotlakého čističe' }, priceDKK: 107800, priceEUR: 14510, videoUrl: 'https://www.youtube.com/watch?v=SNy30jHCCvo', imageUrl: 'https://img.youtube.com/vi/SNy30jHCCvo/maxresdefault.jpg', subItems: createUniqueSweeperSubItems('720130') },
+    { id: '720132', varenr: '720132', name: { da: 'T3 Opsamlingstank med tørsug', en: 'T3 collection tank with dry vacuum', de: 'T3 Sammelbehälter mit Trockensaugung', it: 'Serbatoio di raccolta T3 con aspirazione a secco', hu: 'T3 gyűjtőtartály száraz szívással', sv: 'T3 uppsamlingstank med torrsug', fr: 'Cuve de récupération T3 avec aspiration à sec', pl: 'Zbiornik zbiorczy T3 z odsysaniem na sucho', cs: 'Sběrná nádrž T3 se suchým odsáváním' }, priceDKK: 84860, priceEUR: 10370, subItems: createUniqueSweeperSubItems('720132') },
+    { id: '720133', varenr: '720133', name: { da: 'T3 Opsamlingstank med tørsug og højtryksrenser', en: 'T3 collection tank with dry vacuum and pressure washer', de: 'T3 Sammelbehälter mit Trockensaugung und Hochdruckreiniger', it: 'Serbatoio di raccolta T3 con aspirazione a secco e idropulitrice', hu: 'T3 gyűjtőtartály száraz szívással és magasnyomású mosóval', sv: 'T3 uppsamlingstank med torrsug och högtryckstvätt', fr: 'Cuve de récupération T3 avec aspiration à sec et nettoyeur haute pression', pl: 'Zbiornik zbiorczy T3 z odsysaniem na sucho i myjką ciśnieniową', cs: 'Sběrná nádrž T3 se suchým odsáváním a vysokotlakým čističem' }, priceDKK: 97860, priceEUR: 11440, subItems: createUniqueSweeperSubItems('720133') },
     { id: '730030', varenr: '730030', name: { da: 'Forkostesæt med 2 koste til fejesug forberedt til venstre og højre sidekost', en: 'Front broom set with 2 brooms (prepared for left/right side broom)', de: 'Frontbesensatz mit 2 Besen', it: 'Kit spazzole anteriori con 2 spazzole', hu: 'Első seprőkészlet 2 seprővel' }, priceDKK: 53800, priceEUR: 7245, videoUrl: 'https://www.youtube.com/watch?v=N9S1NkYlDgg&t=21s', imageUrl: 'https://img.youtube.com/vi/N9S1NkYlDgg/maxresdefault.jpg' },
     { id: '720121', varenr: '720121', name: { da: 'Sidebørste arm højre/venstre med vanddyse', en: 'Side broom arm left/right with water nozzle', de: 'Seitenbesenarm rechts/links mit Wasserdüse', it: 'Braccio spazzola laterale destra/sinistra con ugello acqua', hu: 'Oldalseprő kar jobb/bal vízfúvókával' }, priceDKK: 9150, priceEUR: 1235, requires: '730030', isQtyInput: true },
     { id: '720599', varenr: '720599', name: { da: 'Børste for sidekost (Low noise)', en: 'Side broom brush (Low noise)', de: 'Bürste für Seitenbesen (Low noise)', it: 'Spazzola per spazzola laterale (Low noise)', hu: 'Oldalseprő kefe (Low noise)' }, priceDKK: 900, priceEUR: 125, requires: '730030', isQtyInput: true },
@@ -601,9 +725,10 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '730114', varenr: '730114', name: { da: 'V-plov 130-150 cm med gummiskær', en: 'V-plow 130-150 cm with rubber blade' }, priceDKK: 30460, priceEUR: 4100, videoUrl: 'https://www.youtube.com/watch?v=tDP8eqg3kdg', imageUrl: 'https://img.youtube.com/vi/tDP8eqg3kdg/maxresdefault.jpg' },
     { id: 'LT_712901', varenr: '712901', name: { da: 'Rustbeskyttelse V-plov', en: 'Rust Protection V-plow' }, priceDKK: 750, priceEUR: 105, requires: '730114' },
     { id: 'LT_730276', varenr: '730276', name: { da: 'Stålskær til V-plov, 2 stk.', en: 'Steel scraper edge for V-plow (2 pcs.)' }, priceDKK: 1810, priceEUR: 245, requires: '730114' },
-    { id: '730105', varenr: '730105', name: { da: 'Dozerblad 130 cm med gummiskær', en: 'Dozer blade 130 cm with rubber edge' }, priceDKK: 19000, priceEUR: 2560 },
+    { id: '730105', varenr: '730105', name: { da: 'Dozerblad 130 cm med gummiskær', en: 'Dozer blade 130 cm with rubber edge' }, priceDKK: 19000, priceEUR: 2560, hidden: true },
     { id: '730036', varenr: '730036', name: { da: 'Skrabeblad 3330', en: 'Scraper blade 3330' }, priceDKK: 18500, priceEUR: 2550, isNew: true },
-    { id: '730106', varenr: '730106', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665 },
+    { id: '730016-00-SAM', varenr: '730016-00-SAM', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665 },
+    { id: '730106', varenr: '730106', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665, hidden: true },
     // Spreader
     { id: '725131', varenr: '725131', name: { da: 'CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn', en: 'CS-200 roller spreader for load bed, manual (Requires bed & trailer)' }, priceDKK: 38500, priceEUR: 5050,
       subItems: [
@@ -687,7 +812,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
       ]
     },
     // Warranty
-    { id: '795002', varenr: '795002', name: { da: 'Timan 3330 udvidet komponentgaranti med 12 mdr.', en: 'Timan 3330 extended component warranty (12 months)', de: 'Timan 3330 erweiterte Garantie (12 Monate)', it: 'Timan 3330 garanzia estesa (12 mesi)', hu: 'Timan 3330 bővített garancia (12 hónap)' }, priceDKK: 4950, priceEUR: 665,
+    { id: ACC_ID_WARRANTY_3330, varenr: ACC_ID_WARRANTY_3330, name: { da: 'Udvidet komponentgaranti 3330', de: 'Erweiterte Komponentengarantie Timan 3330 (12 Monate)', en: 'Timan 3330 extended component warranty (12 months)', it: 'Timan 3330 garanzia estesa (12 mesi)', hu: 'Timan 3330 bővített garancia (12 hónap)' }, priceDKK: 4950, priceEUR: 665,
       specs: [{ label: 'Beskrivelse', value: { da: `Timan maskiner kan leveres med 12 måneders udvidet komponentgaranti, som giver ekstra sikkerhed for maskinens vigtigste komponenter.\n\nGarantien tegnes fra maskinens købsdato og kan maksimalt tegnes for op til 3 år.\n\nDen udvidede komponentgaranti omfatter:\n• Motorens hovedkomponenter\n• Hydrauliksystemets pumper, motorer og ventiler\n• Transmission og drivlinje\n• Styre- og kontrolmoduler\n• Chassisrelaterede funktionskomponenter\n\nGarantien dækker både komponenter samt arbejdsløn.\nBetalingsbetingelser: én gang årligt – første gang ved tegning. Netto 21 dage.`, en: `Timan machines can be supplied with a 12-month extended component warranty, providing additional security for the machine's key components.\n\nThe warranty covers:\n• Main engine components\n• Hydraulic system pumps, motors and valves\n• Transmission and drivetrain\n• Steering and control modules\n• Chassis-related functional components\n\nPayment terms: once annually – first payment upon signing. Net 21 days.` } }]
     },
   ],
@@ -834,7 +959,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
 };
 
 // Helper to get localized text
-export function getLocalizedName(name: string | { da: string; en: string; [key: string]: string | undefined }, lang: Language = 'da'): string {
+export function getLocalizedName(name: string | { da: string; en: string; [key: string]: string | undefined }, lang: ConfiguratorLocale = 'da'): string {
   if (typeof name === 'string') return name;
   // English fallback before Danish so mixed-language modals don't leak DA text
   // when a non-DA language is selected but the value isn't translated.
@@ -842,9 +967,13 @@ export function getLocalizedName(name: string | { da: string; en: string; [key: 
 }
 
 // Get price based on language/currency
-export function getPrice(item: { priceDKK: number; priceEUR: number }, lang: Language = 'da'): number {
+export function getPrice(item: { varenr?: string; priceDKK: number; priceEUR: number }, lang: Language = 'da'): number {
   const isEUR = ['en', 'de', 'it', 'hu'].includes(lang);
-  return isEUR ? item.priceEUR : item.priceDKK;
+  return getCurrentProductPrice({
+    itemNumber: item.varenr,
+    currency: isEUR ? 'EUR' : 'DKK',
+    legacy: { DKK: item.priceDKK, EUR: item.priceEUR },
+  }) ?? (isEUR ? item.priceEUR : item.priceDKK);
 }
 
 // Format money
@@ -886,7 +1015,34 @@ const LOOSE_TERMIT_ITEMS: Accessory[] = [
 const ALLOWED_EXTRA_VARENR = new Set(['411891', '411908']);
 const LOOSE_3330_WEEDBRUSH_VARENR = new Set(['730600', '730601', '50101017', '50101018', '50101019', '50101020']);
 
+function remapFactoryCenterHoseForLoose(item: Accessory): Accessory {
+  const varenr = String(item.varenr || '');
+  const nested = item.subItems?.map((sub) => remapFactoryCenterHoseForLoose(sub as Accessory));
+  if (!PACKAGING_TRIGGER_IDS.includes(varenr)) return { ...item, ...(nested ? { subItems: nested } : {}) };
+  return {
+    ...item,
+    subItems: (nested || []).map((sub) => String(sub.varenr || '') !== '721122' ? sub : {
+      ...sub,
+      id: `721059_${varenr}`,
+      varenr: '721059',
+      name: {
+        da: 'Centerslange til T2 Timan 3330 (eftermontering)',
+        en: 'Center hose for T2 Timan 3330 (retrofit)',
+        de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)',
+        it: 'Tubo centrale per T2 Timan 3330 (retrofit)',
+        hu: 'Központi tömlő T2 Timan 3330 (utólagos)',
+      },
+      priceDKK: 2550,
+      priceEUR: 345,
+    }),
+  };
+}
+
 export function getLooseToolAccessories(): Accessory[] {
+  const rc751Equipment = (ACCESSORIES['RC-751'] || [])
+    .map(item => ({ ...item, looseToolMachine: 'RC-751' as const, sourceMachineType: 'RC-751' }));
+  const loaderEquipment = (ACCESSORIES['Loader Line'] || [])
+    .map(item => ({ ...item, looseToolMachine: 'Loader Line' as const, sourceMachineType: 'Loader Line' }));
   const rcAll = ACCESSORIES['RC-1000S'] || [];
   const timanAll = ACCESSORIES['Timan 3330'] || [];
   const timan2620All = ACCESSORIES['Timan 2620'] || [];
@@ -894,7 +1050,7 @@ export function getLooseToolAccessories(): Accessory[] {
   function findRedskabHeaderIndex(list: Accessory[]) {
     return list.findIndex(a => {
       if (!a?.isHeader) return false;
-      const name = typeof a.name === 'string' ? a.name : (a.name as any)?.da || '';
+      const name = typeof a.name === 'string' ? a.name : a.name.da || '';
       return name.toLowerCase().includes('redskab');
     });
   }
@@ -948,30 +1104,7 @@ export function getLooseToolAccessories(): Accessory[] {
   const timanRedskaberForLoose = timanRedskaber.map(item => {
     if (!item || item.isHeader) return item;
     const varenr = String(item.varenr || '');
-    let next: Accessory = item;
-    // For loose-tool flow, swap factory-mount 721122 sub-item with
-    // retrofit 721059 under the T2/T3 collection tank sweeper trigger items.
-    if (PACKAGING_TRIGGER_IDS.includes(varenr) && Array.isArray(item.subItems)) {
-      const remappedSubs = item.subItems.map(sub => {
-        if (!sub) return sub;
-        if (String(sub.varenr || '') !== '721122') return sub;
-        return {
-          ...sub,
-          id: `721059_${varenr}`,
-          varenr: '721059',
-          name: {
-            da: 'Centerslange til T2 Timan 3330 (eftermontering)',
-            en: 'Center hose for T2 Timan 3330 (retrofit)',
-            de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)',
-            it: 'Tubo centrale per T2 Timan 3330 (retrofit)',
-            hu: 'Központi tömlő T2 Timan 3330 (utólagos)',
-          },
-          priceDKK: 2550,
-          priceEUR: 345,
-        };
-      });
-      next = { ...item, subItems: remappedSubs };
-    }
+    const next = remapFactoryCenterHoseForLoose(item);
     if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return { ...next, looseToolMachine: 'Timan 3330' as const };
     const cloned = { ...next, id: `LT3330_${next.id || varenr}` };
     if (varenr !== '730600') cloned.requires = 'LT3330_730600';
@@ -991,9 +1124,10 @@ export function getLooseToolAccessories(): Accessory[] {
   if (!termitInserted) timanWithTermit.push(...LOOSE_TERMIT_ITEMS);
 
   // Extra items from both lists
-  const extras = [...rcAll, ...timanAll].filter(item =>
-    item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr))
-  );
+  const extras = [
+    ...rcAll.map(item => ({ ...item, looseToolMachine: 'RC-1000S' as const })),
+    ...timanAll.map(item => ({ ...item, looseToolMachine: 'Timan 3330' as const })),
+  ].filter(item => item && !item.isHeader && ALLOWED_EXTRA_VARENR.has(String(item.varenr)));
 
   // Inject 721059 (Centerslange eftermontering) — only available under Løse redskaber
   const looseOnly721059: Accessory = {
@@ -1006,12 +1140,14 @@ export function getLooseToolAccessories(): Accessory[] {
   };
 
   const merged = [
+    ...rc751Equipment,
     ...rcRedskaber,
     timan3330Header,
     ...timanWithTermit,
     looseOnly721059,
     timan2620Header,
     ...timan2620Redskaber,
+    ...loaderEquipment,
     ...extras,
   ];
 
@@ -1034,7 +1170,20 @@ export function getLooseToolAccessories(): Accessory[] {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  });
+  }).map(resolvePublishedProduct);
+}
+
+/** Canonical commercial price lookup. Locale is deliberately not an input. */
+export function getPriceForCurrency(
+  item: { varenr?: string; priceDKK: number; priceEUR: number },
+  currency: Currency,
+): number {
+  return getCurrentProductPrice({
+    itemNumber: item.varenr,
+    currency,
+    legacy: { DKK: item.priceDKK, EUR: item.priceEUR },
+  }) ?? (currency === 'DKK' ? item.priceDKK : currency === 'EUR' ? item.priceEUR
+    : convertCurrency(item.priceDKK, currencyFromLanguage('da'), 'SEK'));
 }
 
 // Flatten accessories including sub-items
@@ -1047,7 +1196,7 @@ export function getAccessoriesFlat(machineType: string): Accessory[] {
     if (!item) return;
     const key = item.id ? `id:${item.id}` : null;
     if (!key || !seen.has(key)) {
-      out.push(item);
+      out.push(resolvePublishedProduct(item));
       if (key) seen.add(key);
     }
     if (item.subItems) {
@@ -1065,5 +1214,18 @@ export function getMachineById(id: string): Machine | undefined {
   return PRODUCTS[id];
 }
 
-// Legacy compatibility
+function resolveAccessories(): Record<string, Accessory[]> {
+  return Object.fromEntries(Object.entries(BASE_ACCESSORIES).map(([key, items]) => [
+    key,
+    buildConfiguratorProductHierarchy(key, items, SWEEPER_PRODUCT_GROUPS).map(resolveCatalogAccessory),
+  ]));
+}
+
+// Resolved current catalog; structural originals are never mutated.
+export let PRODUCTS = Object.fromEntries(
+  Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]),
+) as Record<string, Machine>;
+export let ACCESSORIES = resolveAccessories();
+
+// Legacy compatibility (structural catalog only)
 export const machines = Object.values(PRODUCTS);

@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 describe("pending partner submissions", () => {
-  const migration = read("supabase/migrations/20260904095227_pending_partner_submission_approval.sql");
+  const migration = read("supabase/migrations/20260904095712_pending_partner_submission_approval.sql");
   const service = read("src/lib/portalFormsService.ts");
   const overview = read("src/pages/crm/CrmMyDealersPage.tsx");
   const panel = read("src/components/crm/PendingPartnerSubmissions.tsx");
@@ -54,7 +54,7 @@ describe("pending partner submissions", () => {
 
   it("keeps the completion request alive while View-as resolves its effective user", () => {
     expect(overview).toContain("const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;");
-    expect(overview).toContain("[appUser, effectiveUserKey, admin, seller, externalCrm");
+    expect(overview).toContain("[appUser, effectiveUserKey, resolvingEffectiveUser, admin, seller, externalCrm");
     expect(overview).not.toContain("[appUser, effectiveUser, admin, seller, externalCrm");
   });
 });

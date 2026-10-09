@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
+import type { ProductCampaign } from '@/lib/configuratorCampaigns';
 
 export type MarketingCardSpec = { label: string; value: string };
 
@@ -14,6 +15,7 @@ type Props = {
   specs?: MarketingCardSpec[];
   badge?: string | null;
   badgeSchedule?: MarketingBadgeSchedule | null;
+  campaign?: ProductCampaign | null;
   language: PortalUiLanguage;
   status?: ReactNode;
   editControl?: ReactNode;
@@ -32,6 +34,7 @@ export function MarketingConfiguratorProductCard({
   specs = [],
   badge,
   badgeSchedule,
+  campaign,
   language,
   status,
   editControl,
@@ -43,7 +46,7 @@ export function MarketingConfiguratorProductCard({
     <div className={`relative overflow-visible rounded-xl border-2 border-gray-100 bg-white p-5 shadow-sm ${className}`}>
       {badge && (
         <div className="pointer-events-none absolute -right-1 -top-1 z-10 sm:-right-2 sm:-top-2">
-          <MarketingConfiguratorBadge badge={badge} language={language} schedule={badgeSchedule} />
+          <MarketingConfiguratorBadge badge={badge} language={language} schedule={badgeSchedule} campaign={campaign} />
         </div>
       )}
       <div className="flex min-h-9 w-full items-start justify-between gap-3">

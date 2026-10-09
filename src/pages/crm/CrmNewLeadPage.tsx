@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { Language } from '@/types/configurator';
+import { Accessory, Language } from '@/types/configurator';
 import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
+import { crmLostReasonLabel, normalizeCrmLostReason, serializeCrmLostReason } from '@/lib/crmLostReason';
+import { listCrmCompetitors, type CrmCompetitor } from '@/lib/crmCompetitorsService';
+import { CrmCompetitorSelect, OTHER_COMPETITOR } from '@/components/crm/CrmCompetitorSelect';
+import { crmCompetitorText } from '@/lib/crmCompetitorI18n';
+import { addMonthsToIsoDate } from '@/lib/crmLeadExpectedClose';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
-import { resolveSellerId } from '@/lib/resolveSellerId';
+import { resolveCanonicalCrmLeadSellerId } from '@/lib/resolveSellerId';
+import { getEffectiveSellerEmail } from '@/lib/activeMode';
 import {
-  NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
-  CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
-  PipelineStage, formatLeadNo,
+  CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
+  CUSTOMER_TYPE_OPTIONS, LOST_REASON_OPTIONS,
+  getNextActivitySelectorOptions, MANUAL_NEXT_ACTIVITY_OPTIONS,
+  PipelineStage, formatLeadNo, formatLeadRelation,
   getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment, type CrmLinkedSalesEvent,
 } from '@/lib/crmLeadsService';
 import {
@@ -33,17 +42,22 @@ import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import {
+  activeCrmLeadCustomerDraft,
   buildCrmLeadDealerContactSnapshot,
+  EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
   enterManualCrmLeadCustomerMode,
   formatCrmLeadDealerContact,
+  replaceCrmLeadDealerCustomerData,
   sortCrmLeadDealerContacts,
+  updateActiveCrmLeadCustomerDraft,
+  type CrmLeadDealerContactSnapshot,
   type CrmLeadContactMode,
 } from '@/lib/crmLeadDealerContact';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, Share2, Mail } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, CalendarPlus, Share2, Mail, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -59,11 +73,36 @@ import {
   type LeadShareTarget,
 } from '@/lib/crmLeadSharingService';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
+import { hasCrmLeadFollowupCalendarActivity, syncCrmLeadFollowupCalendarActivity } from '@/lib/crmLeadNotesService';
+import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { crmNextActivityLabel, crmDemoRegistrationText, NEXT_ACTIVITY_DEMO_AGREED, normalizeDemoActivity } from '@/lib/crmDemoStageI18n';
+import { crmLeadActivityLabel, crmLeadChoiceLabel, crmLeadEquipmentGroupLabel, crmLeadLocale, crmLeadStatusLabel, crmLeadText } from '@/lib/crmLeadI18n';
+import { mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { formatCountry } from '@/lib/formatCountry';
+import { ACCESSORIES } from '@/data/machines';
 import {
-  getMissingOrdinaryCrmLeadFields,
+  canonicalCrmLeadInterestFromLegacyValue,
+  crmLeadInterestIdentity,
+  getCrmLeadInterestQuantity,
+  machineQuantityForCrmLeadInterest,
+  normalizeCrmLeadMachineInterestItems,
+  setCrmLeadInterestQuantity,
+  type CrmLeadMachineInterestItem,
+} from '@/lib/crmLeadMachineInterest';
+import {
+  buildStructuredContactInformation,
+  getMissingCrmLeadFields,
+  importedChoiceValue,
+  readCrmLeadStructuredContact,
+  splitTradeFairYear,
+  structuredCrmLeadContactColumns,
   isLegacyWorkingBudgetOnlySave,
   normalizeWorkingBudgetQuantity,
-  type OrdinaryCrmLeadRequiredField,
+  type CrmLeadRequiredField,
+  type StructuredContactInfo,
 } from '@/lib/crmLeadValidation';
 
 // ---- i18n. English is the fallback. ----
@@ -78,7 +117,7 @@ type TKey =
   | 'lbl_expected_close' | 'lbl_next_followup' | 'lbl_next_activity'
   | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
   | 'lbl_contact_type' | 'lbl_customer_type'
-  | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
+  | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_tradefair_year' | 'lbl_tradefair_name' | 'ph_tradefair_name' | 'lbl_notes'
   | 'lbl_contact_company' | 'lbl_contact_person' | 'lbl_contact_phone' | 'lbl_contact_email'
   | 'lbl_contact_address' | 'lbl_contact_zip_city' | 'lbl_contact_postal_code' | 'lbl_contact_city'
   | 'use_dealer_details' | 'enter_manual_customer' | 'lbl_dealer_contact' | 'ph_dealer_contact'
@@ -149,6 +188,9 @@ const T: Record<TKey, Record<Language, string>> = {
   dealer_details_hint: { da: 'Kopierer kun den valgte forhandlers aktuelle kontaktoplysninger til dette lead.', en: 'Copies only the selected dealer’s current contact details to this lead.', de: 'Kopiert nur die aktuellen Kontaktdaten des ausgewählten Händlers in diesen Lead.', it: 'Copia solo i dati di contatto correnti del rivenditore selezionato in questo lead.', hu: 'Csak a kiválasztott kereskedő aktuális kapcsolattartási adatait másolja ebbe a leadbe.' },
   lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  lbl_tradefair_year: { da: 'År', en: 'Year', de: 'Jahr', it: 'Anno', hu: 'Év' },
+  lbl_tradefair_name: { da: 'Messenavn', en: 'Trade fair name', de: 'Messename', it: 'Nome della fiera', hu: 'Vásár neve' },
+  ph_tradefair_name: { da: 'Skriv messens navn', en: 'Enter trade fair name', de: 'Messenamen eingeben', it: 'Inserisci il nome della fiera', hu: 'Adja meg a vásár nevét' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
   lbl_budget:    { da: 'Budget-estimat', en: 'Budget estimate', de: 'Budget-Schätzung', it: 'Stima budget', hu: 'Költségvetés-becslés' },
   lbl_move_work: { da: 'Flyt til arbejdsbudget (stk.)', en: 'Move to working forecast (qty)', de: 'In Arbeitsprognose verschieben (Stk.)', it: 'Sposta in previsione (pz.)', hu: 'Munka-előrejelzésbe (db)' },
@@ -159,8 +201,8 @@ const T: Record<TKey, Record<Language, string>> = {
                    hu: 'Ha > 0, a lead beleszámít a Munka-előrejelzésbe a gép + várható zárási dátum alapján. NEM befolyásolja a pipeline-t.' },
   lbl_probability:{ da: 'Sandsynlighed (%)', en: 'Probability (%)', de: 'Wahrscheinlichkeit (%)', it: 'Probabilità (%)', hu: 'Valószínűség (%)' },
   lbl_pipeline:  { da: 'Pipeline-stage', en: 'Pipeline stage', de: 'Pipeline-Phase', it: 'Fase pipeline', hu: 'Pipeline szakasz' },
-  lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
-  lbl_lost_other:{ da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs' },
+  lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', sv: 'Förlorat till konkurrent', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
+  lbl_lost_other:{ da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', sv: 'Annan konkurrent', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
   lbl_lost_reason:{ da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum wir den Auftrag verloren haben', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el' },
   lbl_lost_comment:{ da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
   pick_files:    { da: 'Klik for at vælge filer eller træk dem hertil', en: 'Click to choose files or drop them here', de: 'Dateien wählen oder hierher ziehen', it: 'Clicca per scegliere file o trascinali qui', hu: 'Kattintson fájlt választani vagy húzza ide' },
@@ -217,80 +259,17 @@ function Field({ label, required, children, full, error }: { label: string; requ
   );
 }
 
-type StructuredContactInfo = {
-  company: string;
-  contactPerson: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  zipCity: string;
-  phone: string;
-  email: string;
-  country: string;
-};
-
-function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
-  if (!match) return { postalCode: '', city: '' };
-  return { postalCode: match[1].trim(), city: match[2].trim() };
-}
-
-function parseStructuredContactInformation(value: string, fallbackCountry: string): StructuredContactInfo {
-  const info: StructuredContactInfo = {
-    company: '',
-    contactPerson: '',
-    address: '',
-    postalCode: '',
-    city: '',
-    zipCity: '',
-    phone: '',
-    email: '',
-    country: '',
+function contactInfoToDraft(info: StructuredContactInfo): CrmLeadDealerContactSnapshot {
+  return {
+    company: info.company,
+    contactPerson: info.contactPerson,
+    phone: info.phone,
+    email: info.email,
+    address: info.address,
+    postalCode: info.postalCode,
+    city: info.city,
+    country: info.country,
   };
-
-  value.split(/\r?\n/).forEach((line) => {
-    const separatorIndex = line.indexOf(':');
-    if (separatorIndex < 0) return;
-    const key = line.slice(0, separatorIndex).trim().toLowerCase();
-    const fieldValue = line.slice(separatorIndex + 1).trim();
-    if (!fieldValue) return;
-
-    if (key.startsWith('firma')) info.company = fieldValue;
-    else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
-    else if (key.startsWith('adresse')) info.address = fieldValue;
-    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
-      info.zipCity = fieldValue;
-      const split = splitPostalCodeAndCity(fieldValue);
-      info.postalCode = split.postalCode;
-      info.city = split.city;
-    }
-    else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
-    else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
-    else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
-    else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
-  });
-
-  if (!info.country && value.trim() && fallbackCountry) {
-    info.country = fallbackCountry;
-  }
-
-  return info;
-}
-
-function buildStructuredContactInformation(info: StructuredContactInfo): string {
-  const postalCode = info.postalCode.trim();
-  const city = info.city.trim();
-  const zipCity = info.zipCity.trim() || [postalCode, city].filter(Boolean).join(' ').trim();
-  return [
-    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
-    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
-    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
-    zipCity ? `Postnr. og by: ${zipCity}` : null,
-    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
-    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
-    info.country.trim() ? `Land: ${info.country.trim()}` : null,
-  ].filter(Boolean).join('\n');
 }
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
@@ -341,12 +320,6 @@ function addDaysToIsoDate(baseIso: string, days: number): string {
   return toLocalIsoDate(date);
 }
 
-function addMonthsToIsoDate(baseIso: string, months: number): string {
-  const date = parseLocalIsoDate(baseIso) || new Date();
-  date.setMonth(date.getMonth() + months);
-  return toLocalIsoDate(date);
-}
-
 type DateQuickOption = {
   label: string;
   value: string;
@@ -359,6 +332,7 @@ function SmartDateField({
   onChange,
   options,
   full,
+  error,
 }: {
   label: string;
   required?: boolean;
@@ -366,7 +340,9 @@ function SmartDateField({
   onChange: (value: string) => void;
   options: DateQuickOption[];
   full?: boolean;
+  error?: string;
 }) {
+  const { uiLanguage } = useLanguage();
   const [open, setOpen] = useState(false);
   const selectedDate = parseLocalIsoDate(value);
   const today = toLocalIsoDate(new Date());
@@ -376,7 +352,7 @@ function SmartDateField({
   }
 
   return (
-    <Field label={label} required={required} full={full}>
+    <Field label={label} required={required} full={full} error={error}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <div
@@ -392,7 +368,7 @@ function SmartDateField({
               type="text"
               inputMode="numeric"
               placeholder="dd-mm-yyyy"
-              className={cn(inputCls, 'pr-10 cursor-pointer')}
+              className={cn(inputCls, 'pr-10 cursor-pointer', error && inputErrorCls)}
               value={formatDateDisplay(value)}
               onChange={(event) => onChange(parseDateInput(event.target.value) || event.target.value)}
               onClick={openDateOptions}
@@ -440,7 +416,7 @@ function SmartDateField({
                 setOpen(false);
               }}
             >
-              Ryd
+              {crmLeadText('clear', uiLanguage)}
             </Button>
             <Button
               type="button"
@@ -452,7 +428,7 @@ function SmartDateField({
                 setOpen(false);
               }}
             >
-              I dag
+              {crmLeadText('today', uiLanguage)}
             </Button>
           </div>
         </PopoverContent>
@@ -473,17 +449,10 @@ const COUNTRY_OPTIONS = ['Danmark', 'Tyskland', 'Other'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
 const TRADE_FAIR_YEARS = Array.from({ length: 7 }, (_, index) => String(CURRENT_YEAR - 1 + index));
 
-function splitTradeFairYear(value: string): { name: string; year: string } {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^(.*)\s+\((\d{4})\)$/);
-  if (!match) return { name: trimmed, year: String(CURRENT_YEAR) };
-  return { name: match[1].trim(), year: match[2] };
-}
-
 function buildTradeFairValue(name: string, year: string): string | null {
   const cleanName = name.trim();
   if (!cleanName) return null;
-  return `${cleanName} (${year || CURRENT_YEAR})`;
+  return year ? `${cleanName} (${year})` : cleanName;
 }
 
 /** Lead estimates are stored canonically in DKK; only their display follows the portal language. */
@@ -625,14 +594,111 @@ function equipmentValue(machine: string, item: string, group?: string): string {
   return group ? `Equipment: ${machine} - ${group} - ${item}` : `Equipment: ${machine} - ${item}`;
 }
 
-function MachineInterestPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+function localizedCatalogProductLabel(label: string, language: PortalUiLanguage): string {
+  const legacyLanguage = mapUiLanguageToLegacy(language);
+  const queue = Object.values(ACCESSORIES).flat() as Accessory[];
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (!item) continue;
+    if (item.subItems?.length) queue.push(...item.subItems as Accessory[]);
+    const names = typeof item.name === 'string' ? { da: item.name } : item.name;
+    const canonicalDanish = names?.da || names?.en || '';
+    if (canonicalDanish.trim().toLocaleLowerCase('da-DK') !== label.trim().toLocaleLowerCase('da-DK')) continue;
+    return names?.[legacyLanguage] || names?.en || canonicalDanish || label;
+  }
+  return label;
+}
+
+export function MachineInterestPicker({
+  value,
+  items,
+  onChange,
+  language,
+}: {
+  value: string[];
+  items: CrmLeadMachineInterestItem[];
+  onChange: (value: string[], items: CrmLeadMachineInterestItem[]) => void;
+  language: PortalUiLanguage;
+}) {
+  const removeCanonicalItem = (legacyValue: string) => {
+    const canonical = canonicalCrmLeadInterestFromLegacyValue(legacyValue);
+    if (!canonical) return items;
+    const key = crmLeadInterestIdentity(canonical);
+    return items.filter((item) => crmLeadInterestIdentity(item) !== key);
+  };
+  const addCanonicalItem = (legacyValue: string) => {
+    const canonical = canonicalCrmLeadInterestFromLegacyValue(legacyValue);
+    if (!canonical) return items;
+    const key = crmLeadInterestIdentity(canonical);
+    if (items.some((item) => crmLeadInterestIdentity(item) === key)) return items;
+    const quantity = canonical.interest_type === 'equipment'
+      ? machineQuantityForCrmLeadInterest(items, canonical.machine_key)
+      : 1;
+    return [...items, { ...canonical, quantity }];
+  };
   const toggleValue = (item: string) => {
-    onChange(value.includes(item) ? value.filter(v => v !== item) : [...value, item]);
+    const active = value.includes(item);
+    onChange(
+      active ? value.filter(v => v !== item) : [...value, item],
+      active ? removeCanonicalItem(item) : addCanonicalItem(item),
+    );
   };
   const toggleMain = (entry: typeof MACHINE_INTEREST_MAIN[number]) => {
     const active = entry.values.some(v => value.includes(v));
     const without = value.filter(v => !(entry.values as readonly string[]).includes(v));
-    onChange(active ? without : [...without, entry.values[0]]);
+    const nextValue = active ? without : [...without, entry.values[0]];
+    onChange(
+      nextValue,
+      active ? removeCanonicalItem(entry.values[0]) : addCanonicalItem(entry.values[0]),
+    );
+  };
+  const updateQuantity = (
+    canonical: Omit<CrmLeadMachineInterestItem, 'quantity'>,
+    quantity: number,
+  ) => {
+    if (!Number.isSafeInteger(quantity) || quantity < 1) return;
+    onChange(value, setCrmLeadInterestQuantity(items, canonical, quantity));
+  };
+  const QuantityControl = ({ legacyValue }: { legacyValue: string }) => {
+    const canonical = canonicalCrmLeadInterestFromLegacyValue(legacyValue);
+    if (!canonical) return null;
+    const quantity = getCrmLeadInterestQuantity(items, canonical);
+    return (
+      <div
+        data-testid={`lead-interest-quantity-${canonical.item_number}`}
+        className="inline-grid h-8 justify-self-start grid-cols-[32px_minmax(40px,56px)_32px] overflow-hidden rounded-md border border-slate-200 bg-white"
+      >
+        <button
+          type="button"
+          title={crmLeadText('decreaseQuantity', language)}
+          aria-label={crmLeadText('decreaseQuantity', language)}
+          disabled={quantity <= 1}
+          onClick={() => updateQuantity(canonical, quantity - 1)}
+          className="inline-flex touch-manipulation items-center justify-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          aria-label={crmLeadText('quantity', language)}
+          value={quantity}
+          onChange={(event) => updateQuantity(canonical, Number(event.target.value))}
+          className="min-w-0 border-x border-slate-200 px-0.5 text-center text-xs tabular-nums outline-none focus:bg-emerald-50"
+        />
+        <button
+          type="button"
+          title={crmLeadText('increaseQuantity', language)}
+          aria-label={crmLeadText('increaseQuantity', language)}
+          onClick={() => updateQuantity(canonical, quantity + 1)}
+          className="inline-flex touch-manipulation items-center justify-center text-slate-600 hover:bg-slate-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
   };
   const knownEquipment = new Set<string>();
   for (const group of MACHINE_INTEREST_EQUIPMENT) {
@@ -666,22 +732,26 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
         {MACHINE_INTEREST_MAIN.map(entry => {
           const active = entry.values.some(v => value.includes(v));
           return (
-            <button
-              type="button"
-              key={entry.label}
-              onClick={() => toggleMain(entry)}
-              className={cn('text-[12px] px-3 py-1.5 rounded-lg border transition',
-                active ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
-                       : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50')}
-            >
-              {entry.label}
-            </button>
+            <div key={entry.label} className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => toggleMain(entry)}
+                className={cn('min-h-9 text-[12px] px-3 py-1.5 rounded-lg border transition',
+                  active ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                         : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50')}
+              >
+                {crmLeadEquipmentGroupLabel(entry.label, language)}
+              </button>
+              {active && canonicalCrmLeadInterestFromLegacyValue(entry.values[0]) && (
+                <QuantityControl legacyValue={entry.values[0]} />
+              )}
+            </div>
           );
         })}
       </div>
 
       <details className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3" open={hasSelectedEquipmentContext}>
-        <summary className="cursor-pointer text-sm font-semibold text-emerald-900">Redskaber under maskiner</summary>
+        <summary className="cursor-pointer text-sm font-semibold text-emerald-900">{crmLeadText('equipmentUnderMachines', language)}</summary>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {MACHINE_INTEREST_EQUIPMENT.map(group => (
             <div key={group.machine} className={equipmentGroupClass(isEquipmentGroupActive(group.machine))}>
@@ -690,14 +760,17 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
                 <div className="space-y-3">
                   {group.groups.map(sub => (
                     <div key={sub.title} className="space-y-2">
-                      <div className="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{sub.title}</div>
+                      <div className="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{crmLeadEquipmentGroupLabel(sub.title, language)}</div>
                       {sub.items.map(item => {
                         const val = equipmentValue(group.machine, item, sub.title);
                         return (
-                          <label key={val} className="flex items-start gap-2 text-sm text-slate-700">
-                            <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 accent-emerald-700" />
-                            <span>{item}</span>
-                          </label>
+                          <div key={val} className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                            <label className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
+                              <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700" />
+                              <span className="min-w-0 break-words">{localizedCatalogProductLabel(item, language)}</span>
+                            </label>
+                            {value.includes(val) && <QuantityControl legacyValue={val} />}
+                          </div>
                         );
                       })}
                     </div>
@@ -708,10 +781,13 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
                   {group.items.map(item => {
                     const val = equipmentValue(group.machine, item);
                     return (
-                      <label key={val} className="flex items-start gap-2 text-sm text-slate-700">
-                        <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 accent-emerald-700" />
-                        <span>{item}</span>
-                      </label>
+                      <div key={val} className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                        <label className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
+                          <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700" />
+                          <span className="min-w-0 break-words">{localizedCatalogProductLabel(item, language)}</span>
+                        </label>
+                        {value.includes(val) && <QuantityControl legacyValue={val} />}
+                      </div>
                     );
                   })}
                 </div>
@@ -723,8 +799,8 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
 
       {otherSelected.length > 0 && (
         <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
-          <div className="mb-2 text-xs font-bold text-amber-900">Andre valgte CRM-interesser</div>
-          <MultiChip options={otherSelected} value={value} onChange={onChange} />
+          <div className="mb-2 text-xs font-bold text-amber-900">{crmLeadText('otherInterests', language)}</div>
+          <MultiChip options={otherSelected} value={value} onChange={(next) => onChange(next, items)} />
         </div>
       )}
     </div>
@@ -755,16 +831,23 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 }
 
 export default function CrmNewLeadPage() {
-  const { appUser, loading: authLoading } = useAppUser();
-  const { language: lang } = useLanguage();
+  const { appUser: sessionUser, loading: authLoading } = useAppUser();
+  const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
+  const { language: lang, uiLanguage } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
+  const location = useLocation();
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
   const repository = getCrmLeadRepository();
-  const academyPart = new URLSearchParams(window.location.search).get('academy_part') === '2' ? 2 : 1;
+  const academyPart = academyCrmSandbox.getPart();
+  const leadsReturnTarget = readCrmLeadsReturnTarget(location.state)
+    ?? (repository.academy
+      ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+      : '/portal/crm/leads');
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
+  const effectiveSellerEmail = getEffectiveSellerEmail(appUser) || appUser?.email || null;
 
   // External users: dealer is auto-filled and locked.
   const isInternal = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
@@ -784,24 +867,19 @@ export default function CrmNewLeadPage() {
   const [nextFollowup, setNextFollowup] = useState(() => addDaysToIsoDate(today, 7));
   const [expectedCloseChanged, setExpectedCloseChanged] = useState(isEdit);
   const [nextFollowupChanged, setNextFollowupChanged] = useState(isEdit);
+  const [addFollowupToCalendar, setAddFollowupToCalendar] = useState(false);
 
   const [machineTypes, setMachineTypes] = useState<string[]>([]);
+  const [machineInterestItems, setMachineInterestItems] = useState<CrmLeadMachineInterestItem[]>([]);
   const [nextActivity, setNextActivity] = useState<string>('');
   const [demoHasRun, setDemoHasRun] = useState<'yes' | 'no'>('no');
   const [contactType, setContactType] = useState<string>('');
   const [customerType, setCustomerType] = useState<string>('');
 
-  const [contactCompany, setContactCompany] = useState('');
-  const [contactPersonName, setContactPersonName] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactAddress, setContactAddress] = useState('');
-  const [contactPostalCode, setContactPostalCode] = useState('');
-  const [contactCity, setContactCity] = useState('');
   const [tradeFairChoice, setTradeFairChoice] = useState('');
   const [tradeFair, setTradeFair] = useState('');
   const [tradeFairYear, setTradeFairYear] = useState(String(CURRENT_YEAR));
-  const [countryChoice, setCountryChoice] = useState<(typeof COUNTRY_OPTIONS)[number]>('Danmark');
+  const [countryChoice, setCountryChoice] = useState<(typeof COUNTRY_OPTIONS)[number] | ''>('Danmark');
   const [country, setCountry] = useState('Danmark');
   const [notes, setNotes] = useState('');
   const [estimatedValue, setEstimatedValue] = useState<string>('');
@@ -815,6 +893,14 @@ export default function CrmNewLeadPage() {
 
   const [lostCompetitor, setLostCompetitor] = useState<string>('');
   const [lostCompetitorCustom, setLostCompetitorCustom] = useState('');
+  const [competitors, setCompetitors] = useState<CrmCompetitor[]>([]);
+  const [competitorError, setCompetitorError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void listCrmCompetitors().then(rows => { if (!cancelled) { setCompetitors(rows); setCompetitorError(false); } })
+      .catch(() => { if (!cancelled) setCompetitorError(true); });
+    return () => { cancelled = true; };
+  }, []);
   const [lostReason, setLostReason] = useState<string>('');
   const [lostComment, setLostComment] = useState('');
 
@@ -833,7 +919,7 @@ export default function CrmNewLeadPage() {
   const [shareIncludeEmail, setShareIncludeEmail] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<OrdinaryCrmLeadRequiredField, string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CrmLeadRequiredField, string>>>({});
 
   // Dealer picker state
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -842,10 +928,20 @@ export default function CrmNewLeadPage() {
   const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
   const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
   const [selectedDealerContactId, setSelectedDealerContactId] = useState('');
+  const pendingDealerContactIdRef = useRef('');
   const [dealerContactEmailMissing, setDealerContactEmailMissing] = useState(false);
   // This is UI state only. The saved lead keeps a snapshot of the chosen
   // customer/contact, while linked_dealer_id remains the responsible partner.
   const [contactMode, setContactMode] = useState<CrmLeadContactMode>('manual');
+  // These drafts deliberately live only for the current edit session. Switching
+  // the visible source must never overwrite the other source's values.
+  const [manualCustomerDraft, setManualCustomerDraft] = useState<CrmLeadDealerContactSnapshot>({
+    ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
+    country: 'Danmark',
+  });
+  const [dealerCustomerData, setDealerCustomerData] = useState<CrmLeadDealerContactSnapshot>(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
+  const [legacyContactInformation, setLegacyContactInformation] = useState<string | null>(null);
+  const [editLeadReferenceType, setEditLeadReferenceType] = useState<'L' | 'G' | null>(null);
 
   // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
   const [sellers, setSellers] = useState<BackendUser[]>([]);
@@ -866,7 +962,9 @@ export default function CrmNewLeadPage() {
   // Load dealer_accounts (same as Calendar) + sellers list.
   useEffect(() => {
     if (repository.academy) {
+      setDealers(academyCrmSandbox.listDealers());
       setDealersLoading(false);
+      setSellers([getLocalAcademyBackendUser()]);
       return;
     }
     let cancelled = false;
@@ -878,6 +976,11 @@ export default function CrmNewLeadPage() {
     fetchBackendUsers()
       .then(res => {
         if (cancelled) return;
+        if (res.source !== 'supabase') {
+          console.error('[crm lead sellers] Canonical app_users could not be loaded:', res.error);
+          setSellers([]);
+          return;
+        }
         const list = res.users
           .filter(u => (u.role === 'timan_seller' || u.role === 'timan_backend') && u.status === 'active')
           .sort((a, b) => (a.initials || '').localeCompare(b.initials || ''));
@@ -891,13 +994,13 @@ export default function CrmNewLeadPage() {
   useEffect(() => {
     if (isEdit) return; // never override loaded values when editing
     if (responsibleSellerId) return;
-    if (!sellers.length || !appUser?.email) return;
-    const me = sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
+    if (!sellers.length || !effectiveSellerEmail) return;
+    const me = sellers.find(s => (s.email || '').toLowerCase() === effectiveSellerEmail.toLowerCase());
     if (me) {
       setResponsibleSellerId(me.id);
       setResponsibleName(me.name || me.email);
     }
-  }, [sellers, appUser?.email, responsibleSellerId, isEdit]);
+  }, [sellers, effectiveSellerEmail, responsibleSellerId, isEdit]);
 
   useEffect(() => {
     if (isEdit || !lockedDealerNumber || !dealers.length) return;
@@ -923,9 +1026,13 @@ export default function CrmNewLeadPage() {
     if (!isEdit || !editId) return;
     let cancelled = false;
     (async () => {
-      const lead = await repository.getLead(editId);
+      const [lead, hasCalendarActivity] = await Promise.all([
+        repository.getLead(editId),
+        repository.academy ? Promise.resolve(false) : hasCrmLeadFollowupCalendarActivity(editId),
+      ]);
       if (cancelled || !lead) { setLoadingLead(false); return; }
       setEditLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+      setEditLeadReferenceType(lead.lead_reference_type || null);
       setTitle(lead.title || '');
       setResponsibleSellerId(lead.owner_user_id || '');
       setResponsibleName(lead.owner_name || '');
@@ -936,21 +1043,19 @@ export default function CrmNewLeadPage() {
       setExpectedCloseChanged(true);
       setNextFollowupChanged(true);
       setMachineTypes(lead.machine_types || []);
-      setNextActivity(lead.next_activity || '');
+      setMachineInterestItems(normalizeCrmLeadMachineInterestItems(
+        lead.machine_types,
+        lead.machine_interest_items,
+      ));
+      setNextActivity(normalizeDemoActivity(lead.next_activity || ''));
+      setAddFollowupToCalendar(hasCalendarActivity);
       setLinkedSalesEvent(lead.linked_sales_event ?? null);
       setDemoHasRun(lead.demo_has_run || 'no');
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
-      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
-      setContactCompany(parsedContact.company);
-      setContactPersonName(parsedContact.contactPerson);
-      setContactPhone(parsedContact.phone);
-      setContactEmail(parsedContact.email);
-      setContactAddress(parsedContact.address);
-      setContactPostalCode(parsedContact.postalCode);
-      setContactCity(parsedContact.city || (!parsedContact.postalCode ? parsedContact.zipCity : ''));
-      setContactMode('manual');
-      const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
+      const loadedCountry = importedChoiceValue(lead.country, lead.notes);
+      const parsedContact = readCrmLeadStructuredContact({ ...lead, country: loadedCountry });
+      const parsedTradeFair = splitTradeFairYear(importedChoiceValue(lead.trade_fair, lead.notes));
       if ((KNOWN_TRADE_FAIRS as readonly string[]).includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
         setTradeFair(parsedTradeFair.name);
@@ -962,13 +1067,20 @@ export default function CrmNewLeadPage() {
         setTradeFair('');
       }
       setTradeFairYear(parsedTradeFair.year);
-      const loadedCountry = lead.country || parsedContact.country || 'Danmark';
-      if (loadedCountry === 'Danmark' || loadedCountry === 'Tyskland') {
-        setCountryChoice(loadedCountry);
+      const effectiveCountry = loadedCountry || importedChoiceValue(parsedContact.country, lead.notes);
+      const loadedContact = { ...contactInfoToDraft(parsedContact), country: effectiveCountry };
+      setLegacyContactInformation(lead.contact_information || null);
+      setManualCustomerDraft(loadedContact);
+      setDealerCustomerData(lead.linked_dealer_contact_id ? loadedContact : EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
+      pendingDealerContactIdRef.current = lead.linked_dealer_contact_id || '';
+      setSelectedDealerContactId(lead.linked_dealer_contact_id || '');
+      setContactMode(lead.linked_dealer_contact_id ? 'dealer' : 'manual');
+      if (effectiveCountry === 'Danmark' || effectiveCountry === 'Tyskland') {
+        setCountryChoice(effectiveCountry);
       } else {
-        setCountryChoice('Other');
+        setCountryChoice(effectiveCountry ? 'Other' : '');
       }
-      setCountry(loadedCountry);
+      setCountry(effectiveCountry);
       setNotes(lead.notes || '');
       const savedEstimatedValue = lead.estimated_value != null ? String(lead.estimated_value) : '';
       setLoadedEstimatedValue(savedEstimatedValue);
@@ -979,8 +1091,9 @@ export default function CrmNewLeadPage() {
       setMoveToWorking(loadedWorkingBudgetQuantity > 0 ? String(loadedWorkingBudgetQuantity) : '');
       setInitialWorkingBudgetQuantity(loadedWorkingBudgetQuantity);
       setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
-      setLostCompetitor(lead.lost_competitor || '');
-      setLostReason(lead.lost_reason || '');
+      setLostCompetitor(lead.lost_competitor_id || (lead.lost_competitor ? OTHER_COMPETITOR : ''));
+      setLostCompetitorCustom(lead.lost_competitor_id ? '' : lead.lost_competitor || '');
+      setLostReason(normalizeCrmLostReason(lead.lost_reason) ?? lead.lost_reason ?? '');
       setLostComment(lead.lost_comment || '');
       setFiles(lead.attachments || []);
       setLoadingLead(false);
@@ -1018,26 +1131,29 @@ export default function CrmNewLeadPage() {
       setTitle(lead.title || '');
       setLinkedDealer(lead.linked_dealer_id || '');
       setMachineTypes(lead.machine_types || []);
-      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
-      setContactCompany(parsedContact.company);
-      setContactPersonName(parsedContact.contactPerson);
-      setContactPhone(parsedContact.phone);
-      setContactEmail(parsedContact.email);
-      setContactAddress(parsedContact.address);
-      setContactPostalCode(parsedContact.postalCode);
-      setContactCity(parsedContact.city);
+      setMachineInterestItems(normalizeCrmLeadMachineInterestItems(
+        lead.machine_types,
+        lead.machine_interest_items,
+      ));
+      const parsedContact = readCrmLeadStructuredContact(lead);
+      const syncedCountry = parsedContact.country || lead.country || country;
+      setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: syncedCountry });
+      setDealerCustomerData(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
       setContactMode('manual');
-      setCountry(parsedContact.country || lead.country || country);
+      setSelectedDealerContactId('');
+      pendingDealerContactIdRef.current = '';
+      setLegacyContactInformation(lead.contact_information || null);
+      setCountry(syncedCountry);
       setNotes(lead.notes || '');
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
       setMachineTypesChanged(false);
       const refreshed = await listConfigurationsForLead(editId);
       setLinkedQuotes(refreshed.rows);
-      toast.success(lang === 'da' ? 'Lead synkroniseret' : 'Lead synchronized', {
+      toast.success(crmLeadText('syncSuccess', uiLanguage), {
         description: result.configurationNumber || configurationId,
       });
     } catch (err) {
-      toast.error(lang === 'da' ? 'Kunne ikke synkronisere lead' : 'Could not synchronize lead', {
+      toast.error(crmLeadText('syncError', uiLanguage), {
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {
@@ -1048,7 +1164,7 @@ export default function CrmNewLeadPage() {
   const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
-    const mineEmail = (selectedSeller?.email || appUser?.email || '').toLowerCase();
+    const mineEmail = (selectedSeller?.email || effectiveSellerEmail || '').toLowerCase();
     const mineInitials = (selectedSeller?.initials || '').toUpperCase();
     const opts: DealerOption[] = dealers.map(d => {
       const de = (d.assigned_seller_email || '').toLowerCase();
@@ -1060,17 +1176,22 @@ export default function CrmNewLeadPage() {
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, appUser, sellers, responsibleSellerId, sellerDir]);
+  }, [dealers, effectiveSellerEmail, sellers, responsibleSellerId, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const selectedDealerAccount = dealers.find((dealer) => dealer.id === linkedDealer) || null;
   const sortedDealerContacts = useMemo(() => sortCrmLeadDealerContacts(dealerContacts), [dealerContacts]);
+  const activeCustomerData = activeCrmLeadCustomerDraft({
+    mode: contactMode,
+    manualCustomerDraft,
+    dealerCustomerData,
+  });
   const dealerTriggerLabel = selectedDealer
     ? selectedDealer.label
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
   useEffect(() => {
-    setSelectedDealerContactId('');
+    setSelectedDealerContactId(pendingDealerContactIdRef.current);
     setDealerContactEmailMissing(false);
     if (repository.academy || !selectedDealerAccount) {
       setDealerContacts([]);
@@ -1082,7 +1203,12 @@ export default function CrmNewLeadPage() {
     setDealerContactsLoading(true);
     listDealerContacts(selectedDealerAccount.id)
       .then((contacts) => {
-        if (!cancelled) setDealerContacts(contacts);
+        if (!cancelled) {
+          setDealerContacts(contacts);
+          const linkedContact = contacts.find((contact) => contact.id === pendingDealerContactIdRef.current);
+          setSelectedDealerContactId(linkedContact?.id || '');
+          pendingDealerContactIdRef.current = '';
+        }
       })
       .catch(() => {
         if (!cancelled) setDealerContacts([]);
@@ -1093,69 +1219,65 @@ export default function CrmNewLeadPage() {
     return () => { cancelled = true; };
   }, [repository.academy, selectedDealerAccount?.id]);
 
+  useEffect(() => {
+    if (contactMode !== 'dealer' || !selectedDealerAccount || selectedDealerContactId) return;
+    applyDealerContactSnapshot(null);
+  }, [contactMode, selectedDealerAccount?.id, selectedDealerContactId]);
+
   const firstContactQuickOptions: DateQuickOption[] = [
-    { label: '-1 dag', value: addDaysToIsoDate(today, -1) },
-    { label: 'I dag', value: today },
-    { label: '+1 dag', value: addDaysToIsoDate(today, 1) },
+    { label: crmLeadText('oneDayAgo', uiLanguage), value: addDaysToIsoDate(today, -1) },
+    { label: crmLeadText('today', uiLanguage), value: today },
+    { label: crmLeadText('inOneDay', uiLanguage), value: addDaysToIsoDate(today, 1) },
   ];
   const relativeDateBase = firstContact || today;
   const relativeDateQuickOptions: DateQuickOption[] = [
-    { label: '+1 uge', value: addDaysToIsoDate(relativeDateBase, 7) },
-    { label: '+1 måned', value: addMonthsToIsoDate(relativeDateBase, 1) },
-    { label: '+3 måneder', value: addMonthsToIsoDate(relativeDateBase, 3) },
-    { label: '+6 måneder', value: addMonthsToIsoDate(relativeDateBase, 6) },
+    { label: crmLeadText('oneWeek', uiLanguage), value: addDaysToIsoDate(relativeDateBase, 7) },
+    { label: crmLeadText('oneMonth', uiLanguage), value: addMonthsToIsoDate(relativeDateBase, 1) },
+    { label: crmLeadText('threeMonths', uiLanguage), value: addMonthsToIsoDate(relativeDateBase, 3) },
+    { label: crmLeadText('sixMonths', uiLanguage), value: addMonthsToIsoDate(relativeDateBase, 6) },
   ];
 
   const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
   const shareDirection = isInternal ? 'timan_to_dealer' : 'dealer_to_timan';
-  const shareButtonLabel = isInternal ? 'Del med forhandler' : 'Del med Timan';
+  const shareButtonLabel = crmLeadText(isInternal ? 'shareWithDealer' : 'shareWithTiman', uiLanguage);
   const selectedShareTarget = shareTargets.find((target) => target.id === shareTargetId) || null;
 
   const machineEstimate = useMemo(() => {
-    const estimate = calculateMachineInterestEstimate(machineTypes, 'da');
+    const estimate = calculateMachineInterestEstimate(machineTypes, 'da', machineInterestItems);
     return {
       value: estimate.total > 0 ? String(estimate.total) : '',
       unmappedItems: estimate.unmappedItems,
       pricedItems: estimate.pricedItems,
     };
-  }, [machineTypes]);
+  }, [machineTypes, machineInterestItems]);
   const machineEstimateNote = machineEstimate.unmappedItems.length > 0
     ? `Prisestimat baseret på ${machineEstimate.pricedItems.length} af ${machineTypes.length} valgte produkter. ${machineEstimate.unmappedItems.length} valgte produkter har ingen kendt pris og er ikke medregnet.`
     : '';
   const structuredContactInfo = useMemo<StructuredContactInfo>(() => {
-    const postalCode = contactPostalCode.trim();
-    const city = contactCity.trim();
+    const postalCode = activeCustomerData.postalCode.trim();
+    const city = activeCustomerData.city.trim();
     return {
-      company: contactCompany,
-      contactPerson: contactPersonName,
-      address: contactAddress,
-      postalCode: contactPostalCode,
-      city: contactCity,
+      company: activeCustomerData.company,
+      contactPerson: activeCustomerData.contactPerson,
+      address: activeCustomerData.address,
+      postalCode: activeCustomerData.postalCode,
+      city: activeCustomerData.city,
       zipCity: [postalCode, city].filter(Boolean).join(' '),
-      phone: contactPhone,
-      email: contactEmail,
-      country,
+      phone: activeCustomerData.phone,
+      email: activeCustomerData.email,
+      country: activeCustomerData.country,
     };
-  }, [contactCompany, contactPersonName, contactAddress, contactPostalCode, contactCity, contactPhone, contactEmail, country]);
-  const isLeadFormReady = Boolean(
-    title.trim()
-    && responsibleSellerId
-    && linkedDealer
-    && firstContact
-    && expectedClose
-    && nextFollowup
-    && nextActivity
-    && contactType
-    && customerType
-    && machineTypes.length > 0
-    && contactCompany.trim()
-    && contactPersonName.trim()
-    && contactPhone.trim()
-    && contactEmail.trim()
-    && contactPostalCode.trim()
-    && contactCity.trim()
-    && country.trim()
-  );
+  }, [activeCustomerData]);
+  const missingRequiredFields = getMissingCrmLeadFields({
+    title, responsibleSellerId, linkedDealer, firstContact, expectedClose,
+    nextFollowup, nextActivity, contactType, customerType, machineTypes,
+    contactCompany: activeCustomerData.company,
+    contactPersonName: activeCustomerData.contactPerson,
+    contactPhone: activeCustomerData.phone, contactEmail: activeCustomerData.email,
+    contactPostalCode: activeCustomerData.postalCode, contactCity: activeCustomerData.city,
+    country: activeCustomerData.country, tradeFair, tradeFairYear,
+  });
+  const isLeadFormReady = missingRequiredFields.length === 0;
   const legacyWorkingBudgetOnlySave = isLegacyWorkingBudgetOnlySave({
     isEditingExistingLead: isEdit,
     isLeadFormReady,
@@ -1163,9 +1285,10 @@ export default function CrmNewLeadPage() {
     currentWorkingBudgetQuantity: moveToWorking,
   });
   const canSave = !submitting && (isLeadFormReady || legacyWorkingBudgetOnlySave);
-  const fieldError = (field: OrdinaryCrmLeadRequiredField) => fieldErrors[field];
-  const requiredInputClass = (field: OrdinaryCrmLeadRequiredField) => cn(inputCls, fieldError(field) && inputErrorCls);
-  const clearFieldError = (field: OrdinaryCrmLeadRequiredField) => {
+  const fieldError = (field: CrmLeadRequiredField) =>
+    (isEdit && !loadingLead && missingRequiredFields.includes(field)) ? tt('val_required', lang) : fieldErrors[field];
+  const requiredInputClass = (field: CrmLeadRequiredField) => cn(inputCls, fieldError(field) && inputErrorCls);
+  const clearFieldError = (field: CrmLeadRequiredField) => {
     if (!fieldErrors[field]) return;
     setFieldErrors((prev) => {
       const next = { ...prev };
@@ -1177,16 +1300,16 @@ export default function CrmNewLeadPage() {
   function applyDealerContactSnapshot(contact: DealerContact | null) {
     if (!selectedDealerAccount) return;
     const snapshot = buildCrmLeadDealerContactSnapshot(selectedDealerAccount, contact);
-    setContactCompany(snapshot.company);
-    setContactPersonName(snapshot.contactPerson);
-    setContactPhone(snapshot.phone);
-    setContactEmail(snapshot.email);
-    setContactAddress(snapshot.address);
-    setContactPostalCode(snapshot.postalCode);
-    setContactCity(snapshot.city);
+    const next = replaceCrmLeadDealerCustomerData({
+      mode: contactMode,
+      manualCustomerDraft,
+      dealerCustomerData,
+    }, snapshot);
+    setContactMode(next.mode);
+    setDealerCustomerData(next.dealerCustomerData);
     if (snapshot.country) {
       setCountry(snapshot.country);
-      setCountryChoice(snapshot.country === 'Danmark' || snapshot.country === 'Tyskland' ? snapshot.country : 'Other');
+      setCountryChoice(snapshot.country === 'Danmark' || snapshot.country === 'Tyskland' ? snapshot.country : snapshot.country ? 'Other' : '');
     }
     (['contactCompany', 'contactPersonName', 'contactPhone', 'contactEmail', 'contactPostalCode', 'contactCity', 'country'] as const)
       .forEach(clearFieldError);
@@ -1201,7 +1324,13 @@ export default function CrmNewLeadPage() {
   }
 
   function handleDealerContactChange(contactId: string) {
-    setContactMode(contactId ? 'dealer' : 'manual');
+    if (!contactId) {
+      setSelectedDealerContactId('');
+      setDealerContactEmailMissing(false);
+      applyDealerContactSnapshot(null);
+      return;
+    }
+    setContactMode('dealer');
     setSelectedDealerContactId(contactId);
     const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
     setDealerContactEmailMissing(Boolean(contact && !contact.email?.trim()));
@@ -1216,7 +1345,37 @@ export default function CrmNewLeadPage() {
     });
     setContactMode(next.mode);
     setSelectedDealerContactId(next.selectedDealerContactId);
+    pendingDealerContactIdRef.current = '';
     setDealerContactEmailMissing(false);
+    setCountry(manualCustomerDraft.country);
+    setCountryChoice(
+      manualCustomerDraft.country === 'Danmark' || manualCustomerDraft.country === 'Tyskland'
+        ? manualCustomerDraft.country
+        : manualCustomerDraft.country ? 'Other' : '',
+    );
+  }
+
+  function updateActiveCustomerDraft(patch: Partial<CrmLeadDealerContactSnapshot>) {
+    const next = updateActiveCrmLeadCustomerDraft({
+      mode: contactMode,
+      manualCustomerDraft,
+      dealerCustomerData,
+    }, patch);
+    setManualCustomerDraft(next.manualCustomerDraft);
+    setDealerCustomerData(next.dealerCustomerData);
+    if (patch.country !== undefined) {
+      setCountry(patch.country);
+      setCountryChoice(patch.country === 'Danmark' || patch.country === 'Tyskland' ? patch.country : patch.country ? 'Other' : '');
+    }
+  }
+
+  function updateActiveCustomerCountry(nextCountry: string) {
+    setCountry(nextCountry);
+    if (contactMode === 'dealer') {
+      setDealerCustomerData((previous) => ({ ...previous, country: nextCountry }));
+      return;
+    }
+    setManualCustomerDraft((previous) => ({ ...previous, country: nextCountry }));
   }
 
   useEffect(() => {
@@ -1249,9 +1408,10 @@ export default function CrmNewLeadPage() {
     setNextFollowup(value);
   }
 
-  function handleMachineTypesChange(next: string[]) {
+  function handleMachineTypesChange(next: string[], nextItems?: CrmLeadMachineInterestItem[]) {
     setMachineTypesChanged(true);
     setMachineTypes(next);
+    setMachineInterestItems(normalizeCrmLeadMachineInterestItems(next, nextItems ?? machineInterestItems));
     if (next.length > 0) clearFieldError('machineTypes');
   }
 
@@ -1280,18 +1440,23 @@ export default function CrmNewLeadPage() {
     const preset = TRADE_FAIR_OPTIONS.find(option => option.value === value);
     if (preset?.country) {
       setCountryChoice(preset.country);
-      setCountry(preset.country);
+      updateActiveCustomerCountry(preset.country);
     }
   }
 
   function handleCountryChoiceChange(value: (typeof COUNTRY_OPTIONS)[number]) {
     setCountryChoice(value);
-    setCountry(value === 'Other' ? '' : value);
+    updateActiveCustomerCountry(value === 'Other' ? '' : value);
     if (value !== 'Other') clearFieldError('country');
   }
 
   // Auto-derive probability + legacy pipeline stage from next_activity selection.
   function handleNextActivityChange(na: string) {
+    if (na === NEXT_ACTIVITY_DEMO_AGREED && !repository.academy) {
+      if (editId) navigate(`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(editId)}`);
+      else toast.error(crmDemoRegistrationText('saveLeadFirst', uiLanguage));
+      return;
+    }
     setNextActivity(na);
     if (na) {
       setProbability(String(nextActivityToProbability(na)));
@@ -1314,9 +1479,7 @@ export default function CrmNewLeadPage() {
       setShareTargets(targets);
       setShareTargetId(targets[0]?.id || '');
       if (targets.length === 0) {
-        setShareError(isInternal
-          ? 'Der er ingen aktive brugere på den valgte forhandler.'
-          : 'Der er ikke fundet en ansvarlig Timan-sælger på forhandleren.');
+        setShareError(crmLeadText(isInternal ? 'shareNoDealerUsers' : 'shareNoSeller', uiLanguage));
       }
       setShareLoading(false);
     })().catch(() => {
@@ -1325,7 +1488,7 @@ export default function CrmNewLeadPage() {
       setShareLoading(false);
     });
     return () => { cancelled = true; };
-  }, [shareDialogOpen, linkedDealer, isInternal, repository]);
+  }, [shareDialogOpen, linkedDealer, isInternal, repository, uiLanguage]);
 
   async function handleShareLead() {
     if (!editId || !selectedShareTarget) return;
@@ -1344,7 +1507,7 @@ export default function CrmNewLeadPage() {
       const rows = await repository.listLeadShares(editId);
       setLeadShares(rows.some((row) => row.id === saved.id) ? rows : [saved, ...rows]);
       setShareDialogOpen(false);
-      toast.success(includeEmail ? 'Lead delt. Mail åbnes nu.' : 'Lead delt i portalen.');
+      toast.success(crmLeadText(includeEmail ? 'shareEmailSuccess' : 'shareSuccess', uiLanguage));
       if (includeEmail && selectedShareTarget.email) {
         const leadTitle = title || (editLeadNo != null ? formatLeadNo(editLeadNo) : 'Lead');
         window.location.href = leadShareMailto({
@@ -1367,6 +1530,7 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isLost && competitorError && !repository.academy) { toast.error(crmCompetitorText('error', uiLanguage)); return; }
     if (!legacyWorkingBudgetOnlySave) {
       if (!title.trim())       { toast.error(tt('val_title', lang)); return; }
       if (!responsibleSellerId){ toast.error(tt('val_seller', lang)); return; }
@@ -1377,19 +1541,9 @@ export default function CrmNewLeadPage() {
       if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
       if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
       if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
-      const missingFields = getMissingOrdinaryCrmLeadFields({
-        machineTypes,
-        contactCompany,
-        contactPersonName,
-        contactPhone,
-        contactEmail,
-        contactPostalCode,
-        contactCity,
-        country,
-      });
-      if (missingFields.length > 0) {
+      if (missingRequiredFields.length > 0) {
         setFieldErrors(
-          Object.fromEntries(missingFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<OrdinaryCrmLeadRequiredField, string>>
+          Object.fromEntries(missingRequiredFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<CrmLeadRequiredField, string>>
         );
         toast.error(tt('val_required', lang));
         return;
@@ -1418,31 +1572,42 @@ export default function CrmNewLeadPage() {
       const chosen = sellers.find(s => s.id === responsibleSellerId);
       const sellerId = repository.academy
         ? 'academy-local-sales-user'
-        : chosen?.id || (await resolveSellerId(appUser?.email));
+        : await resolveCanonicalCrmLeadSellerId(chosen, effectiveSellerEmail);
+      if (!sellerId) {
+        toast.error(tt('val_seller', lang));
+        return;
+      }
       const contactInformation = buildStructuredContactInformation(structuredContactInfo);
+      const structuredContactColumns = structuredCrmLeadContactColumns(structuredContactInfo);
       const payload = {
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
+        // Working-budget seller scope resolves against the canonical owner email.
+        owner_email: chosen?.email || effectiveSellerEmail,
         linked_dealer_id: linkedDealer,
+        linked_dealer_contact_id: contactMode === 'dealer' ? selectedDealerContactId || null : null,
         first_contact_date: firstContact || null,
         expected_close_date: expectedClose || null,
         next_followup_date: nextFollowup || null,
         machine_types: machineTypes,
+        machine_interest_items: machineInterestItems,
         next_activity: nextActivity,
-        demo_has_run: demoHasRun,
+        ...(repository.academy ? { demo_has_run: demoHasRun } : !isEdit ? { demo_has_run: 'no' as const } : {}),
         contact_type: contactType,
         customer_type: customerType,
-        contact_information: contactInformation || null,
+        ...structuredContactColumns,
+        contact_information: isEdit ? legacyContactInformation : contactInformation || null,
         trade_fair: buildTradeFairValue(tradeFair, tradeFairYear),
-        country: country || null,
+        country: activeCustomerData.country || null,
         notes: notes || null,
         estimated_value: estimatedValue ? Number(estimatedValue) : null,
         probability: probability ? Number(probability) : null,
         move_to_working_qty: normalizeWorkingBudgetQuantity(moveToWorking),
         pipeline_stage: stage,
-        lost_competitor: isLost ? (lostCompetitor === 'Andre' ? (lostCompetitorCustom || 'Andre') : lostCompetitor) || null : null,
-        lost_reason: isLost ? (lostReason || null) : null,
+        lost_competitor_id: isLost ? (competitors.find(row => row.id === lostCompetitor)?.id ?? null) : null,
+        lost_competitor: isLost ? (competitors.find(row => row.id === lostCompetitor)?.name ?? (lostCompetitor === OTHER_COMPETITOR ? (lostCompetitorCustom || 'Andre') : null)) : null,
+        lost_reason: isLost ? serializeCrmLostReason(lostReason) : null,
         lost_comment: isLost ? (lostComment || null) : null,
         attachments: files,
         status: 'open',
@@ -1452,13 +1617,25 @@ export default function CrmNewLeadPage() {
       };
       let savedLeadId = editId || '';
       if (isEdit && editId) {
-        await repository.updateLead(editId, payload);
+        await repository.updateLead(editId, payload, { requireRemote: !repository.academy });
         savedLeadId = editId;
         toast.success(tt('updated_ok', lang));
       } else {
-        const created = await repository.createLead(payload, { requireRemote: pendingFiles.length > 0 });
+        const created = await repository.createLead(
+          { ...payload, demo_has_run: repository.academy ? demoHasRun : 'no' },
+          { requireRemote: !repository.academy },
+        );
         savedLeadId = created.id;
         toast.success(tt('created_ok', lang));
+      }
+      if (!repository.academy) {
+        await syncCrmLeadFollowupCalendarActivity({
+          leadId: savedLeadId,
+          leadTitle: title.trim(),
+          nextFollowupDate: nextFollowup,
+          nextActivity,
+          enabled: addFollowupToCalendar,
+        });
       }
       if (repository.academy && pendingFiles.length > 0) {
         throw new Error('Academy CRM gemmer ikke filer i produktion.');
@@ -1472,9 +1649,11 @@ export default function CrmNewLeadPage() {
           setPendingFiles([]);
         }
       }
-      navigate(repository.academy
-        ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
-        : '/portal/crm');
+      navigate(isEdit
+        ? leadsReturnTarget
+        : repository.academy
+          ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+          : '/portal/crm');
     } catch (err) {
       console.error(err);
       toast.error(tt(isEdit ? 'updated_err' : 'created_err', lang));
@@ -1486,18 +1665,19 @@ export default function CrmNewLeadPage() {
   return (
     <CrmLayout pageTitle={isEdit ? tt('edit_title', lang) : tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
-        {repository.academy && (
-          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-            <strong>Academy træning</strong> - du arbejder med lokale træningsdata. Ingen rigtige leads, mails eller demoer oprettes.
-          </div>
-        )}
+        {repository.academy && <AcademyCrmGuidance part={academyPart} />}
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2.5">
               {isEdit ? tt('edit_title', lang) : tt('page_title', lang)}
               {isEdit && editLeadNo != null && (
-                <span className="font-mono text-xs text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
-                  {formatLeadNo(editLeadNo)}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="font-mono text-xs text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                    {editLeadNo}
+                  </span>
+                  <span data-testid="crm-lead-detail-relation" className="font-mono text-xs font-semibold text-[#2d5a27]">
+                    {formatLeadRelation(editLeadNo, editLeadReferenceType)}
+                  </span>
                 </span>
               )}
             </h2>
@@ -1505,18 +1685,22 @@ export default function CrmNewLeadPage() {
           </div>
         </div>
 
+        {isEdit && editId && !repository.academy && (
+          <CrmLeadDemoSection leadId={editId} />
+        )}
+
         {loadingLead ? (
           <p className="text-sm text-gray-500 p-8">{tt('loading', lang)}</p>
         ) : (
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)} subtitle={tt('sec_basic_sub', lang)}>
             {/* form sections below */}
-            <Field label={tt('lbl_title', lang)} required full>
-              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
+            <Field label={tt('lbl_title', lang)} required full error={fieldError('title')}>
+              <input className={requiredInputClass('title')} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
-            <Field label={tt('lbl_seller', lang)} required>
+            <Field label={tt('lbl_seller', lang)} required error={fieldError('responsibleSellerId')}>
               <select
-                className={inputCls}
+                className={requiredInputClass('responsibleSellerId')}
                 value={responsibleSellerId}
                 onChange={e => {
                   const id = e.target.value;
@@ -1533,7 +1717,7 @@ export default function CrmNewLeadPage() {
                 ))}
               </select>
             </Field>
-            <Field label={tt('lbl_dealer', lang)} required>
+            <Field label={tt('lbl_dealer', lang)} required error={fieldError('linkedDealer')}>
               {lockedDealerNumber ? (
                 <div className={cn(inputCls, 'flex items-center justify-between bg-gray-50 text-gray-700')}>
                   <span className="truncate">{selectedDealer?.label || lockedDealerNumber}</span>
@@ -1548,7 +1732,8 @@ export default function CrmNewLeadPage() {
                       role="combobox"
                       className={cn(
                         'w-full justify-between font-normal h-10 rounded-xl border-gray-200',
-                        !linkedDealer && 'text-gray-400'
+                        !linkedDealer && 'text-gray-400',
+                        fieldError('linkedDealer') && inputErrorCls
                       )}
                     >
                       <span className="truncate text-left">{dealerTriggerLabel}</span>
@@ -1605,6 +1790,7 @@ export default function CrmNewLeadPage() {
             <SmartDateField
               label={tt('lbl_first_contact', lang)}
               required
+              error={fieldError('firstContact')}
               value={firstContact}
               onChange={handleFirstContactChange}
               options={firstContactQuickOptions}
@@ -1612,6 +1798,7 @@ export default function CrmNewLeadPage() {
             <SmartDateField
               label={tt('lbl_expected_close', lang)}
               required
+              error={fieldError('expectedClose')}
               value={expectedClose}
               onChange={handleExpectedCloseChange}
               options={relativeDateQuickOptions}
@@ -1622,31 +1809,46 @@ export default function CrmNewLeadPage() {
                 activity={nextActivity}
                 onNextFollowupChange={handleNextFollowupChange}
                 onActivityChange={handleNextActivityChange}
-                activityOptions={[...new Set([
-                  ...NEXT_ACTIVITY_OPTIONS
-                    .filter((option) => option !== 'Closed with order' && option !== 'Closed without order')
+                activityOptions={getNextActivitySelectorOptions(
+                  nextActivity,
+                  MANUAL_NEXT_ACTIVITY_OPTIONS
                     .slice()
                     .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b)),
-                  nextActivity,
-                ].filter(Boolean))]}
+                )}
+                disabledActivityOptions={CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS}
+                  activityLabel={(activity) => crmLeadActivityLabel(crmNextActivityLabel(activity, uiLanguage), uiLanguage)}
                 required
                 renderFollowup={() => <SmartDateField
                   label={tt('lbl_next_followup', lang)}
                   required
+                  error={fieldError('nextFollowup')}
                   full
                   value={nextFollowup}
                   onChange={handleNextFollowupChange}
                   options={relativeDateQuickOptions}
                 />}
               />
+              {fieldError('nextActivity') && <p className="mt-2 text-[11px] font-medium text-rose-600">{tt('lbl_next_activity', lang)}: {fieldError('nextActivity')}</p>}
+              {!repository.academy && (
+                <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={addFollowupToCalendar}
+                    onChange={(event) => setAddFollowupToCalendar(event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-500"
+                  />
+                  <CalendarPlus className="h-4 w-4 shrink-0 text-emerald-700" />
+                  <span>{crmLeadText('addFollowupToCalendar', uiLanguage)}</span>
+                </label>
+              )}
               {linkedSalesEvent && (
                 <p className="mt-2 text-xs font-medium text-emerald-800">
-                  {lang === 'da' ? 'Aktuel salgsstatus' : 'Current sales status'}: {effectiveLeadStatus({
+                  {crmLeadText('currentSalesStatus', uiLanguage)}: {crmLeadStatusLabel(effectiveLeadStatus({
                     next_activity: nextActivity,
                     pipeline_stage: stage,
                     probability: Number(probability) || null,
                     linked_sales_event: linkedSalesEvent,
-                  })} · {effectiveLeadProbability({
+                  }), uiLanguage)} · {effectiveLeadProbability({
                     next_activity: nextActivity,
                     pipeline_stage: stage,
                     probability: Number(probability) || null,
@@ -1718,10 +1920,9 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_company', lang)} required error={fieldError('contactCompany')}>
               <input
                 className={requiredInputClass('contactCompany')}
-                value={contactCompany}
+                value={activeCustomerData.company}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactCompany(e.target.value);
+                  updateActiveCustomerDraft({ company: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactCompany');
                 }}
               />
@@ -1729,10 +1930,9 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_person', lang)} required error={fieldError('contactPersonName')}>
               <input
                 className={requiredInputClass('contactPersonName')}
-                value={contactPersonName}
+                value={activeCustomerData.contactPerson}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactPersonName(e.target.value);
+                  updateActiveCustomerDraft({ contactPerson: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPersonName');
                 }}
               />
@@ -1741,10 +1941,9 @@ export default function CrmNewLeadPage() {
               <input
                 type="tel"
                 className={requiredInputClass('contactPhone')}
-                value={contactPhone}
+                value={activeCustomerData.phone}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactPhone(e.target.value);
+                  updateActiveCustomerDraft({ phone: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPhone');
                 }}
               />
@@ -1753,27 +1952,24 @@ export default function CrmNewLeadPage() {
               <input
                 type="email"
                 className={requiredInputClass('contactEmail')}
-                value={contactEmail}
+                value={activeCustomerData.email}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactEmail(e.target.value);
+                  updateActiveCustomerDraft({ email: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactEmail');
                 }}
               />
             </Field>
             <Field label={tt('lbl_contact_address', lang)} full>
-              <input className={inputCls} value={contactAddress} onChange={e=>{
-                handleManualCustomer();
-                setContactAddress(e.target.value);
+              <input className={inputCls} value={activeCustomerData.address} onChange={e=>{
+                updateActiveCustomerDraft({ address: e.target.value });
               }} />
             </Field>
             <Field label={tt('lbl_contact_postal_code', lang)} required error={fieldError('contactPostalCode')}>
               <input
                 className={requiredInputClass('contactPostalCode')}
-                value={contactPostalCode}
+                value={activeCustomerData.postalCode}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactPostalCode(e.target.value);
+                  updateActiveCustomerDraft({ postalCode: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPostalCode');
                 }}
               />
@@ -1781,10 +1977,9 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_city', lang)} required error={fieldError('contactCity')}>
               <input
                 className={requiredInputClass('contactCity')}
-                value={contactCity}
+                value={activeCustomerData.city}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactCity(e.target.value);
+                  updateActiveCustomerDraft({ city: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactCity');
                 }}
               />
@@ -1792,17 +1987,11 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_country', lang)} required full error={fieldError('country')}>
               <input
                 className={requiredInputClass('country')}
-                value={country}
+                value={activeCustomerData.country}
                 onChange={e=>{
-                  handleManualCustomer();
                   const nextCountry = e.target.value;
-                  setCountry(nextCountry);
+                  updateActiveCustomerDraft({ country: nextCountry });
                   if (nextCountry.trim()) clearFieldError('country');
-                  if (nextCountry === 'Danmark' || nextCountry === 'Tyskland') {
-                    setCountryChoice(nextCountry);
-                  } else {
-                    setCountryChoice('Other');
-                  }
                 }}
               />
             </Field>
@@ -1811,7 +2000,12 @@ export default function CrmNewLeadPage() {
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)} required>
             <div className="md:col-span-2">
               <div className={cn('rounded-xl', fieldError('machineTypes') && 'ring-2 ring-rose-300 ring-offset-2')}>
-                <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} />
+                <MachineInterestPicker
+                  value={machineTypes}
+                  items={machineInterestItems}
+                  onChange={handleMachineTypesChange}
+                  language={uiLanguage}
+                />
               </div>
               {fieldError('machineTypes') && (
                 <p className="mt-2 text-[11px] font-medium text-rose-600">{fieldError('machineTypes')}</p>
@@ -1825,6 +2019,7 @@ export default function CrmNewLeadPage() {
           </Section>
 
 
+          {repository.academy && <>
           <Section title={tt('sec_demo', lang)}>
             <Field label={tt('lbl_demo_held', lang)}>
               <div className="flex gap-2">
@@ -1837,12 +2032,12 @@ export default function CrmNewLeadPage() {
                 ))}
               </div>
             </Field>
-            {demoHasRun === 'yes' && (
+            {isEdit && editId && (
               <Field label={tt('lbl_convert', lang)}>
                 <Link
-                  to={repository.academy && editId
+                  to={repository.academy
                     ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=2&fromLead=${encodeURIComponent(editId)}`
-                    : '/portal/crm/demo-leads/new'}
+                    : `/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(editId)}`}
                   className="inline-flex items-center gap-1.5 text-sm text-[#2d5a27] hover:underline self-start mt-1"
                 >
                   {tt('cta_convert', lang)}
@@ -1851,60 +2046,63 @@ export default function CrmNewLeadPage() {
             )}
           </Section>
 
+          </>}
           <Section title={tt('sec_contact_cust', lang)}>
-            <Field label={tt('lbl_contact_type', lang)} required>
-              <select className={inputCls} value={contactType} onChange={e=>setContactType(e.target.value)}>
+            <Field label={tt('lbl_contact_type', lang)} required error={fieldError('contactType')}>
+              <select className={requiredInputClass('contactType')} value={contactType} onChange={e=>setContactType(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
               </select>
             </Field>
-            <Field label={tt('lbl_customer_type', lang)} required>
-              <select className={inputCls} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
+            <Field label={tt('lbl_customer_type', lang)} required error={fieldError('customerType')}>
+              <select className={requiredInputClass('customerType')} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
               </select>
             </Field>
           </Section>
 
           <Section title={tt('sec_details', lang)}>
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
-              <Field label={tt('lbl_tradefair', lang)}>
-                <select className={inputCls} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
+              <Field label={tt('lbl_tradefair', lang)} required={contactType === 'Trade fair'} error={fieldError('tradeFair')}>
+                <select className={requiredInputClass('tradeFair')} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
                   <option value="">{tt('pick', lang)}</option>
                   {TRADE_FAIR_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>{option.value}</option>
+                    <option key={option.value} value={option.value}>{crmLeadChoiceLabel(option.value, uiLanguage)}</option>
                   ))}
                 </select>
               </Field>
               <Field label={tt('lbl_country', lang)} required error={fieldError('country')}>
                 <select className={requiredInputClass('country')} value={countryChoice} onChange={e=>handleCountryChoiceChange(e.target.value as (typeof COUNTRY_OPTIONS)[number])}>
+                  <option value="">{tt('pick', lang)}</option>
                   {COUNTRY_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>{option === 'Other' ? crmLeadText('other', uiLanguage) : formatCountry(option, lang)}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="År">
-                <select className={inputCls} value={tradeFairYear} onChange={e=>setTradeFairYear(e.target.value)}>
-                  {TRADE_FAIR_YEARS.map(year => (
+              <Field label={tt('lbl_tradefair_year', lang)} required={contactType === 'Trade fair'} error={fieldError('tradeFairYear')}>
+                <select className={requiredInputClass('tradeFairYear')} value={tradeFairYear} onChange={e=>setTradeFairYear(e.target.value)}>
+                  <option value="">{tt('pick', lang)}</option>
+                  {[...new Set([...TRADE_FAIR_YEARS, tradeFairYear])].filter(Boolean).sort().map(year => (
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
               </Field>
               {tradeFairChoice === 'Other' && (
-                <Field label="Messenavn" full>
-                  <input className={inputCls} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} placeholder="Skriv messens navn" />
+                <Field label={tt('lbl_tradefair_name', lang)} required={contactType === 'Trade fair'} full error={fieldError('tradeFair')}>
+                  <input className={requiredInputClass('tradeFair')} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} placeholder={tt('ph_tradefair_name', lang)} />
                 </Field>
               )}
               {countryChoice === 'Other' && (
-                <Field label="Land" required full error={fieldError('country')}>
+                <Field label={tt('lbl_country', lang)} required full error={fieldError('country')}>
                   <input
                     className={requiredInputClass('country')}
                     value={country}
                     onChange={e=>{
-                      setCountry(e.target.value);
+                      updateActiveCustomerCountry(e.target.value);
                       if (e.target.value.trim()) clearFieldError('country');
                     }}
-                    placeholder="Skriv land"
+                    placeholder={tt('lbl_country', lang)}
                   />
                 </Field>
               )}
@@ -1951,6 +2149,21 @@ export default function CrmNewLeadPage() {
             {/* Pipeline-stage is no longer manually editable — derived from Næste aktivitet. */}
           </Section>
 
+          {isEdit && editId && !repository.academy && (
+            <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <CrmLeadHistoryPanel
+                leadId={editId}
+                leadLabel={title || (editLeadNo != null ? formatLeadNo(editLeadNo) : 'Lead')}
+                authorUserId={appUser?.id ?? null}
+                authorName={appUser?.display_name || appUser?.email || null}
+                ownerUserId={responsibleSellerId || null}
+                ownerName={responsibleName || null}
+                legacyNotes={notes}
+                showFollowupControls={false}
+              />
+            </section>
+          )}
+
           {isLost && (
             <section className="bg-rose-50/40 rounded-2xl border border-rose-100 shadow-sm p-6 mb-5">
               <header className="mb-5 flex items-center gap-2">
@@ -1959,12 +2172,10 @@ export default function CrmNewLeadPage() {
               </header>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                 <Field label={tt('lbl_lost_to', lang)}>
-                  <select className={inputCls} value={lostCompetitor} onChange={e=>setLostCompetitor(e.target.value)}>
-                    <option value="">{tt('pick', lang)}</option>
-                    {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <CrmCompetitorSelect className={inputCls} competitors={competitors} value={lostCompetitor} onChange={setLostCompetitor} language={uiLanguage} machine={machineTypes[0]} includeOther />
+                  {competitorError && <span role="alert" className="text-xs text-red-700">{crmCompetitorText('error', uiLanguage)}</span>}
                 </Field>
-                {lostCompetitor === 'Andre' && (
+                {lostCompetitor === OTHER_COMPETITOR && (
                   <Field label={tt('lbl_lost_other', lang)}>
                     <input className={inputCls} value={lostCompetitorCustom} onChange={e=>setLostCompetitorCustom(e.target.value)} />
                   </Field>
@@ -1972,7 +2183,7 @@ export default function CrmNewLeadPage() {
                 <Field label={tt('lbl_lost_reason', lang)} full>
                   <select className={inputCls} value={lostReason} onChange={e=>setLostReason(e.target.value)}>
                     <option value="">{tt('pick', lang)}</option>
-                    {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{crmLostReasonLabel(o, uiLanguage)}</option>)}
                   </select>
                 </Field>
                 <Field label={tt('lbl_lost_comment', lang)} full>
@@ -1986,22 +2197,20 @@ export default function CrmNewLeadPage() {
             <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
               <header className="mb-4">
                 <h3 className="text-[15px] font-semibold text-gray-900">
-                  {lang === 'da' ? 'Linkede konfigurationer / tilbud' : 'Linked configurations / quotes'}
+                  {crmLeadText('linkedTitle', uiLanguage)}
                 </h3>
                 <p className="text-xs text-gray-500 mt-1">
-                  {lang === 'da'
-                    ? 'Konfigurationer, tilbud og ordrer fra konfiguratoren knyttet til dette lead.'
-                    : 'Configurations, quotes and orders from the configurator linked to this lead.'}
+                  {crmLeadText('linkedDescription', uiLanguage)}
                 </p>
               </header>
               <ul className="divide-y divide-gray-100">
                 {linkedQuotes.map(q => {
                   const kind = getCrmLinkedConfigurationKind(q);
                   const kindLabel = kind === 'order'
-                    ? (lang === 'da' ? 'Ordre' : 'Order')
+                    ? crmLeadText('order', uiLanguage)
                     : kind === 'quote'
-                      ? (lang === 'da' ? 'Tilbud' : 'Quote')
-                      : (lang === 'da' ? 'Konfiguration' : 'Configuration');
+                      ? crmLeadText('quote', uiLanguage)
+                      : crmLeadText('configuration', uiLanguage);
                   const dealer = q.dealer_company_name || q.dealer_name || q.dealer_number || '—';
                   const sentAt = q.order_sent_at || q.submitted_at || q.quote_sent_at || q.created_at;
                   const machines = q.machine_keys.join(', ') || '—';
@@ -2009,35 +2218,37 @@ export default function CrmNewLeadPage() {
                     ? (q.order_number || q.quote_number || '—')
                     : (q.quote_number || '—');
                   return (
-                    <li key={q.id} className="py-2.5 flex items-center gap-3 text-sm">
+                    <li key={q.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 py-2.5 text-sm sm:flex sm:items-center sm:gap-3">
                       <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
                         {documentNumber}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700">
                         {kindLabel}
                       </span>
-                      <span className="flex-1 truncate text-gray-800">{q.title || dealer}</span>
-                      <span className="text-xs text-gray-500 truncate">{dealer}</span>
-                      <span className="text-xs text-gray-500 truncate">{machines}</span>
-                      <span className="text-xs text-gray-500 tabular-nums">
+                      <span className="col-span-full min-w-0 break-words text-gray-800 sm:col-auto sm:flex-1 sm:truncate">{q.title || dealer}</span>
+                      <span className="hidden text-xs text-gray-500 sm:block sm:truncate">{dealer}</span>
+                      <span className="hidden text-xs text-gray-500 sm:block sm:truncate">{machines}</span>
+                      <span className="hidden text-xs text-gray-500 tabular-nums sm:block">
                         {new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(q.total_value || 0)}
                       </span>
-                      <span className="text-xs text-gray-400">
-                        {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
+                      <span className="col-span-full text-xs text-gray-400 sm:col-auto">
+                        {sentAt ? new Date(sentAt).toLocaleDateString(crmLeadLocale(uiLanguage)) : '—'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => void handleSyncConfigurationToLead(q.id)}
-                        disabled={syncingConfigurationId === q.id}
-                        className="text-xs font-semibold text-[#2d5a27] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {syncingConfigurationId === q.id
-                          ? (lang === 'da' ? 'Synker...' : 'Syncing...')
-                          : (lang === 'da' ? `Synkronisér fra ${documentNumber}` : `Sync from ${documentNumber}`)}
-                      </button>
-                      <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
-                        {lang === 'da' ? 'Åbn' : 'Open'}
-                      </Link>
+                      <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 sm:contents">
+                        <button
+                          type="button"
+                          onClick={() => void handleSyncConfigurationToLead(q.id)}
+                          disabled={syncingConfigurationId === q.id}
+                          className="text-left text-xs font-semibold text-[#2d5a27] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {syncingConfigurationId === q.id
+                            ? crmLeadText('syncing', uiLanguage)
+                            : `${crmLeadText('syncFrom', uiLanguage)} ${documentNumber}`}
+                        </button>
+                        <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
+                          {crmLeadText('open', uiLanguage)}
+                        </Link>
+                      </div>
                     </li>
                   );
                 })}
@@ -2049,9 +2260,9 @@ export default function CrmNewLeadPage() {
             <section className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-6 mb-5">
               <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-[15px] font-semibold text-gray-900">Lead-deling</h3>
+                  <h3 className="text-[15px] font-semibold text-gray-900">{crmLeadText('shareTitle', uiLanguage)}</h3>
                   <p className="text-xs text-gray-500 mt-1">
-                    Del samme lead i portalen uden at oprette en kopi.
+                    {crmLeadText('shareDescription', uiLanguage)}
                   </p>
                 </div>
                 <button
@@ -2068,13 +2279,13 @@ export default function CrmNewLeadPage() {
                   {leadShares.map((share) => (
                     <span key={share.id} className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
                       <Share2 className="h-3.5 w-3.5" />
-                      {share.shared_with_name || share.shared_with_email || 'Delt bruger'}
+                      {share.shared_with_name || share.shared_with_email || crmLeadText('sharedUser', uiLanguage)}
                       {share.channel === 'portal_email' && <Mail className="h-3.5 w-3.5" />}
                     </span>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Dette lead er ikke delt endnu.</p>
+                <p className="text-sm text-gray-500">{crmLeadText('notShared', uiLanguage)}</p>
               )}
             </section>
           )}
@@ -2112,14 +2323,14 @@ export default function CrmNewLeadPage() {
                               onClick={async () => {
                                 const signedUrl = await getLeadAttachmentSignedUrl(f);
                                 if (!signedUrl) {
-                                  toast.error('Kunne ikke åbne filen');
+                                  toast.error(crmLeadText('fileOpenError', uiLanguage));
                                   return;
                                 }
                                 window.open(signedUrl, '_blank', 'noopener,noreferrer');
                               }}
                               className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:underline"
                             >
-                              Åbn <ExternalLink className="h-3 w-3" />
+                              {crmLeadText('open', uiLanguage)} <ExternalLink className="h-3 w-3" />
                             </button>
                           )}
                         </div>
@@ -2136,7 +2347,7 @@ export default function CrmNewLeadPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-gray-700">{f.name}</div>
-                        <div className="mt-1 text-[11px] text-amber-700">Uploades når leadet gemmes</div>
+                        <div className="mt-1 text-[11px] text-amber-700">{crmLeadText('uploadOnSave', uiLanguage)}</div>
                       </div>
                       <button type="button" onClick={()=>setPendingFiles(pendingFiles.filter((_,j)=>j!==i))} className="shrink-0 text-gray-400 hover:text-rose-600">
                         <X className="h-3.5 w-3.5" />
@@ -2149,7 +2360,7 @@ export default function CrmNewLeadPage() {
           </Section>}
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to={repository.academy ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}` : '/portal/crm/leads'} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
+            <Link to={leadsReturnTarget} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
             <button type="submit" disabled={!canSave}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
@@ -2163,17 +2374,17 @@ export default function CrmNewLeadPage() {
               </DialogHeader>
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">
-                  Leadet deles altid i portalen. Vælg mail, hvis modtageren også skal have besked.
+                  {crmLeadText('shareDialogDescription', uiLanguage)}
                 </p>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Modtager
+                  {crmLeadText('recipient', uiLanguage)}
                   <select
                     className={cn(inputCls, 'mt-1')}
                     value={shareTargetId}
                     onChange={(event) => setShareTargetId(event.target.value)}
                     disabled={shareLoading || shareTargets.length === 0}
                   >
-                    {shareTargets.length === 0 && <option value="">Ingen modtager fundet</option>}
+                    {shareTargets.length === 0 && <option value="">{crmLeadText('noRecipient', uiLanguage)}</option>}
                     {shareTargets.map((target) => (
                       <option key={target.id} value={target.id}>
                         {target.name} - {target.email}
@@ -2187,7 +2398,7 @@ export default function CrmNewLeadPage() {
                     checked={shareIncludeEmail}
                     onChange={(event) => setShareIncludeEmail(event.target.checked)}
                   />
-                  Send også som mail
+                  {crmLeadText('sendEmail', uiLanguage)}
                 </label>
                 {shareError && (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -2197,10 +2408,10 @@ export default function CrmNewLeadPage() {
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setShareDialogOpen(false)}>
-                  Annuller
+                  {crmLeadText('cancel', uiLanguage)}
                 </Button>
                 <Button type="button" onClick={handleShareLead} disabled={shareLoading || !selectedShareTarget}>
-                  {shareLoading ? 'Deler...' : 'Del lead'}
+                  {crmLeadText(shareLoading ? 'sharing' : 'shareLead', uiLanguage)}
                 </Button>
               </DialogFooter>
             </DialogContent>

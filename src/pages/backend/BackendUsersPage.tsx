@@ -11,13 +11,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Check, KeyRound, Mail, Pencil, RotateCcw, ShieldAlert, Users as UsersIcon, X } from "lucide-react";
+import { Check, ChevronsUpDown, KeyRound, Mail, Pencil, RotateCcw, Search, ShieldAlert, Users as UsersIcon, X } from "lucide-react";
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { clearViewAsCache } from "@/lib/viewAsUser";
+import { ACADEMY_TRACK_DEFAULTS, ACADEMY_TRACK_PERMISSIONS, getAssignedAcademyCurriculum } from '@/lib/academyCurriculum';
 import { invalidateSellerDirectory } from "@/lib/sellerDirectory";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { t } from '@/lib/i18n/translations';
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import {
@@ -26,6 +28,8 @@ import {
   DEFAULT_MODULE_ACCESS,
   PortalRole,
   ModuleAccessKey,
+  PORTAL_TOP_LEVEL_ACCESS,
+  type PortalTopLevelAreaId,
   isBackendActor,
 } from "@/lib/portalAccess";
 import {
@@ -49,8 +53,20 @@ import {
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
+import { canAssignSupportAccess, SUPPORT_ACCESS_PERMISSION } from "@/lib/supportAccess";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { filterBackendUsers, type BackendUserListFilters } from "@/lib/backendUserListFilters";
 import { toast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  getAcademyCycleHistory,
+  resetAcademyCycle,
+  setAcademyCycleCadence,
+  startAcademyCycle,
+  type AcademyCadence,
+  type AcademyCycleSnapshot,
+} from "@/lib/academyCyclesService";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
@@ -64,18 +80,26 @@ const STATUS_PILL: Record<UserStatus, string> = {
   blocked: "bg-rose-100 text-rose-800",
 };
 
-const AREA_LABEL: Record<AreaKey, string> = {
+const TOP_LEVEL_AREA_LABEL: Record<PortalTopLevelAreaId, string> = {
+  planning: "Planlægning",
+  loans: "Lån af maskiner fra Timan",
   salg_marketing: "Salg",
   marketing: "Marketing",
   teknik_service: "Teknik & Service",
-  dealer_data:    "Partnerdata",
-  timan_crm:      "CRM",
-  timan_backend:  "Timan Backend",
+  dealer_data: "Partnerdata",
+  timan_crm: "CRM",
+  calendar: "Kalender",
+  messe: "Messe",
+  academy: "Timan Academy",
+  timan_backend: "Timan Backend",
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
+  planning: "Planlægning",
+  loans: "Lån af maskiner fra Timan",
   teknik_service: "Teknik & Service",
   salg_marketing: "Salg",
+  calendar: "Kalender",
   marketing: "Marketing",
   timan_backend: "Timan Backend",
   projects: "Projekter",
@@ -106,13 +130,58 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
   audit_log: "Audit Log",
 };
 
-// Visual grouping for Allowed Modules editor. Keys not present here will be
-// rendered in an "Øvrige" bucket so nothing silently disappears if new keys
-// are added later.
-const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
-  { label: "Academy", modules: ["academy"] },
-  { label: "Salg", modules: ["messe_portal", "byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"] },
-  { label: "Teknik & Service", modules: ["claims", "warranty", "tsb", "service_information"] },
+type PermissionKey = keyof BackendUser["perms"];
+
+type AccessDomain = {
+  label: string;
+  modules: ModuleAccessKey[];
+  permissions: { value: PermissionKey; label: string }[];
+  quickActions: QuickActionKey[];
+};
+
+// Presentation only: every entry still writes the existing canonical key.
+const ACCESS_DOMAINS: AccessDomain[] = [
+  {
+    label: "Salg",
+    modules: ["byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"],
+    permissions: [
+      { value: "can_view_prices", label: "Se priser / Can view prices" },
+      { value: "can_submit_order", label: "Opret ordre / Can submit order" },
+      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser" },
+      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount" },
+      { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
+      { value: "marketing_videos_manage", label: "Videoer / Administrér videoer" },
+    ],
+    quickActions: ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "partner_map"],
+  },
+  {
+    label: "Marketing",
+    modules: [],
+    permissions: [
+      { value: "marketing_configurator_manage", label: "Marketing / Redigér Byg din Timan" },
+      { value: "news_manage", label: "Administrér nyheder / Manage news" },
+    ],
+    quickActions: [],
+  },
+  {
+    label: "Teknik & Service",
+    modules: ["claims", "warranty", "tsb", "service_information"],
+    permissions: [
+      { value: "can_create_claims", label: "Can create claims" },
+      { value: "can_approve_claims", label: "Can approve claims" },
+      { value: "can_create_tsb", label: "Can create TSB" },
+    ],
+    quickActions: ["create_warranty_registration", "warranty_registrations"],
+  },
+  {
+    label: "Timan Backend",
+    modules: [],
+    permissions: [
+      { value: "can_manage_users", label: "Can manage users" },
+      { value: SUPPORT_ACCESS_PERMISSION, label: "Support" },
+    ],
+    quickActions: [],
+  },
 ];
 
 const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
@@ -120,6 +189,7 @@ const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
   create_demo:           { da: "Ny demo-registrering",       en: "New demo registration" },
   company_contact_info:  { da: "Ny samarbejdspartner",       en: "New collaboration partner" },
   dealer_invoice_accept: { da: "Forhandler faktura accept",  en: "Dealer invoice acceptance" },
+  create_warranty_registration: { da: "Opret garantiregistrering", en: "Create warranty registration" },
   warranty_registrations:{ da: "Garantiregistreringer",      en: "Warranty registrations" },
   partner_map:           { da: "Partnerkort",                en: "Partner map" },
 };
@@ -127,6 +197,101 @@ const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
 function formatLastLogin(iso: string | null): string {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleString("da-DK"); } catch { return "—"; }
+}
+
+function CompactFilterSelect({
+  ariaLabel,
+  value,
+  onChange,
+  options,
+}: {
+  ariaLabel: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-9 max-w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+    >
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  );
+}
+
+function DealerFilter({
+  dealers,
+  value,
+  onChange,
+}: {
+  dealers: DealerAccount[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const availableDealers = useMemo(
+    () => dealers
+      .filter((dealer) => !dealer.is_deleted)
+      .slice()
+      .sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
+    [dealers],
+  );
+  const selected = availableDealers.find((dealer) => dealer.account_number === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Filtrér efter forhandler"
+          aria-expanded={open}
+          className="inline-flex h-9 w-[190px] max-w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <span className="truncate">{selected ? `${selected.company_name} · ${selected.account_number}` : "Alle forhandlere"}</span>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] max-w-[calc(100vw-2rem)] p-0">
+        <Command>
+          <CommandInput placeholder="Søg forhandler eller kontonr." />
+          <CommandList>
+            <CommandEmpty>Ingen forhandlere fundet.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="alle forhandlere"
+                onSelect={() => {
+                  onChange("all");
+                  setOpen(false);
+                }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value === "all" ? "opacity-100" : "opacity-0"}`} />
+                Alle forhandlere
+              </CommandItem>
+              {availableDealers.map((dealer) => (
+                <CommandItem
+                  key={dealer.id || dealer.account_number}
+                  value={`${dealer.company_name} ${dealer.account_number}`}
+                  onSelect={() => {
+                    onChange(dealer.account_number);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === dealer.account_number ? "opacity-100" : "opacity-0"}`} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{dealer.company_name}</span>
+                    <span className="block text-[11px] text-slate-500">{dealer.account_number}</span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function BackendUsersPage() {
@@ -142,6 +307,13 @@ export default function BackendUsersPage() {
   const [actionMsg, setActionMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [filters, setFilters] = useState<BackendUserListFilters>({
+    query: "",
+    role: "all",
+    dealerNumber: "all",
+    country: "all",
+    status: "all",
+  });
 
   const reload = useMemo(
     () => async () => {
@@ -164,6 +336,20 @@ export default function BackendUsersPage() {
   }, [users]);
 
   const isBackend = isBackendActor(appUser);
+  const filteredUsers = useMemo(() => filterBackendUsers(users, dealers, filters), [users, dealers, filters]);
+  const roleOptions = useMemo(
+    () => PORTAL_ROLES.filter((role) => users.some((user) => user.role === role)),
+    [users],
+  );
+  const countryOptions = useMemo(
+    () => Array.from(new Set(users.map((user) => user.country?.trim().toUpperCase()).filter(Boolean) as string[])).sort(),
+    [users],
+  );
+  const hasActiveFilters = filters.query.trim() !== ""
+    || filters.role !== "all"
+    || filters.dealerNumber !== "all"
+    || filters.country !== "all"
+    || filters.status !== "all";
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
@@ -213,7 +399,7 @@ export default function BackendUsersPage() {
       />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
+        <div className="mb-8 flex items-start justify-between gap-5 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
               <UsersIcon className="h-6 w-6 text-indigo-600" />
@@ -233,13 +419,66 @@ export default function BackendUsersPage() {
               <p className="text-slate-500 mt-1 text-sm">Administrer brugere, roller, områder og modul-adgang.</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
-          </button>
+          <div className="flex max-w-full flex-1 flex-wrap items-center justify-end gap-2 lg:min-w-[720px]">
+            <label className="relative w-full sm:w-[280px]">
+              <span className="sr-only">Søg brugere</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={filters.query}
+                onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
+                placeholder="Søg navn, e-mail, forhandler eller kontonr."
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              />
+            </label>
+            <CompactFilterSelect
+              ariaLabel="Filtrér efter brugertype"
+              value={filters.role}
+              onChange={(value) => setFilters((current) => ({ ...current, role: value as BackendUserListFilters["role"] }))}
+              options={[
+                { value: "all", label: "Alle brugertyper" },
+                ...roleOptions.map((role) => ({ value: role, label: PORTAL_ROLE_LABELS[role]?.da ?? role })),
+              ]}
+            />
+            <DealerFilter
+              dealers={dealers}
+              value={filters.dealerNumber}
+              onChange={(dealerNumber) => setFilters((current) => ({ ...current, dealerNumber }))}
+            />
+            <CompactFilterSelect
+              ariaLabel="Filtrér efter land"
+              value={filters.country}
+              onChange={(country) => setFilters((current) => ({ ...current, country }))}
+              options={[{ value: "all", label: "Alle lande" }, ...countryOptions.map((country) => ({ value: country, label: country }))]}
+            />
+            <CompactFilterSelect
+              ariaLabel="Filtrér efter status"
+              value={filters.status}
+              onChange={(status) => setFilters((current) => ({ ...current, status: status as BackendUserListFilters["status"] }))}
+              options={[
+                { value: "all", label: "Alle statusser" },
+                ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+              ]}
+            />
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={() => setFilters({ query: "", role: "all", dealerNumber: "all", country: "all", status: "all" })}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-default disabled:opacity-40"
+            >
+              <X className="h-3.5 w-3.5" /> Nulstil
+            </button>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
+            </button>
+            <span className="min-w-[70px] text-right text-xs font-semibold text-slate-500">
+              {filteredUsers.length} {filteredUsers.length === 1 ? "bruger" : "brugere"}
+            </span>
+          </div>
         </div>
 
         {(loadError || saveError) && (
@@ -281,7 +520,7 @@ export default function BackendUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
+              {filteredUsers.map((u) => {
                 const langOpt = PORTAL_LANGUAGES.find((l) => l.code === u.language);
                 const dealer = u.dealer_number ? dealers.find((d) => d.account_number === u.dealer_number) : undefined;
                 const userType = PORTAL_ROLE_LABELS[u.role]?.da ?? u.role;
@@ -407,8 +646,8 @@ export default function BackendUsersPage() {
                   </Td>
                 </tr>
               );})}
-              {users.length === 0 && !loadingUsers && (
-                <tr><td colSpan={13} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
+              {filteredUsers.length === 0 && !loadingUsers && (
+                <tr><td colSpan={13} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere matcher de valgte filtre.</td></tr>
               )}
             </tbody>
           </table>
@@ -504,6 +743,7 @@ function EditUserModal({
   onClose: () => void;
   onSave: (patch: BackendUser) => Promise<{ ok: boolean; error?: string }>;
 }) {
+  const { uiLanguage } = useLanguage();
   const [draft, setDraft] = useState<BackendUser>(user);
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -604,6 +844,9 @@ function EditUserModal({
   const effectiveBackendModules = draft.role === "timan_backend"
     ? Array.from(new Set([...roleDefaultBackendModules, ...draft.backend_modules]))
     : draft.backend_modules;
+  const moduleBackedAreaKeys = new Set<ModuleAccessKey>(
+    PORTAL_TOP_LEVEL_ACCESS.filter((entry) => entry.source === "module").map((entry) => entry.key),
+  );
 
   function accessLabel(label: string, inherited: boolean, enabled: boolean, manualOverride: boolean) {
     return (
@@ -900,31 +1143,52 @@ function EditUserModal({
           <Section title="Allowed Areas">
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
-              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend"];
+              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend", "planning"];
+              const checkedAreas = PORTAL_TOP_LEVEL_ACCESS
+                .filter((entry) => entry.source === "area"
+                  ? effectiveAllowedAreas.includes(entry.key as AreaKey)
+                  : effectiveAllowedModules.includes(entry.key))
+                .map((entry) => entry.id);
               return (
                 <>
                   <CheckboxGroup
-                    items={ALL_AREAS.map((a) => ({
-                      value: a,
-                      label: accessLabel(AREA_LABEL[a], roleDefaultAreas.includes(a), draft.allowed_areas.includes(a), draft.has_manual_area_override === true),
-                      disabled: (draft.role === "timan_backend" && roleDefaultAreas.includes(a)) || (dealerSide && FORBIDDEN_AREAS.includes(a)),
-                    }))}
-                    checked={effectiveAllowedAreas}
+                    items={PORTAL_TOP_LEVEL_ACCESS.map((entry) => {
+                      const inherited = entry.source === "area"
+                        ? roleDefaultAreas.includes(entry.key as AreaKey)
+                        : roleDefaultModules.includes(entry.key);
+                      const enabled = entry.source === "area"
+                        ? draft.allowed_areas.includes(entry.key as AreaKey)
+                        : draft.allowed_modules.includes(entry.key);
+                      const manualOverride = entry.source === "area"
+                        ? draft.has_manual_area_override === true
+                        : draft.has_manual_module_override === true;
+                      const forbidden = entry.source === "area"
+                        && ((dealerSide && FORBIDDEN_AREAS.includes(entry.key as AreaKey))
+                          || (entry.key === 'planning' && !['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role)));
+                      return {
+                        value: entry.id,
+                        label: accessLabel(TOP_LEVEL_AREA_LABEL[entry.id], inherited, enabled, manualOverride),
+                        disabled: (draft.role === "timan_backend" && inherited) || forbidden,
+                      };
+                    })}
+                    checked={checkedAreas}
                     onChange={(v) => {
-                      const area = v as AreaKey;
-                      if ((draft.role === "timan_backend" && roleDefaultAreas.includes(area)) || (dealerSide && FORBIDDEN_AREAS.includes(area))) return;
-                      setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area), has_manual_area_override: true });
+                      const entry = PORTAL_TOP_LEVEL_ACCESS.find((candidate) => candidate.id === v);
+                      if (!entry) return;
+                      const inherited = entry.source === "area"
+                        ? roleDefaultAreas.includes(entry.key as AreaKey)
+                        : roleDefaultModules.includes(entry.key);
+                      if (draft.role === "timan_backend" && inherited) return;
+                      if (entry.source === "area") {
+                        const area = entry.key as AreaKey;
+                        if ((dealerSide && FORBIDDEN_AREAS.includes(area))
+                          || (area === 'planning' && !['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role))) return;
+                        setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area), has_manual_area_override: true });
+                        return;
+                      }
+                      setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, entry.key), has_manual_module_override: true });
                     }}
                   />
-                  {draft.has_manual_area_override && (
-                    <button
-                      type="button"
-                      onClick={() => setDraft({ ...draft, allowed_areas: roleDefaultAreas, has_manual_area_override: false })}
-                      className="mt-2 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
-                    >
-                      Nulstil til rolle
-                    </button>
-                  )}
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
                       Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
@@ -935,16 +1199,49 @@ function EditUserModal({
             })()}
           </Section>
 
-          {/* Allowed Modules */}
-          <Section title="Allowed Modules">
+          {/* Modules, permissions and quick actions share one visual domain structure. */}
+          <Section title="Adgang efter fagområde">
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
+              const restricted = isPaymentAndDiscountRestrictedRole(draft.role);
               const FORBIDDEN_MODULES: ModuleAccessKey[] = ["timan_backend"];
-              const groupedKeys = new Set<ModuleAccessKey>(MODULE_GROUPS.flatMap((g) => g.modules));
-              const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m));
-              const renderGroup = (label: string, modules: ModuleAccessKey[]) => (
-                <div key={label} className="mb-3">
-                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+              const effectivePerms = {
+                ...draft.perms,
+                ...(restricted ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false } : {}),
+                ...(dealerSide ? { can_manage_users: false } : {}),
+                ...(!canAssignSupportAccess(draft.role) ? { support_access: false } : {}),
+              };
+              const permissionChecked = (Object.entries(effectivePerms) as [PermissionKey, boolean][])
+                .filter(([, enabled]) => enabled)
+                .map(([key]) => key);
+              const configurableQuickActions = configurableQuickActionsForRole(draft.role);
+              const selectedQuickActions = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
+              const groupedKeys = new Set<ModuleAccessKey>(ACCESS_DOMAINS.flatMap((group) => group.modules));
+              const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m) && !moduleBackedAreaKeys.has(m));
+              const hasRoleOverrides = draft.has_manual_module_override
+                || draft.has_manual_area_override
+                || ACADEMY_TRACK_PERMISSIONS.some((key) => typeof draft.perms[key] === 'boolean');
+              const resetRoleOverrides = () => {
+                const perms = { ...draft.perms };
+                for (const key of ACADEMY_TRACK_PERMISSIONS) delete perms[key];
+                setDraft({ ...draft, perms, allowed_areas: roleDefaultAreas, allowed_modules: roleDefaultModules, has_manual_area_override: false, has_manual_module_override: false });
+              };
+              const togglePermission = (key: PermissionKey) => {
+                if (editingOwnUser && key === "can_manage_users") return;
+                if (key === SUPPORT_ACCESS_PERMISSION && !canAssignSupportAccess(draft.role)) return;
+                if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
+                if (dealerSide && (key === "can_manage_users" || key === "marketing_videos_manage" || key === "marketing_configurator_manage")) return;
+                setDraft({ ...draft, perms: { ...draft.perms, [key]: !draft.perms[key] } });
+              };
+              const toggleQuickAction = (key: QuickActionKey) => {
+                const next = selectedQuickActions.includes(key)
+                  ? selectedQuickActions.filter((current) => current !== key)
+                  : [...selectedQuickActions, key];
+                setDraft({ ...draft, quick_actions: next });
+              };
+              const renderModules = (modules: ModuleAccessKey[]) => modules.length > 0 && (
+                <div>
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Moduler</p>
                   <CheckboxGroup
                     items={modules.map((m) => ({
                       value: m,
@@ -962,33 +1259,120 @@ function EditUserModal({
               );
               return (
                 <>
-                  {MODULE_GROUPS.map((g) => renderGroup(g.label, g.modules))}
-                  {otherModules.length > 0 && renderGroup("Øvrige", otherModules)}
-                  {draft.has_manual_module_override && (
-                    <button
-                      type="button"
-                      onClick={() => setDraft({ ...draft, allowed_modules: roleDefaultModules, has_manual_module_override: false })}
-                      className="mb-3 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
-                    >
-                      Nulstil til rolle
-                    </button>
-                  )}
-                  <div className="mb-1">
-                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Timan Backend</p>
-                    <CheckboxGroup
-                      items={BACKEND_META_MODULES.map((m) => ({
-                        value: m,
-                        label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m), false),
-                        disabled: (draft.role === "timan_backend" && roleDefaultBackendModules.includes(m)) || dealerSide,
-                      }))}
-                      checked={dealerSide ? [] : effectiveBackendModules}
-                      onChange={(v) => {
-                        const mod = v as BackendMetaModule;
-                        if ((draft.role === "timan_backend" && roleDefaultBackendModules.includes(mod)) || dealerSide) return;
-                        setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, mod) });
-                      }}
-                    />
+                  <div className="space-y-4">
+                    {ACCESS_DOMAINS.map((group) => {
+                      const domainQuickActions = group.quickActions.filter((key) => configurableQuickActions.includes(key));
+                      return (
+                        <div key={group.label} data-access-domain={group.label} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">{group.label}</p>
+                          <div className="space-y-3">
+                            {renderModules(group.modules)}
+                            {group.label === "Timan Backend" && (
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Moduler</p>
+                                <CheckboxGroup
+                                  items={BACKEND_META_MODULES.map((m) => ({
+                                    value: m,
+                                    label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m), false),
+                                    disabled: (draft.role === "timan_backend" && roleDefaultBackendModules.includes(m)) || dealerSide,
+                                  }))}
+                                  checked={dealerSide ? [] : effectiveBackendModules}
+                                  onChange={(value) => {
+                                    const mod = value as BackendMetaModule;
+                                    if ((draft.role === "timan_backend" && roleDefaultBackendModules.includes(mod)) || dealerSide) return;
+                                    setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, mod) });
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {group.permissions.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Rettigheder</p>
+                                <CheckboxGroup
+                                  items={group.permissions.map((permission) => ({
+                                    ...permission,
+                                    label: permission.value === SUPPORT_ACCESS_PERMISSION
+                                      ? t('backendPermissionSupport', uiLanguage)
+                                      : permission.label,
+                                    disabled:
+                                      (editingOwnUser && permission.value === "can_manage_users")
+                                      || (permission.value === SUPPORT_ACCESS_PERMISSION && !canAssignSupportAccess(draft.role))
+                                      || (restricted && (permission.value === "can_manage_payment_terms" || permission.value === "can_apply_extra_dealer_discount"))
+                                      || (dealerSide && (permission.value === "can_manage_users" || permission.value === "marketing_videos_manage" || permission.value === "marketing_configurator_manage")),
+                                  }))}
+                                  checked={permissionChecked}
+                                  onChange={(value) => togglePermission(value as PermissionKey)}
+                                />
+                              </div>
+                            )}
+                            {domainQuickActions.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Hurtige handlinger</p>
+                                <CheckboxGroup
+                                  items={domainQuickActions.map((key) => ({
+                                    value: key,
+                                    label: `${QUICK_ACTION_LABEL[key].da} / ${QUICK_ACTION_LABEL[key].en}`,
+                                  }))}
+                                  checked={selectedQuickActions}
+                                  onChange={(value) => toggleQuickAction(value as QuickActionKey)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {otherModules.length > 0 && (
+                      <div data-access-domain="Øvrige moduler" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Øvrige moduler</p>
+                        {renderModules(otherModules)}
+                      </div>
+                    )}
+                    <div data-access-domain="Academy" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Academy</p>
+                      <div data-academy-access>
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Academy-adgang</p>
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Basic</p>
+                        <CheckboxGroup items={[{ value: 'basic', label: 'Basic – altid inkluderet når Timan Academy er aktiv', disabled: true }]}
+                          checked={effectiveAllowedModules.includes('academy') ? ['basic'] : []} onChange={() => {}} />
+                        <div className="mt-3">
+                          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Academy-spor</p>
+                          <CheckboxGroup
+                            items={ACADEMY_TRACK_PERMISSIONS.map((key) => ({
+                              value: key,
+                              label: accessLabel(key === 'academy_track_sales' ? 'Salg' : 'Teknik & Service', ACADEMY_TRACK_DEFAULTS[key], draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key], typeof draft.perms[key] === 'boolean'),
+                              disabled: !effectiveAllowedModules.includes('academy'),
+                            }))}
+                            checked={ACADEMY_TRACK_PERMISSIONS.filter((key) => draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key])}
+                            onChange={(value) => {
+                              const key = value as typeof ACADEMY_TRACK_PERMISSIONS[number];
+                              setDraft({ ...draft, perms: { ...draft.perms, [key]: !(draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key]) } });
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <AcademyCycleManager user={user} academyEnabled={effectiveAllowedModules.includes('academy')} />
+
+                      {hasRoleOverrides && (
+                        <div data-academy-role-reset className="mt-4 border-t border-slate-200 pt-3">
+                          <button
+                            type="button"
+                            onClick={resetRoleOverrides}
+                            className="text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
+                          >
+                            Nulstil til rolle
+                          </button>
+                          <p className="mt-1 text-[11px] text-slate-500">Nulstiller adgang og Academy-spor til rollens standard. Academy-progressen ændres ikke.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {restricted && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Dealer-side roller har som standard Se priser og Opret ordre. Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
+                    </p>
+                  )}
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
                       Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
@@ -997,79 +1381,6 @@ function EditUserModal({
                 </>
               );
             })()}
-          </Section>
-
-
-          {/* Permissions */}
-          <Section title="Permissions">
-            {(() => {
-              const restricted = isPaymentAndDiscountRestrictedRole(draft.role);
-              const dealerSide = isDealerSideRole(draft.role);
-              const effectivePerms = {
-                ...draft.perms,
-                ...(restricted ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false } : {}),
-                ...(dealerSide ? { can_manage_users: false } : {}),
-              };
-              return (
-                <>
-                  <CheckboxGroup
-                    items={[
-                      { value: "can_view_prices", label: "Se priser / Can view prices" },
-                      { value: "can_submit_order", label: "Opret ordre / Can submit order" },
-                      { value: "can_create_claims", label: "Can create claims" },
-                      { value: "can_approve_claims", label: "Can approve claims" },
-                      { value: "can_create_tsb", label: "Can create TSB" },
-                      { value: "can_manage_users", label: "Can manage users", disabled: editingOwnUser || dealerSide },
-                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
-                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
-                      { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
-                      { value: "marketing_videos_manage", label: "Videoer / Administrér videoer", disabled: dealerSide },
-                      { value: "marketing_configurator_manage", label: "Marketing / Redigér Byg din Timan", disabled: dealerSide },
-                      { value: "news_manage", label: "Administrér nyheder / Manage news" },
-                    ]}
-                    checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
-                      .filter(([, v]) => v)
-                      .map(([k]) => k)}
-                    onChange={(key) => {
-                      if (editingOwnUser && key === "can_manage_users") return;
-                      if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
-                      if (dealerSide && (key === "can_manage_users" || key === "marketing_videos_manage" || key === "marketing_configurator_manage")) return;
-                      setDraft({
-                        ...draft,
-                        perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
-                      });
-                    }}
-                  />
-                  {restricted && (
-                    <p className="mt-2 text-[11px] text-slate-500">
-                      Dealer-side roller har som standard Se priser og Opret ordre. Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
-                    </p>
-                  )}
-                </>
-              );
-            })()}
-          </Section>
-
-
-          {/* Quick actions — portal front-page "Hurtige handlinger" allow-list. */}
-          <Section title="Hurtige handlinger / Quick actions">
-            <p className="text-[11px] text-slate-500 mb-2">
-              Vælg hvilke genvejskort brugeren ser øverst på portal-forsiden.
-              Når intet er valgt manuelt, anvendes standarder for rollen.
-            </p>
-            <CheckboxGroup
-              items={configurableQuickActionsForRole(draft.role).map((k) => ({
-                value: k,
-                label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
-              }))}
-              checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
-              onChange={(key) => {
-                const k = key as QuickActionKey;
-                const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
-                const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
-                setDraft({ ...draft, quick_actions: next });
-              }}
-            />
           </Section>
         </div>
 
@@ -1104,6 +1415,102 @@ function EditUserModal({
   );
 }
 
+function AcademyCycleManager({ user, academyEnabled }: { user: BackendUser; academyEnabled: boolean }) {
+  const { uiLanguage } = useLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
+  const [history, setHistory] = useState<AcademyCycleSnapshot[]>([]);
+  const [cadence, setCadence] = useState<AcademyCadence>('manual');
+  const [customDate, setCustomDate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const next = await getAcademyCycleHistory(user.id);
+    setHistory(next);
+    const latest = next[0]?.cycle;
+    if (latest) {
+      setCadence(latest.cadence);
+      setCustomDate(latest.next_activation_at?.slice(0, 10) ?? '');
+    }
+  };
+
+  useEffect(() => {
+    void refresh().catch((error) => setMessage(error instanceof Error ? error.message : tr('academyAdminLoadError')));
+  }, [user.id]);
+
+  const latest = history[0]?.cycle ?? null;
+  const active = history.find((row) => row.cycle?.status === 'active')?.cycle ?? null;
+  const customIso = cadence === 'custom' && customDate ? new Date(`${customDate}T12:00:00`).toISOString() : null;
+  const run = async (action: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await action();
+      await refresh();
+      setMessage(success);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : tr('academyAdminActionError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div data-academy-lifecycle className="mt-4 border-t border-slate-200 pt-4">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">{tr('academyAdminTitle')}</p>
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-xs text-slate-700">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="font-bold text-slate-900">{active ? tr('academyAdminActiveCycle').replace('{number}', String(active.cycle_number)) : latest ? tr('academyAdminLatestCompleted').replace('{number}', String(latest.cycle_number)) : tr('academyAdminNoCycle')}</p>
+            <p className="mt-1 text-slate-600">{tr('academyAdminLastCompleted')}: {latest?.completed_at ? new Date(latest.completed_at).toLocaleDateString(uiLanguage) : '—'}</p>
+          </div>
+          <span className="rounded-full bg-white px-2 py-1 font-semibold text-emerald-800">{tr('academyAdminCompletedCount').replace('{count}', String(history.filter((row) => row.cycle?.status === 'completed').length))}</span>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Select
+            label={tr('academyAdminCadence')}
+            value={cadence}
+            onChange={(value) => setCadence(value as AcademyCadence)}
+            disabled={!academyEnabled}
+            options={[
+              { value: 'manual', label: tr('academyAdminManual') },
+              { value: 'annual', label: tr('academyAdminAnnual') },
+              { value: 'biennial', label: tr('academyAdminBiennial') },
+              { value: 'custom', label: tr('academyAdminCustomDate') },
+            ]}
+          />
+          {cadence === 'custom' && <Input label={tr('academyAdminNextActivation')} type="date" value={customDate} onChange={setCustomDate} disabled={!academyEnabled} />}
+        </div>
+
+        <p className="mt-2 text-[11px] text-slate-600">{tr('academyAdminNextActivation')}: {latest?.next_activation_at ? new Date(latest.next_activation_at).toLocaleDateString(uiLanguage) : cadence === 'annual' || cadence === 'biennial' ? tr('academyAdminAfterCompletion') : tr('academyAdminNotScheduled')}</p>
+        {!academyEnabled && <p className="mt-2 text-[11px] font-semibold text-amber-700">Aktivér Timan Academy under Allowed Areas for at administrere Academy-forløbet.</p>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={!academyEnabled || busy || !!active || (cadence === 'custom' && !customIso)} onClick={() => void run(() => startAcademyCycle(user.id, cadence, customIso), tr('academyAdminStarted'))} className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminStartCycle')}</button>
+          <button type="button" disabled={!academyEnabled || busy || !latest || (cadence === 'custom' && !customIso)} onClick={() => void run(() => setAcademyCycleCadence(user.id, cadence, customIso), tr('academyAdminScheduled'))} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminSchedule')}</button>
+          <button data-academy-cycle-reset type="button" disabled={!academyEnabled || busy || !active} onClick={() => {
+            if (window.confirm(tr('academyAdminResetConfirm'))) {
+              void run(() => resetAcademyCycle(user.id), tr('academyAdminResetDone'));
+            }
+          }} className="rounded-md border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminReset')}</button>
+        </div>
+
+        {history.length > 0 && <details className="mt-3 rounded-md border border-emerald-100 bg-white p-2">
+          <summary className="cursor-pointer font-semibold text-slate-800">{tr('academyAdminHistory')} ({history.length})</summary>
+          <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+            {history.map((entry) => {
+              if (!entry.cycle) return null;
+              const curriculum = entry.cycle.completed_curriculum ?? getAssignedAcademyCurriculum({ role: 'timan_saelger', portal_role: user.role, allowed_modules: user.allowed_modules, permissions: user.perms });
+              return <li key={entry.cycle.id}>{tr('academyAdminCycle').replace('{number}', String(entry.cycle.cycle_number))}: {entry.cycle.status === 'completed' ? tr('academyStatusDone') : tr('academyStatusActive')} · {entry.completionIds.filter((id) => curriculum.includes(id)).length}/{curriculum.length} {tr('academyAdminTasks')}{entry.awards.length ? ` · ${tr('academyBadges').toLowerCase()}: ${entry.awards.join(', ')}` : ''}</li>;
+            })}
+          </ul>
+        </details>}
+        {message && <p className="mt-3 rounded-md bg-white px-2 py-1.5 text-[11px] text-slate-700">{message}</p>}
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Modal helpers ----------------
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -1117,14 +1524,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
 }
-function Input({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Input({ label, value, onChange, type = 'text', disabled = false }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'date'; disabled?: boolean }) {
   return (
     <label className="block">
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
       <input
+        type={type}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
       />
     </label>
   );

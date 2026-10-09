@@ -5,11 +5,15 @@ import {
   nextActivityToLeadStatus,
   nextActivityToProbability,
   isLeadClosed,
+  isDemoLead,
+  isLostLead,
   isOpenLead,
+  isWonLead,
   normalizeLegacyPipelineStageToNextActivity,
   deriveLegacyPipelineStage,
   NEXT_ACTIVITY_WON,
   NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_NOT_RELEVANT,
 } from '@/lib/leadStatus';
 import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
 import type { CrmLead } from '@/lib/crmLeadsService';
@@ -35,7 +39,8 @@ function lead(partial: Partial<CrmLead>): CrmLead {
 
 describe('next_activity → status mapping', () => {
   it('maps known next_activity values', () => {
-    expect(nextActivityToLeadStatus('Customer requests a demonstration')).toBe('Demo planlagt');
+    expect(nextActivityToLeadStatus('Customer requests a demonstration')).toBe('Ønsker demo');
+    expect(nextActivityToLeadStatus('Demo agreed')).toBe('Demo aftalt');
     expect(nextActivityToLeadStatus('Offer sent to the customer')).toBe('Tilbud sendt');
     expect(nextActivityToLeadStatus('Follow-up on leads')).toBe('Follow-up');
     expect(nextActivityToLeadStatus(NEXT_ACTIVITY_WON)).toBe('Vundet');
@@ -50,7 +55,8 @@ describe('next_activity → status mapping', () => {
 describe('next_activity → probability mapping', () => {
   it('returns expected probabilities', () => {
     expect(nextActivityToProbability('Offer sent to the customer')).toBe(70);
-    expect(nextActivityToProbability('Customer requests a demonstration')).toBe(50);
+    expect(nextActivityToProbability('Customer requests a demonstration')).toBe(40);
+    expect(nextActivityToProbability('Demo agreed')).toBe(50);
     expect(nextActivityToProbability(NEXT_ACTIVITY_WON)).toBe(100);
     expect(nextActivityToProbability(NEXT_ACTIVITY_LOST)).toBe(0);
     expect(nextActivityToProbability(null)).toBe(10);
@@ -89,6 +95,12 @@ describe('Won/Lost close flow values', () => {
     expect(isLeadClosed(na)).toBe(true);
     expect(deriveLegacyPipelineStage(na)).toBe('Lost');
   });
+  it('Not relevant keeps its existing closed-loss semantics', () => {
+    expect(nextActivityToLeadStatus(NEXT_ACTIVITY_NOT_RELEVANT)).toBe('Tabt');
+    expect(nextActivityToProbability(NEXT_ACTIVITY_NOT_RELEVANT)).toBe(0);
+    expect(isLeadClosed(NEXT_ACTIVITY_NOT_RELEVANT)).toBe(true);
+    expect(deriveLegacyPipelineStage(NEXT_ACTIVITY_NOT_RELEVANT)).toBe('Lost');
+  });
 });
 
 describe('lead follow-up urgency', () => {
@@ -112,6 +124,69 @@ describe('active lead exclusion after closed', () => {
   it('not open once closed Won/Lost', () => {
     expect(isOpenLead(lead({ next_activity: NEXT_ACTIVITY_WON }))).toBe(false);
     expect(isOpenLead(lead({ next_activity: NEXT_ACTIVITY_LOST }))).toBe(false);
+  });
+
+  it('keeps G-5166 lost when historical demo metadata is present', () => {
+    const g5166 = lead({
+      lead_no: 5166,
+      status: 'closed',
+      pipeline_stage: 'Lost',
+      probability: 0,
+      next_activity: NEXT_ACTIVITY_LOST,
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(g5166)).toBe('Tabt');
+    expect(effectiveLeadProbability(g5166)).toBe(0);
+    expect(isOpenLead(g5166)).toBe(false);
+    expect(isLostLead(g5166)).toBe(true);
+    expect(isDemoLead(g5166)).toBe(false);
+  });
+
+  it('keeps a closed won demo lead in won instead of open/demo', () => {
+    const wonDemo = lead({
+      status: 'closed',
+      pipeline_stage: 'Won',
+      probability: 100,
+      next_activity: NEXT_ACTIVITY_WON,
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(wonDemo)).toBe('Vundet');
+    expect(isOpenLead(wonDemo)).toBe(false);
+    expect(isWonLead(wonDemo)).toBe(true);
+    expect(isDemoLead(wonDemo)).toBe(false);
+  });
+
+  it('lets canonical closed status outrank stale active demo activity', () => {
+    const staleDemo = lead({
+      status: 'closed',
+      pipeline_stage: 'Lost',
+      next_activity: 'Demonstration scheduled',
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(staleDemo)).toBe('Tabt');
+    expect(isOpenLead(staleDemo)).toBe(false);
+  });
+
+  it('recognizes verified Danish closure aliases even with demo history', () => {
+    expect(effectiveLeadStatus(lead({ next_activity: 'Lukket uden ordre', demo_has_run: 'yes' }))).toBe('Tabt');
+    expect(effectiveLeadStatus(lead({ next_activity: 'Lukket med ordre', demo_has_run: 'yes' }))).toBe('Vundet');
+  });
+
+  it('preserves modern open demo semantics', () => {
+    const modernDemo = lead({
+      lead_no: 1200,
+      status: 'open',
+      pipeline_stage: 'Qualified',
+      next_activity: 'Demonstration scheduled',
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(modernDemo)).toBe('Demo afholdt');
+    expect(isOpenLead(modernDemo)).toBe(true);
+    expect(isDemoLead(modernDemo)).toBe(true);
   });
 });
 

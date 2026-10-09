@@ -20,17 +20,21 @@ export function parsePipelineNumber(value: unknown): number {
 }
 
 export function getLeadPipelineValue(
-  lead: Pick<CrmLead, "estimated_value" | "machine_types">,
+  lead: Pick<CrmLead, "estimated_value" | "machine_types" | "machine_interest_items">,
 ): number {
   const savedValue = parsePipelineNumber(lead.estimated_value);
   if (savedValue > 0) return Math.round(savedValue);
 
-  const machineEstimate = calculateMachineInterestEstimate(lead.machine_types, "da").total;
+  const machineEstimate = calculateMachineInterestEstimate(
+    lead.machine_types,
+    "da",
+    lead.machine_interest_items,
+  ).total;
   return machineEstimate > 0 ? machineEstimate : 0;
 }
 
 export function getLeadPipelineValueSnapshot(
-  lead: Pick<CrmLead, "estimated_value" | "machine_types">,
+  lead: Pick<CrmLead, "estimated_value" | "machine_types" | "machine_interest_items">,
 ): { value: number; reason: LeadPipelineValueReason; updatedAt: string } {
   const savedValue = parsePipelineNumber(lead.estimated_value);
   if (savedValue > 0) {
@@ -41,7 +45,11 @@ export function getLeadPipelineValueSnapshot(
     };
   }
 
-  const machineEstimate = calculateMachineInterestEstimate(lead.machine_types, "da").total;
+  const machineEstimate = calculateMachineInterestEstimate(
+    lead.machine_types,
+    "da",
+    lead.machine_interest_items,
+  ).total;
   if (machineEstimate > 0) {
     return {
       value: machineEstimate,

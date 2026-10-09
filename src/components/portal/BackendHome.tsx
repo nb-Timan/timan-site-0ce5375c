@@ -7,9 +7,21 @@
  */
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { backendSections } from "@/lib/backendNavigation";
+import { getSupportAdminCopy } from "@/lib/i18n/supportAdminTranslations";
+import { canAccessSupport } from "@/lib/supportAccess";
+import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 
 export default function BackendHome() {
+  const { appUser } = useAppUser();
+  const { uiLanguage } = useLanguage();
+  const { effectiveUser } = useEffectivePortalUserState(appUser);
+  const supportCopy = getSupportAdminCopy(uiLanguage);
+  const visibleSections = backendSections.filter((section) =>
+    section.id !== "ai-support" || canAccessSupport(effectiveUser)
+  );
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
@@ -27,8 +39,10 @@ export default function BackendHome() {
           <p className="mt-1 text-sm text-slate-600">Åbn et område for at se de relevante eksisterende funktioner.</p>
         </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {backendSections.map((section) => {
+          {visibleSections.map((section) => {
             const Icon = section.icon;
+            const title = section.id === "ai-support" ? supportCopy.title : section.title;
+            const description = section.id === "ai-support" ? supportCopy.subtitle : section.description;
             return (
               <Link
                 key={section.id}
@@ -38,8 +52,8 @@ export default function BackendHome() {
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
                   <Icon className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-black text-slate-950">{section.title}</h3>
-                <p className="mt-2 min-h-[44px] text-sm leading-6 text-slate-600">{section.description}</p>
+                <h3 className="text-xl font-black text-slate-950">{title}</h3>
+                <p className="mt-2 min-h-[44px] text-sm leading-6 text-slate-600">{description}</p>
                 <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-emerald-700">
                   Åbn område <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                 </div>

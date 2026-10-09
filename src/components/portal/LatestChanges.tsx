@@ -16,6 +16,8 @@ import { portalLanguageLookupOrder } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 
 const AREA_ROUTE: Record<PortalAreaId, string> = {
+  planning: '/portal/planning',
+  loans: '/portal/loans',
   teknik_service: '/portal/teknik-service',
   salg_marketing: '/portal/salg-marketing',
   marketing: '/portal/salg-marketing',
@@ -91,7 +93,7 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                       {title}
                     </span>
                     {description && (
-                      <span className={cn('mt-0.5 line-clamp-2 block text-xs leading-snug', read ? 'text-gray-400' : 'text-gray-600')}>
+                      <span className={cn('mt-0.5 line-clamp-5 block whitespace-pre-line text-xs leading-snug', read ? 'text-gray-400' : 'text-gray-600')}>
                         {description}
                       </span>
                     )}

@@ -1,0 +1,42 @@
+import {readFile,writeFile,copyFile,mkdir} from 'node:fs/promises';
+import path from 'node:path';
+
+const source=path.resolve('output/tutorial-v4');
+const root=path.resolve('output/tutorial-v4-6');
+const rec=JSON.parse(await readFile(path.join(source,'raw/record-events.json'),'utf8'));
+const gate=JSON.parse(await readFile(path.join(source,'configuration-gate/verification.json'),'utf8'));
+if(rec.failure||Object.values(rec.assertions).some(v=>v!=='PASS'))throw Error('V4 recording validation failed');
+if(!JSON.stringify(gate).includes('PASS'))throw Error('Configuration gate is incomplete');
+const holdPoints=[{sourceSecond:54.2,seconds:1.0,reason:'720599 quantity 2 visible'},{sourceSecond:54.83,seconds:.6,reason:'730020 visible after cut'}];
+const retime=second=>second+holdPoints.reduce((sum,h)=>sum+(second>h.sourceSecond?h.seconds:0),0);
+const events=rec.events, find=n=>events.find(e=>e.name===n), rawAt=n=>find(n)?.seconds, at=n=>retime(rawAt(n));
+const start=at('tutorial-start'), duration=at('recording-end')-start, t=n=>at(n)-start;
+const sourceScale=1080/1152;
+const horizontal={x:525,width:860,scale:1072/860,margin:4};
+const phaseSpec=[['tutorial-start','01','Salg → Configurator'],['machine-start','02','Vælg Timan 3330'],['quantity-start','03','RC-751 aktiverer mængderabat'],['removal-start','04','Fjern RC-751 igen'],['delivery-start','05','Vælg levering over 3 måneder'],['equipment-start','06','Konfigurér Timan 3330'],['centerslange-start','07','Tilføj centerslange 721122'],['assignment-start','08','Vælg Timan-sælger EM'],['dealer-start','09','Vælg AB Lauridsen'],['contact-dropdown-open','10','Vælg Lucas Skovrød · Sælger'],['email-start','11','Indtast modtagerens e-mail'],['order-start','12','Skift Tilbud → Ordre'],['confirmation-start','13','Kontrollér ordrebekræftelsen'],['safety-stop','14','Afsend ordre — når den er kontrolleret']];
+const phases=phaseSpec.map((p,i)=>({name:p[0],number:p[1],text:p[2],start:t(p[0]),end:i+1<phaseSpec.length?t(phaseSpec[i+1][0]):duration}));
+const captions=[{start:t('quantity-highlight')+.6,duration:2.3,text:'Mængderabat aktiveres automatisk'},{start:t('delivery-highlight')+.5,duration:2.7,text:'Leveringsrabat ved levering over 3 måneder'},{start:t('centerslange-open'),duration:3,text:'Læs begge valg. Vælg “Tilføj 721122”.'},{start:t('confirmation-start'),duration:5,text:'Kontrollér kunde, levering, udstyr, antal og priser'},{start:t('safety-stop'),duration:duration-t('safety-stop'),text:'Tutorialen stopper her uden at sende testordren'}];
+const esc=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const moves=[];
+const highlight=(name,from,to)=>{const b=find(name).box;return {from,to,x:b.x*sourceScale-7,y:b.y*sourceScale-6,width:b.width*sourceScale+14,height:b.height*sourceScale+12};};
+const highlights=[highlight('quantity-highlight',t('quantity-highlight')+.25,t('removal-start')-.35),highlight('delivery-highlight',t('delivery-highlight')+.15,t('equipment-start')-.5)];
+for(const mobile of [true]){
+ const dir=path.join(root,'hyperframes-mobile');
+ await mkdir(path.join(dir,'assets'),{recursive:true});
+ await copyFile(path.resolve('output/tutorial-v4-6/v4-6-spliced-source.mp4'),path.join(dir,'assets/capture.mp4'));
+ for(const f of ['gsap.min.js','arial.ttf'])await copyFile(path.join(source,'hyperframes-mobile/assets',f),path.join(dir,'assets',f));
+ for(const f of ['package.json','hyperframes.json'])await copyFile(path.join(source,'hyperframes-mobile',f),path.join(dir,f));
+ const W=1080,H=1920,id='timan-v4-6-mobile';
+ const video=`<video id="portal-video" class="clip" src="assets/capture.mp4" data-start="0" data-duration="${duration}" data-media-start="${start}" data-track-index="0" playsinline muted style="width:1920px;height:1500px" data-layout-allow-overflow></video>`;
+ const chapters=phases.map((p,i)=>`<div id="phase-${i}" class="clip chapter" data-start="${p.start}" data-duration="${p.end-p.start}" data-track-index="4"><div class="chapter-inner"><span class="num">${p.number}</span><span>${esc(p.text)}</span></div></div>`).join('');
+ const captionHTML=captions.map((c,i)=>`<div id="caption-${i}" class="clip caption" data-start="${c.start}" data-duration="${c.duration}" data-track-index="5"><div class="caption-inner">${esc(c.text)}${c.secondary?`<p>${esc(c.secondary)}</p>`:''}</div></div>`).join('');
+ const red=highlights.map((h,i)=>`<div id="highlight-${i}" class="red-highlight" style="left:${h.x}px;top:${h.y}px;width:${h.width}px;height:${h.height}px"></div>`).join('');
+ const css=`@font-face{font-family:TutorialArial;src:url('assets/arial.ttf')}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f0f5f2;font-family:TutorialArial,sans-serif}#root{position:relative;width:100%;height:100%;overflow:hidden;background:#f0f5f2}#portal-camera{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:visible}video{display:block;position:absolute;inset:0;object-fit:fill}.red-highlight{position:absolute;border:2px solid #e33137;border-radius:4px;box-shadow:0 0 0 2px #fff8;z-index:2;visibility:hidden;opacity:0;pointer-events:none}.chapter{position:absolute;top:${mobile?22:25}px;left:${mobile?20:25}px;width:${mobile?1040:490}px;z-index:20}.chapter-inner{display:flex;gap:12px;align-items:center;background:#123f2c;color:#fff;border-radius:10px;padding:${mobile?13:12}px;font-size:${mobile?28:25}px;line-height:1.1;min-height:${mobile?68:60}px;box-shadow:0 2px 10px #0002}.num{display:flex;align-items:center;justify-content:center;background:#fff;color:#123f2c;font-weight:bold;flex:0 0 38px;height:38px;border-radius:50%;font-size:20px}.caption{position:absolute;left:${mobile?20:25}px;bottom:${mobile?25:25}px;width:${mobile?1040:630}px;z-index:21}.caption-inner{background:#effaf3;color:#143c29;border:1px solid #9cccb2;border-radius:10px;padding:${mobile?16:14}px;font-size:${mobile?29:23}px;line-height:1.18;box-shadow:0 2px 9px #0002}.caption-inner p{font-size:${mobile?23:19}px;margin:8px 0 0}`;
+ const finalCalloutCss='#caption-4{left:128px;top:1405px;bottom:auto;width:820px}';
+ const initial=mobile?{x:4-horizontal.x*horizontal.scale,y:100,scale:horizontal.scale}:{x:0,y:0,scale:1};
+ const html=`<!doctype html><html lang="da"><head><meta charset="utf-8"><script src="assets/gsap.min.js"></script><style>${css}${finalCalloutCss}</style></head><body><div id="root" data-composition-id="${id}" data-width="${W}" data-height="${H}" data-duration="${duration}"><div id="portal-camera" data-layout-allow-overflow>${video}${red}</div>${chapters}${captionHTML}</div><script>const tl=gsap.timeline({paused:true});tl.set('#portal-camera',${JSON.stringify(initial)},0);${highlights.map((h,i)=>`tl.set('#highlight-${i}',{autoAlpha:1},${h.from});tl.set('#highlight-${i}',{autoAlpha:0},${h.to});`).join('')}${phases.map((p,i)=>`tl.fromTo('#phase-${i} .chapter-inner',{opacity:0},{opacity:1,duration:.18},${p.start});`).join('')}${captions.map((c,i)=>`tl.fromTo('#caption-${i} .caption-inner',{opacity:0},{opacity:1,duration:.18},${c.start});`).join('')}window.__timelines=window.__timelines||{};window.__timelines['${id}']=tl;</script></body></html>`;
+ await writeFile(path.join(dir,'index.html'),html);
+ await writeFile(path.join(dir,'v4-6-timeline.json'),JSON.stringify({source:'../tutorial-v4/raw/configure-3330-v4-external-raw.mp4',retimedVideo:'../v4-6-spliced-source.mp4',replacement:'../machine-transition-splice-v4-6.mp4',replacementSourceFrames:{start:481,endExclusive:529,count:48,duration:1.6},holdPoints,sourceStart:start,duration,videoLayers:1,canonicalHorizontalFrame:horizontal,globalPortalTransform:initial,horizontalCameraMovement:false,phases,captions,moves,highlights,product720485:{portalLabel:'Ekstra børste for sidekost poly/stål',quantity:0,selected:false}},null,2));
+ console.log(id,duration.toFixed(3),mobile?`${moves.length} vertical moves`:'natural desktop view');
+}

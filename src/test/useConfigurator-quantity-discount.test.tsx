@@ -31,6 +31,38 @@ function stateWith(machineConfigs: MachineConfig[]): ConfiguratorState {
 }
 
 describe('live basket stk. rabat eligibility', () => {
+  it('adds and removes the wiring harness through the normal WB-170 and work-light dependency', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+    ])));
+
+    act(() => result.current.toggleAcc('730600'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['730600']);
+
+    act(() => result.current.toggleAcc('412594'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['730600', '412594', '412614']);
+
+    act(() => result.current.toggleAcc('730600'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['412594']);
+  });
+
+  it('does not add the wiring harness when only one dependency is selected', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+    ])));
+
+    act(() => result.current.toggleAcc('412594'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['412594']);
+
+    act(() => result.current.toggleAcc('412594'));
+    act(() => result.current.toggleAcc('730600'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['730600']);
+  });
+
   it('removes an already-selected accessory from an individual unit', () => {
     const { result } = renderHook(() => useConfigurator());
 
@@ -82,5 +114,30 @@ describe('live basket stk. rabat eligibility', () => {
     expect(result.current.calcResult?.discountDetails.some(d => d.txt.includes('Stk. rabat'))).toBe(false);
     expect(result.current.calcResult?.totalDiscount).toBe(43900);
     expect(result.current.calcResult?.currentPrice).toBe(131700);
+  });
+
+  it('adds the canonical quantity-discount line for RC-1000S plus RC-751', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+      { id: 'm1', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] },
+    ])));
+
+    expect(result.current.calcResult?.discountDetails.some((discount) => discount.varenr === '795043' && discount.amount > 0)).toBe(true);
+  });
+
+  it('does not add the canonical quantity-discount line for demo machines', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => ({
+      ...stateWith([
+        { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+        { id: 'm1', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] },
+      ]),
+      demoMachines: { '411000_1': true, '410040_2': true },
+    })));
+
+    expect(result.current.calcResult?.discountDetails.some((discount) => discount.varenr === '795043')).toBe(false);
   });
 });

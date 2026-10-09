@@ -1,0 +1,210 @@
+{
+  "name": "TIMAN Portal — Order Email",
+  "nodes": [
+    {
+      "id": "6cc88e38-1fad-489a-ba29-34568a0e00a1",
+      "name": "Portal Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "timan-portal-order-email",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "1ccda700-702e-429c-851c-213cbcd1704d",
+      "name": "Build Order Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -250,
+        200
+      ],
+      "parameters": {
+        "jsCode": "\nconst p = $input.first().json.body ?? $input.first().json;\nconst kind = \"order\";\nconst text = (v) => String(v ?? '').trim();\nconst escape = (v) => text(v).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst address = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (kind === 'order' && (p.mail_variant !== 'customer_order_confirmation' || p.document_type !== 'Ordre')) throw new Error('Expected customer order payload');\nif (kind === 'quote' && (p.document_type !== 'Tilbud' || p.mail_variant === 'internal_c5_nav')) throw new Error('Expected quote payload');\nconst recipients = [...new Set((Array.isArray(p.recipients) ? p.recipients : []).map(v => text(v).toLowerCase()).filter(Boolean))];\nif (!recipients.length || recipients.some(v => !address.test(v))) throw new Error('Valid Portal recipients required');\nconst submitter = text(p.email_udfylder);\nconst selectedRecipient = text(p.email_modtager);\nconst selectedRecipients = [...new Set(selectedRecipient.split(/[,;\\s]+/).map(v => text(v).toLowerCase()).filter(Boolean))];\nif (!selectedRecipients.length || selectedRecipients.some(v => !address.test(v))) throw new Error('Valid selected recipient required');\nif (recipients.length !== selectedRecipients.length || recipients.some(v => !selectedRecipients.includes(v))) {\n  throw new Error('Portal recipients must exactly match selected recipient(s)');\n}\nconst ref = text(kind === 'quote' ? p.quote_number : p.order_number);\nif (!ref) throw new Error('Document number required');\nconst filename = text(p.pdf_filename);\nif (!/^Timan_.+\\.pdf$/i.test(filename) || !filename.includes(ref)) throw new Error('Expected canonical Portal PDF filename');\nconst pdf = text(p.pdf_base64).replace(/^data:application\\/pdf;base64,/i, '');\nif (!pdf.startsWith('JVBERi0') || !/^[A-Za-z0-9+/]+={0,2}$/.test(pdf)) throw new Error('Valid PDF base64 required');\nconst pdfBytes = Buffer.from(pdf, 'base64');\nif (pdfBytes.length < 1000 || !pdfBytes.subarray(0, 8).toString('latin1').startsWith('%PDF-')) throw new Error('Canonical Portal PDF required');\nconst searchablePdf = pdfBytes.toString('latin1');\nif (searchablePdf.includes('Timan internal QA only') || searchablePdf.includes('QA placeholder')) throw new Error('Placeholder PDF rejected');\nif (p.pdf_mime_type && p.pdf_mime_type !== 'application/pdf') throw new Error('PDF MIME type mismatch');\nconst idempotencyKey = text(p.idempotency_key) || [kind, ref, text(p.revision_number), recipients.join(',')].join('|');\nconst sent = $getWorkflowStaticData('global').sent ?? {};\nconst alreadySent = Boolean(sent[idempotencyKey]);\nconst previousQuote = kind === 'order'\n  ? [p.source_quote_number, p.quote_number].map(text).find(v => /^T-\\d+$/.test(v)) || ''\n  : '';\nconst rows = [\n  ...(kind === 'quote' ? [['Tilbudsnr.', ref]] : previousQuote ? [['Tilbudsnr.', previousQuote]] : []),\n  ...(kind === 'order' ? [['Ordrenr.', ref]] : []),\n  ['Dokumenttype', kind === 'quote' ? 'Tilbud' : 'Ordre'],\n  ['Firma', p.firma],\n  ['Kontaktperson', p.kontaktperson],\n  ['Telefon', p.telefon],\n  ['E-mail udfylder', submitter],\n  ['E-mail modtager', selectedRecipient],\n  ...(text(p.purchase_order_number) ? [['Indkøbsordre / PO', p.purchase_order_number]] : []),\n  ['Kommentar', p.kommentar],\n];\nconst heading = kind === 'quote' ? 'Tilbud fra Timan' : 'Tak for ordren';\nconst intro = kind === 'quote'\n  ? 'Hermed fremsendes tilbuddet fra Timan konfiguratoren.'\n  : 'Vi behandler den hurtigst muligt og vender tilbage med en ordrebekræftelse.';\nconst html = '<h2>' + heading + '</h2>\\n\\n<p>' + intro + '</p>\\n\\n<hr>\\n\\n' +\n  rows.map(([label,value]) => '<p><b>' + escape(label) + ':</b> ' + escape(value) + '</p>').join('\\n') +\n  '\\n\\n<br>\\n\\n<p>Venlig hilsen<br>Timan</p>';\nconst fallbackSubject = (kind === 'quote' ? 'Nyt tilbud' : 'Ny ordre') +\n  ' fra Timan konfigurator' + (text(p.firma) ? ' - ' + text(p.firma) : '');\nconst subject = text(p.subject) || fallbackSubject;\nreturn [{json:{to:recipients.join(','),bcc:'sales@timan.dk',subject,html,filename,idempotencyKey,alreadySent,send_required:alreadySent?'no':'yes',document_number:ref},\n  binary:{pdf:{data:pdf,mimeType:'application/pdf',fileName:filename}}}];\n"
+      }
+    },
+    {
+      "id": "821b65a7-de9e-4545-aa7b-bf43cce1857f",
+      "name": "Only Unsent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "581a217a-3e1d-4776-8e2a-c17bd0b2125e",
+              "leftValue": "={{ $json.send_required }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "65d4621a-7a69-4c2d-9fc9-bc6d0159b100",
+      "name": "Send PDF via Outlook",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        250,
+        100
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toRecipients": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "bodyContent": "={{ $json.html }}",
+        "additionalFields": {
+          "bodyContentType": "html",
+          "bccRecipients": "={{ $json.bcc }}",
+          "from": "noreply@timan.dk",
+          "attachments": {
+            "attachments": [
+              {
+                "binaryPropertyName": "pdf"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "873bcc91-eb3f-41a8-a2c3-56a91b22fd3e",
+      "name": "Mark Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const mail = $('Build Order Email').first().json; const state = $getWorkflowStaticData('global'); state.sent ??= {}; state.sent[mail.idempotencyKey] = new Date().toISOString(); return [{json:{ok:true,document_number:mail.document_number,filename:mail.filename,already_sent:false}}];"
+      }
+    },
+    {
+      "id": "b5f263c4-40a8-4078-99db-ffcf5fac3129",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        750,
+        100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a762e550-1f83-49e3-bb8f-d7378867f4d7",
+      "name": "Duplicate Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        250,
+        350
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok:true, already_sent:true, document_number:$json.document_number } }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Portal Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Order Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order Email": {
+      "main": [
+        [
+          {
+            "node": "Only Unsent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Unsent": {
+      "main": [
+        [
+          {
+            "node": "Send PDF via Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send PDF via Outlook": {
+      "main": [
+        [
+          {
+            "node": "Mark Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Sent": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

@@ -140,7 +140,6 @@ begin
   return v_registration;
 end;
 $$;
-
 revoke all on function public.create_scoped_portal_warranty_registration(jsonb) from public;
 revoke execute on function public.create_scoped_portal_warranty_registration(jsonb) from anon;
 grant execute on function public.create_scoped_portal_warranty_registration(jsonb) to authenticated;

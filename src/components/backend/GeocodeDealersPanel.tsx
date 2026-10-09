@@ -20,6 +20,7 @@ interface Summary {
   geocoded: number;
   skipped: number;
   failed: number;
+  busy?: boolean;
   errors?: GeocodeError[];
 }
 
@@ -48,6 +49,7 @@ export default function GeocodeDealersPanel({ onCompleted }: { onCompleted?: () 
 
       if (fnErr) throw new Error(fnErr.message);
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      if ((data as Summary)?.busy) throw new Error("Geokodning kører allerede i en anden jobkø. Prøv igen om et øjeblik.");
       setResult(data as Summary);
       onCompleted?.();
     } catch (e) {

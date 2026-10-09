@@ -16,9 +16,17 @@ import {
   PRODUCTS,
   getAccessoriesFlat,
   getLocalizedName,
-  getPrice,
+  getPriceForCurrency,
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNettoSku, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
+import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { hasMachineDeliveryOverride, machineDeliveryDate, lineDeliveryDates, resolveDeliveryDestination, type ConfiguratorDeliveryDestination } from '@/lib/configuratorDelivery';
+import {
+  TIMAN_COMPANY_PROFILE,
+  type TimanCompanyProfile,
+} from '../../supabase/functions/_shared/timanCompanyProfile';
 
 export interface SummaryAccessoryLine {
   id: string;
@@ -29,6 +37,8 @@ export interface SummaryAccessoryLine {
   total: number;
   is_ral_color?: boolean;
   ral_code?: string;
+  is_netto?: boolean;
+  delivery_dates?: string[];
 }
 
 export interface SummaryMachineUnit {
@@ -36,6 +46,9 @@ export interface SummaryMachineUnit {
   config_key: string;
   is_demo: boolean;
   req_number: string | null;
+  delivery_date: string | null;
+  delivery_date_overridden: boolean;
+  delivery_address: ConfiguratorDeliveryDestination;
   accessories: SummaryAccessoryLine[];
   unit_total: number;
 }
@@ -53,22 +66,39 @@ export interface SummaryMachineGroup {
 }
 
 export interface QuoteContentSummary {
+  issuer: TimanCompanyProfile;
   language: Language;
-  currency: 'DKK' | 'EUR';
+  currency: 'DKK' | 'EUR' | 'SEK';
   flow_type: 'quote' | 'order';
+  payment_terms: string;
+  /** Customer reference from the persisted Configurator state. */
+  purchase_order_number: string | null;
+  customer: {
+    company: string;
+    contact_person: string;
+    phone: string;
+    address: string;
+    postal_code: string;
+    city: string;
+    country: string;
+  };
   delivery: {
     method: string;
     date: string | null;
     startup_option: string | null;
+    address_source: 'customer' | 'alternative' | 'dealer';
+    address: string;
+    postal_code: string;
+    city: string;
+    country: string;
+    contact_person: string;
+    phone: string;
+    note: string;
   };
   machines: SummaryMachineGroup[];
   totals: {
     subtotal: number;
   };
-}
-
-function isEurLanguage(lang: Language): boolean {
-  return lang === 'en' || lang === 'de' || lang === 'it' || lang === 'hu';
 }
 
 function getRalCodeFor(state: ConfiguratorState, configKey: string, accId: string): string | undefined {
@@ -82,7 +112,8 @@ function getRalCodeFor(state: ConfiguratorState, configKey: string, accId: strin
 
 export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContentSummary {
   const lang = state.language;
-  const currency: 'DKK' | 'EUR' = isEurLanguage(lang) ? 'EUR' : 'DKK';
+  const currency = configuratorCurrency(state);
+  const destination = resolveDeliveryDestination(state);
 
   const machines: SummaryMachineGroup[] = [];
   let subtotal = 0;
@@ -93,8 +124,8 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     if (!product) continue;
 
     const isShared = mc.configMode === 'shared';
-    const modelName = getLocalizedName(product.name, lang);
-    const unitPrice = getPrice(product, lang);
+    const modelName = snapshotProductName(state, product.varenr, getLocalizedName(product.name, lang));
+    const unitPrice = snapshotMachinePrice(state, mc.type, getPriceForCurrency(product, currency));
     const flatAccs = getAccessoriesFlat(mc.type);
 
     const units: SummaryMachineUnit[] = [];
@@ -122,16 +153,18 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
 
       const accessoryLines: SummaryAccessoryLine[] = [...selectedAccs, ...qtyOnlyAccs].map(a => {
         const qty = state.accQty?.[`${configKey}_${a.id}`] || 1;
-        const accUnitPrice = getPrice(a, lang);
+        const accUnitPrice = snapshotAccessoryPrice(state, mc.type, a, getPriceForCurrency(a, currency));
         const total = accUnitPrice * qty;
         const ral = a.isRAL ? getRalCodeFor(state, configKey, a.id) : undefined;
         return {
           id: a.id,
           varenr: a.varenr,
-          name: getLocalizedName(a.name, lang),
+          name: snapshotProductName(state, a.varenr, getLocalizedName(a.name, lang)),
           qty,
           unit_price: accUnitPrice,
           total,
+          delivery_dates: lineDeliveryDates(state, runningUnitNumber, a.varenr),
+          ...((!hasFrozenConfiguratorPricing(state) || state.pricingSnapshot?.nettoPricingVersion === 1) && isConfiguratorNettoSku(a.varenr) ? { is_netto: true } : {}),
           is_ral_color: a.isRAL || undefined,
           ral_code: ral,
         };
@@ -150,6 +183,9 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
         config_key: configKey,
         is_demo: !!state.demoMachines?.[demoKey],
         req_number: reqNumber && reqNumber.trim() ? reqNumber : null,
+        delivery_date: machineDeliveryDate(state, runningUnitNumber) || null,
+        delivery_date_overridden: hasMachineDeliveryOverride(state, runningUnitNumber),
+        delivery_address: resolveDeliveryDestination(state, runningUnitNumber),
         accessories: accessoryLines,
         unit_total: unitTotal,
       });
@@ -171,13 +207,35 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
   }
 
   return {
+    issuer: { ...TIMAN_COMPANY_PROFILE },
     language: lang,
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',
+    payment_terms: getPaymentTermsDocumentValue(state.paymentTerms),
+    // The order-level label is derived from the frozen machine references.
+    // Legacy snapshots without them retain their original global fallback.
+    purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,
+    customer: {
+      company: state.firmanavn || '',
+      contact_person: state.kontaktperson || '',
+      phone: state.telefon || '',
+      address: state.address || '',
+      postal_code: state.postalCode || '',
+      city: state.city || '',
+      country: state.country || '',
+    },
     delivery: {
       method: state.deliveryMethod || '',
       date: state.date || null,
       startup_option: state.deliveryDeliverStartup ?? null,
+      address_source: destination.source,
+      address: destination.address,
+      postal_code: destination.postalCode,
+      city: destination.city,
+      country: destination.country,
+      contact_person: destination.contactPerson,
+      phone: destination.phone,
+      note: destination.note,
     },
     machines,
     totals: {

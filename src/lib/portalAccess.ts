@@ -13,6 +13,7 @@
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
 import { canSwitchMode, getActiveRolePreview, getActiveUserView } from '@/lib/activeMode';
+import { PORTAL_ROLE_DEFAULT_MODULE_ACCESS } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 // ---------- Portal roles (internal English keys) ----------
 export type PortalRole =
@@ -42,6 +43,17 @@ export const PORTAL_ROLES: PortalRole[] = [
   'pending',
 ];
 
+/** Canonical employee roles. External partner roles must never be added here. */
+export const INTERNAL_TIMAN_PORTAL_ROLES: ReadonlySet<PortalRole> = new Set([
+  'timan_backend',
+  'timan_seller',
+  'timan_service',
+]);
+
+export function isInternalTimanPortalRole(role: PortalRole | null | undefined): boolean {
+  return Boolean(role && INTERNAL_TIMAN_PORTAL_ROLES.has(role));
+}
+
 // Danish business UI labels
 export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = {
   timan_backend:         { da: 'Timan Backend',         en: 'Timan Backend',         de: 'Timan Backend',         it: 'Timan Backend',         hu: 'Timan Backend' },
@@ -59,8 +71,11 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
 
 // ---------- Module access keys ----------
 export type ModuleAccessKey =
+  | 'planning'
+  | 'loans'
   | 'teknik_service'
   | 'salg_marketing'
+  | 'calendar'
   | 'marketing'
   | 'timan_backend'
   | 'timan_crm'
@@ -83,6 +98,8 @@ export type ModuleAccessKey =
   | 'academy';
 
 export type PortalAreaAccessKey =
+  | 'planning'
+  | 'loans'
   | 'teknik_service'
   | 'salg_marketing'
   | 'calendar'
@@ -91,6 +108,30 @@ export type PortalAreaAccessKey =
   | 'timan_backend'
   | 'dealer_data'
   | 'projects';
+
+export type PortalTopLevelAreaId =
+  | Exclude<PortalAreaAccessKey, 'projects'>
+  | 'messe'
+  | 'academy';
+
+export type PortalTopLevelAccessDefinition =
+  | { id: Exclude<PortalAreaAccessKey, 'projects'>; source: 'area'; key: Exclude<PortalAreaAccessKey, 'projects'> }
+  | { id: 'messe' | 'academy'; source: 'module'; key: 'messe_portal' | 'academy' };
+
+/** Shared top-level navigation/access model used by the portal and user editor. */
+export const PORTAL_TOP_LEVEL_ACCESS: readonly PortalTopLevelAccessDefinition[] = [
+  { id: 'salg_marketing', source: 'area', key: 'salg_marketing' },
+  { id: 'planning', source: 'area', key: 'planning' },
+  { id: 'loans', source: 'area', key: 'loans' },
+  { id: 'marketing', source: 'area', key: 'marketing' },
+  { id: 'teknik_service', source: 'area', key: 'teknik_service' },
+  { id: 'dealer_data', source: 'area', key: 'dealer_data' },
+  { id: 'timan_crm', source: 'area', key: 'timan_crm' },
+  { id: 'calendar', source: 'area', key: 'calendar' },
+  { id: 'messe', source: 'module', key: 'messe_portal' },
+  { id: 'academy', source: 'module', key: 'academy' },
+  { id: 'timan_backend', source: 'area', key: 'timan_backend' },
+] as const;
 
 export type PortalAccessUser = (
   Pick<AppUser, 'role' | 'partner_type'> & {
@@ -101,64 +142,24 @@ export type PortalAccessUser = (
     allowed_modules?: string[] | null;
     permissions?: Record<string, boolean> | null;
     portal_variant?: string | null;
+    dealer_number?: string | null;
+    approved?: boolean;
+    is_active?: boolean;
   }
 );
 
+export function canReadConfiguratorPlanningAvailability(
+  user: PortalAccessUser | null | undefined,
+): boolean {
+  if (!user || user.approved !== true || user.is_active !== true) return false;
+  const role = derivePortalRole(user);
+  const dealerNumber = String(user.dealer_number ?? '').trim();
+  return isInternalTimanPortalRole(role) || dealerNumber === '100';
+}
+
 
 // ---------- Default per-role module access ----------
-export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
-  timan_backend: [
-    'teknik_service', 'salg_marketing', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
-    'projects',
-    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
-  ],
-  timan_seller: [
-    'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
-    'projects',
-    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  timan_service: [
-    'teknik_service', 'dealer_data',
-    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'messe_portal', 'videos',
-  ],
-  timan_importer: [
-    'teknik_service', 'salg_marketing', 'dealer_data',
-    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  timan_dealer: [
-    'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
-    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-    'messe_portal',
-  ],
-  timan_service_partner: [
-    'teknik_service', 'salg_marketing', 'dealer_data',
-    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  dealer_customer: [
-    'salg_marketing', 'dealer_data',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  // Read-only / visual access only.
-  // Dealer User is intentionally restricted to Salg & Marketing.
-  // Forhandlerdata is granted only when admins set `allowed_areas` explicitly.
-  // Teknik & Service, CRM and Timan Backend are NEVER granted.
-  dealer_user: [
-    'messe_portal', 'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
-  ],
-  // Private / end user — same light product experience as the Messe portal.
-  private_end_user: ['messe_portal'],
-  // Messe — locked to the Messe layout with product/demo access only.
-  exhibition_user: ['messe_portal', 'byg_din_timan', 'resources', 'videos'],
-  // Awaiting admin approval — no module access until approved.
-  pending: [],
-
-};
+export const DEFAULT_MODULE_ACCESS = PORTAL_ROLE_DEFAULT_MODULE_ACCESS as Record<PortalRole, ModuleAccessKey[]>;
 
 // ---------- Action permissions per role ----------
 export interface PortalPermissions {
@@ -220,9 +221,9 @@ export function canManageNewsContent(
 ): boolean {
   if (!user) return false;
   const role = derivePortalRole(user);
-  if (role && getPortalPermissions(role).canManageNews) return true;
-  if (Array.isArray(user.allowed_areas)) return user.allowed_areas.includes('marketing');
-  return user.permissions?.news_manage === true;
+  if (role === 'timan_backend') return true;
+  if (role !== 'timan_seller' && role !== 'timan_service') return false;
+  return user.permissions?.news_manage === true || user.allowed_areas?.includes('marketing') === true;
 }
 
 export function canManageMarketingVideos(
@@ -238,18 +239,14 @@ export function canManageMarketingVideos(
   return user.permissions?.news_manage === true;
 }
 
-/**
- * Marketing's product editor is deliberately more restrictive than simply
- * seeing the Marketing area. Sellers are deliberately excluded: this is an
- * internal marketing publishing tool, never a sales-user capability.
- */
+/** Marketing product editing requires both the area and its explicit capability. */
 export function canManageMarketingConfiguratorContent(
   user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; allowed_areas?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
 ): boolean {
   if (!user) return false;
   const role = derivePortalRole(user);
   if (role === 'timan_backend') return true;
-  if (role !== 'timan_service') return false;
+  if (role !== 'timan_seller' && role !== 'timan_service') return false;
   return user.allowed_areas?.includes('marketing') === true
     && user.permissions?.marketing_configurator_manage === true;
 }
@@ -268,6 +265,15 @@ export function isMesseVariantUser(
   user: { portal_variant?: string | null } | null | undefined,
 ): boolean {
   return (user?.portal_variant || '').toLowerCase() === 'messe';
+}
+
+/**
+ * Routes under /messe are the event-oriented portal experience. Route access
+ * is still decided by MesseRouteGuard; consumers use this only to select the
+ * correct presentation and avoid identity-specific fallback redirects.
+ */
+export function isMesseRouteContext(pathname: string): boolean {
+  return pathname === '/messe' || pathname.startsWith('/messe/');
 }
 
 export function hasInternalMesseAccess(
@@ -434,9 +440,26 @@ export function hasAreaAccess(
   if (!user) return false;
   const role = derivePortalRole(user);
 
+  // Planning and Loans are deliberately opt-in, including for Backend.
+  // Loans additionally permits the two canonical partner roles to accept
+  // cases for their own account; database RLS remains the authoritative scope.
+  if (area === 'planning') {
+    return isInternalTimanPortalRole(role) && user.allowed_areas?.includes('planning') === true;
+  }
+  if (area === 'loans') {
+    const supportedRole = isInternalTimanPortalRole(role)
+      || role === 'timan_dealer'
+      || role === 'timan_service_partner';
+    return supportedRole && user.allowed_areas?.includes('loans') === true;
+  }
+
   // Timan Backend is super-admin. Role defaults are the minimum access, so
   // manual user settings must never hide an area that Backend can manage.
   if (role === 'timan_backend') return true;
+
+  // Marketing publishing has a stricter permission model than a general area:
+  // the UI must use the same internal-role gate as the RLS policies.
+  if (area === 'marketing') return canManageNewsContent(user);
 
   // Highest priority: manual Backend → Brugere area choices.
   // Empty array means "no areas"; null/undefined means "use role defaults".
@@ -445,10 +468,6 @@ export function hasAreaAccess(
   }
 
   if (user.role === 'slutkunde' && !role) return false;
-
-  if (area === 'marketing') {
-    return canManageNewsContent(user);
-  }
 
   if (area === 'calendar') {
     const moduleOverride = getUserModuleAccessOverride(user);
@@ -476,4 +495,18 @@ export function hasAreaAccess(
   }
 
   return hasModuleAccess(role, area as ModuleAccessKey, moduleOverride);
+}
+
+export function hasTopLevelPortalAreaAccess(
+  user: PortalAccessUser | null | undefined,
+  areaId: PortalTopLevelAreaId,
+): boolean {
+  const definition = PORTAL_TOP_LEVEL_ACCESS.find((entry) => entry.id === areaId);
+  if (!definition) return false;
+  if (definition.source === 'area') return hasAreaAccess(user, definition.key);
+  return hasModuleAccess(
+    derivePortalRole(user),
+    definition.key,
+    getUserModuleAccessOverride(user),
+  );
 }

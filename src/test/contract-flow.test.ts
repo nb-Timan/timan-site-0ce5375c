@@ -733,7 +733,8 @@ describe('contract flow', () => {
     expect(topArea).toContain('xl:grid-cols-[minmax(0,1fr)_340px]');
     expect(topArea).toContain('<ContractSummary form={form} />');
     expect(topArea).toContain('<ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />');
-    expect(topArea).toContain('<DocumentList contract={contract ?? null} form={form} documentVersions={availableDocuments} />');
+    expect(topArea).toContain('<DocumentList');
+    expect(topArea).toContain('documentVersions={availableDocuments}');
     expect(t('contractFullTextHeading', 'da')).toBe('Kontrakten');
   });
 
@@ -834,6 +835,35 @@ describe('contract flow', () => {
     expect(text).toContain('Bilag 1: Service og garanti betingelser');
     expect(text).not.toContain('Service betingelser: se Bilag 1.');
     expect(GUIDED_CONTRACT_SECTIONS.map((section) => section.stepId)).not.toContain('sales_service_days');
+  });
+
+  it('places demo-machine warranty terms in Point 5 exactly once', () => {
+    const sections = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+    });
+    const demoMachines = sections.find((section) => section.stepId === 'demo_machines');
+    const spareParts = sections.find((section) => section.stepId === 'spare_parts_service');
+    const demoText = JSON.stringify(demoMachines);
+    const sparePartsText = JSON.stringify(spareParts);
+    const demoWarrantyTerms = [
+      '5.1 Garantibetingelser for demomaskiner:',
+      'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til forhandleren.',
+      'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.',
+      'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.',
+      'Udlejes demomaskinen yders der 12 måneders garanti fra fakturadato til forhandleren.',
+    ];
+
+    expect(demoMachines?.source).toBe('Kontrakt, punkt 5');
+    expect(CONTRACT_STEPS.find((step) => step.id === 'demo_machines')?.confirmationId).toBe('demo_machines');
+    expect(CONTRACT_STEPS.find((step) => step.id === 'spare_parts_service')?.confirmationId).toBe('spare_parts_service');
+
+    for (const term of demoWarrantyTerms) {
+      expect(demoText).toContain(term);
+      expect(sparePartsText).not.toContain(term);
+    }
+
+    expect(demoText.match(/Der ydes maksimalt 24 måneders garanti på demomaskiner/g)).toHaveLength(1);
   });
 
   it('renders the contract service hourly rate in key legal service terms', () => {
@@ -1002,8 +1032,8 @@ describe('contract flow', () => {
   it('renders the spare parts portal link text through portal translations', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 
-    expect(source).toContain('SPARE_PARTS_PORTAL_URL');
-    expect(source).toContain('https://cloud.interactivespares.com/timan/categorie/0000+-+Front+page');
+    expect(source).toContain('SPARE_PARTS_PORTAL');
+    expect(source).toContain('href={SPARE_PARTS_PORTAL.url}');
     expect(source).toContain('target="_blank"');
     expect(source).toContain('rel="noreferrer noopener"');
     expect(t('contractSparePartsPortalLink', 'da')).toBe('Reservedelsportal');
@@ -1033,7 +1063,7 @@ describe('contract flow', () => {
   });
 
   it('removes the redundant demo discount helper from complete rendered contracts', () => {
-    for (const partnerType of CONTRACT_PARTNER_TYPES) {
+    for (const partnerType of ['dealer', 'importer'] as const) {
       const legalSections = renderGuidedContractSections({
         companyName: partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S',
         partnerType,
@@ -1044,6 +1074,12 @@ describe('contract flow', () => {
       expect(bodyText).toContain('Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.');
       expect(bodyText).toContain('Demonstrationsmaskinerabat: 25 %–10 %.');
     }
+    const servicePartnerText = JSON.stringify(renderGuidedContractSections({
+      companyName: 'Service Pro ApS',
+      partnerType: 'service_partner',
+    }));
+    expect(servicePartnerText).not.toContain('Demo-maskiner');
+    expect(servicePartnerText).not.toContain('Demonstrationsmaskinerabat');
   });
 
   it('removes the redundant territory intro and starts directly at Appendix 3 content', () => {
@@ -1217,10 +1253,12 @@ describe('contract flow', () => {
   ] as const)('renders contract party text dynamically for %s', (partnerType, singular, definite, plural, portal) => {
     const companyName = partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S';
     const legalSections = renderGuidedContractSections({ companyName, partnerType });
-    const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
+    const appendix2Paragraphs = partnerType === 'service_partner' ? [] : renderAppendix2Paragraphs(partnerType);
     const text = `${JSON.stringify(legalSections)} ${appendix2Paragraphs.join(' ')}`;
 
-    expect(text).toContain(`Timan A/S og ${companyName}, herefter nævnt som ${singular}`);
+    expect(text).toContain(partnerType === 'service_partner'
+      ? `Timan A/S og ${companyName}, herefter benævnt ${singular}`
+      : `Timan A/S og ${companyName}, herefter nævnt som ${singular}`);
     expect(text).toContain(definite);
     expect(text).toContain(plural);
     expect(text).toContain(portal);
@@ -1250,7 +1288,7 @@ describe('contract flow', () => {
     ['dealer', 'Dealer House A/S', ['importøren', 'importørens', 'servicepartneren', 'servicepartnerens', 'importørportalen', 'servicepartnerportalen']],
   ] as const)('does not render the contract party as another partner type for %s', (partnerType, companyName, forbiddenTerms) => {
     const legalSections = renderGuidedContractSections({ companyName, partnerType });
-    const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
+    const appendix2Paragraphs = partnerType === 'service_partner' ? [] : renderAppendix2Paragraphs(partnerType);
     const bodyText = [
       ...legalSections.flatMap((section) => section.blocks.flatMap((block) => [
         block.heading,
@@ -1398,6 +1436,14 @@ describe('contract flow', () => {
     expect(serviceSource).toContain('fetchDealerContractDraftByKey(draftKey)');
   });
 
+  it('shows one controlled error when a routed contract id does not exist', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('if (routeContractIdValue && !row) {');
+    expect(source).toContain("setContractLoadError('Contract not found.');");
+    expect(source).toContain("toast.error(contractUi('contractCouldNotLoad', uiLanguage));");
+  });
+
   it('creates an independent revision draft without mutating the locked contract snapshot', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 
@@ -1469,6 +1515,38 @@ describe('contract flow', () => {
     expect(edgeFunction).toContain('Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.');
   });
 
+  it('keeps PDF preview ephemeral and opens archived PDFs through authenticated private download', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+    const previewStart = pageSource.indexOf('const openPdfPreview = async () =>');
+    const previewEnd = pageSource.indexOf('const openStoredPdf = async', previewStart);
+    const previewSource = pageSource.slice(previewStart, previewEnd);
+
+    expect(previewSource).toContain("mode: 'draft'");
+    expect(previewSource).toContain('generateContractPdf');
+    expect(previewSource).not.toContain('prepareDealerContractDocument');
+    expect(previewSource).not.toContain('uploadPreparedDealerContractDocument');
+    expect(previewSource).not.toContain('finalizeDealerContractDocument');
+    expect(serviceSource).toContain('export async function downloadDealerContractDocument');
+    expect(serviceSource).toContain('.download(document.storage_path)');
+    expect(pageSource).toContain('<ContractPdfViewerDialog');
+    expect(pageSource).toContain("contractUi('showDocumentHistory', uiLanguage)");
+    expect(pageSource).not.toContain('href={document.signed_url}');
+  });
+
+  it('guards QA contract reset and removes generated private documents without touching partner master data', () => {
+    const edgeFunction = readFileSync('supabase/functions/admin-contract-actions/index.ts', 'utf8');
+
+    expect(edgeFunction).toContain('type Action = "delete_contract" | "reset_test_contract"');
+    expect(edgeFunction).toContain('!ownerEmail.endsWith("@timan.dk")');
+    expect(edgeFunction).toContain('contract.approved_upload_version_id');
+    expect(edgeFunction).toContain('hasBindingHistory');
+    expect(edgeFunction).toContain('.from("dealer_contract_document_versions")');
+    expect(edgeFunction).toContain('action: isTestReset ? "TEST_CONTRACT_RESET" : "delete"');
+    expect(edgeFunction).not.toContain('.from("dealer_accounts").delete()');
+    expect(edgeFunction).not.toContain('.from("dealer_contacts").delete()');
+  });
+
   it('keeps contract overview KPI cards compact with a light active state', () => {
     const overviewSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const start = overviewSource.indexOf('const summaryCards');
@@ -1506,8 +1584,8 @@ describe('contract flow', () => {
   });
 
   it('keeps the overview RPC security-invoker and scoped by the existing RLS policy', () => {
-    const migration = readFileSync('supabase/migrations/20260909181219_contract_overview_scoped_read.sql', 'utf8');
-    const sellerScopeMigration = readFileSync('supabase/migrations/20260908210000_enforce_seller_contract_scope.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260909182101_contract_overview_scoped_read.sql', 'utf8');
+    const sellerScopeMigration = readFileSync('supabase/migrations/20260910171452_enforce_seller_contract_scope.sql', 'utf8');
 
     expect(migration).toContain('security invoker');
     expect(migration).toContain('public.list_internal_dealer_contract_overview');
@@ -1522,7 +1600,7 @@ describe('contract flow', () => {
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const portalAreaSource = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
     const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
-    const migration = readFileSync('supabase/migrations/20260901125302_dealer_contract_user_access_windows.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260901150428_dealer_contract_user_access_windows.sql', 'utf8');
 
     expect(migration).toContain('alter table public.dealer_contract_access_windows');
     expect(migration).toContain('add column if not exists user_id uuid references public.app_users');

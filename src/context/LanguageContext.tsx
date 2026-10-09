@@ -115,3 +115,21 @@ export function useLanguage() {
   if (!ctx) throw new Error('useLanguage must be used within LanguageProvider');
   return ctx;
 }
+
+/**
+ * Small, self-contained UI surfaces are also rendered in isolation by the
+ * component test suite. They still use the canonical registry, with Danish as
+ * the deterministic platform fallback when no provider is mounted.
+ */
+export function useOptionalLanguage(): LanguageContextValue {
+  const ctx = useContext(LanguageContext);
+  if (ctx) return ctx;
+  return {
+    language: FALLBACK as Language,
+    uiLanguage: FALLBACK,
+    setLanguage: () => undefined,
+    setAutoLanguage: () => undefined,
+    applyPreferredLanguage: () => undefined,
+    resetLanguageForIdentity: () => undefined,
+  };
+}

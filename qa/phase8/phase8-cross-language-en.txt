@@ -1,0 +1,21 @@
+PHASE 8 QA TEST - CANONICAL ENGLISH SOURCE FOR CROSS-LANGUAGE RETRIEVAL
+
+Purpose: approved English evidence used to verify Danish, English and German retrieval without changing portal language logic.
+
+- Quotes are found in CRM under Tilbud.
+- Portal language is changed from the header language control.
+- RC-1000s base width is 995 mm and base weight is 440 kg.
+- CS-200 is compatible with Timan 3330.
+- Timan contact details are available at timan.dk.
+- Saving a case uses Gem sag and creates intet T-nummer.
+- A Timan 3330 with T2 keeps T2 as the required dependency; any external action requires confirmation.
+- Demo machine discount is 32,5 %.
+- Demo line SKU 795002 costs 75 DKK.
+- Dealer contacts are found in Partnerdata as kontaktperson records.
+- The first quote number is created by Afsend tilbud.
+- Technical machine service history is shown in Teknik & Service under historik.
+
+Cross-language intent examples
+- Danish queries may retrieve this English source.
+- German queries may retrieve this English source.
+- The answer language follows the active request language while citations continue to identify this exact source revision.

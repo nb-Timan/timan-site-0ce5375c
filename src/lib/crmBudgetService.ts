@@ -11,10 +11,12 @@
  */
 import { supabase } from "@/lib/supabase";
 import { PRODUCTS, ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
+import { subscribeProductMaster } from '@/lib/publishedProductMaster';
 import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
 import { calcConfigurationTotals } from "@/lib/calcConfiguration";
+import { currencyFromLanguage, isCurrency, toDkk, type Currency } from "@/lib/currency";
 
 // ---------- Types ----------
 export type BudgetCategory = "machine" | "attachment" | "service" | "other";
@@ -121,6 +123,21 @@ export interface BudgetOrderDetail {
   quantity: number;
   /** Canonical submitted-order total, not a new product-price calculation. */
   order_total: number;
+  /** Currency of the frozen submitted-order total above. */
+  currency: Currency;
+}
+
+export type WorkingBudgetInitializationStatus =
+  | "seeded"
+  | "reconciled"
+  | "already_initialized"
+  | "ambiguous_reference_history"
+  | "ambiguous_partial_forecast"
+  | "no_original_budget";
+
+export interface WorkingBudgetInitializationResult {
+  status: WorkingBudgetInitializationStatus;
+  seeded_count: number;
 }
 
 export type OrderActualsByKey = Record<string, number>;
@@ -147,6 +164,22 @@ function splitAnnualEvenly(qty: number): number[] {
   let rem = Math.max(0, Math.round(Number(qty) || 0) - floors.reduce((a, b) => a + b, 0));
   for (let i = 0; i < 12 && rem > 0; i++, rem--) floors[i] += 1;
   return floors;
+}
+
+/** Distribute an annual quantity across calendar months without changing its total. */
+export function splitAnnualQuantityMonthly(qty: number, split: number[]): number[] {
+  const safe = split.length === 12 ? split : EVEN_SPLIT;
+  const raw = safe.map((share) => qty * share);
+  const floors = raw.map((value) => Math.floor(value));
+  let remainder = qty - floors.reduce((sum, value) => sum + value, 0);
+  const order = raw
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((a, b) => b.fraction - a.fraction);
+  const result = [...floors];
+  for (let index = 0; index < order.length && remainder > 0; index++, remainder--) {
+    result[order[index].index] += 1;
+  }
+  return result;
 }
 
 export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKey {
@@ -244,9 +277,6 @@ function readConfiguratorMachine(key: string): { name: string; varenr: string; p
   return { name: stripBaseSuffix(rawName), varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
 }
 
-const RC1000 = readConfiguratorMachine("RC-1000S");
-const RC751  = readConfiguratorMachine("RC-751");
-const T3330  = readConfiguratorMachine("Timan 3330");
 
 // ---------- Equipment categories under machines ----------
 // Reads from the configurator ACCESSORIES catalog. We expose grouped
@@ -282,6 +312,7 @@ export const BUDGET_EXCLUDED_EQUIPMENT_VARENR = new Set([
   "V35-502",
   "V35-300",
   "795002",
+  "795018",
   "721059",
   "712903",
   "725126",
@@ -399,7 +430,11 @@ export function localizedName(name: LocalizedString, lang: Language): string {
   return name[lang] || name.da || name.en || "";
 }
 
-export const BUDGET_PRODUCTS: BudgetProduct[] = [
+function currentBudgetProducts(): BudgetProduct[] {
+const RC1000 = readConfiguratorMachine("RC-1000S");
+const RC751 = readConfiguratorMachine("RC-751");
+const T3330 = readConfiguratorMachine("Timan 3330");
+return [
   {
     key: "RC-751",
     name: RC751?.name || "RC-751",
@@ -432,9 +467,12 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
     name: "Timan 2620",
     varenr: "563219",
     category: "machine",
-    status: "coming_soon",
+    status: "available",
   },
 ];
+}
+export let BUDGET_PRODUCTS = currentBudgetProducts();
+subscribeProductMaster(() => { BUDGET_PRODUCTS = currentBudgetProducts(); });
 
 // ---------- Custom (Budget-only) products ----------
 // Created via the "Nyt varenr." flow on the CRM Budget page. These are
@@ -713,7 +751,23 @@ function resolveMachineKey(value: string | null | undefined, productByNormKey: M
   return best;
 }
 
+/**
+ * Historical Configurator snapshots occasionally use a display-cased model
+ * key (for example `RC-1000s`) while the accessory catalog uses the canonical
+ * key (`RC-1000S`). Budget machine totals already normalize this distinction;
+ * equipment lookup must use the same canonical catalog key.
+ */
+function catalogMachineType(value: string): string {
+  const normalized = normKey(value);
+  if (normalized === normKey(LOOSE_TOOL_KEY)) return LOOSE_TOOL_KEY;
+  return Object.keys(ACCESSORIES).find((key) => normKey(key) === normalized) || value;
+}
+
 function orderDateRaw(row: BudgetOrderRow): string | null {
+  // Budget actuals belong to the agreed/requested delivery month. The order
+  // timestamps only preserve the established fallback for legacy orders.
+  const deliveryDate = row.delivery_date;
+  if (typeof deliveryDate === "string" && deliveryDate.trim()) return deliveryDate;
   return (row.order_sent_at as string | null)
     || (row.submitted_at as string | null)
     || (row.created_at as string | null)
@@ -745,6 +799,18 @@ function parseOrderState(row: BudgetOrderRow): ConfiguratorState | null {
     }
   } catch { /* ignore */ }
   return null;
+}
+
+export function resolveBudgetOrderCurrency(
+  storedCurrency: unknown,
+  snapshotCurrencyOrLanguage: string | null | undefined,
+): Currency {
+  // New snapshots persist currency explicitly. Legacy snapshots only carry
+  // language, so keep that fallback without coupling new state to locale.
+  if (isCurrency(snapshotCurrencyOrLanguage)) return snapshotCurrencyOrLanguage;
+  if (snapshotCurrencyOrLanguage) return currencyFromLanguage(snapshotCurrencyOrLanguage);
+  const normalized = String(storedCurrency ?? '').trim().toUpperCase();
+  return normalized === 'EUR' || normalized === 'SEK' ? normalized : 'DKK';
 }
 
 function machineQtyFromOrder(row: BudgetOrderRow, productByNormKey: Map<string, string>): { qtyByKey: Record<string, number>; totalQty: number } {
@@ -786,10 +852,11 @@ function equipmentQtyFromConfiguratorState(
 ): Record<string, number> {
   const qtyByKey: Record<string, number> = {};
   const add = (machineType: string, configKey: string, accessoryId: string) => {
-    const accessory = getAccessoriesFlat(machineType).find((item) => item.id === accessoryId && !item.isHeader);
+    const catalogType = catalogMachineType(machineType);
+    const accessory = getAccessoriesFlat(catalogType).find((item) => item.id === accessoryId && !item.isHeader);
     if (!accessory) return;
     const machineKey = resolveMachineKey(machineType, productByNormKey) || machineType;
-    const compatibleMachine = machineType === LOOSE_TOOL_KEY ? budgetMachineForLooseTool(accessory) : null;
+    const compatibleMachine = catalogType === LOOSE_TOOL_KEY ? budgetMachineForLooseTool(accessory) : null;
     const key = equipmentLookup.byMachineAndItem.get(`${normKey(machineKey)}|${normKey(accessory.varenr)}`)
       || (compatibleMachine ? equipmentLookup.byMachineAndItem.get(`${normKey(compatibleMachine)}|${normKey(accessory.varenr)}`) : null)
       || uniqueLookupValue(equipmentLookup.byAccessoryId, accessory.id)
@@ -802,6 +869,7 @@ function equipmentQtyFromConfiguratorState(
 
   for (const machine of state.machineConfigs ?? []) {
     const units = Math.max(0, Number(machine.qty || 0));
+    const catalogType = catalogMachineType(machine.type);
     for (let unitNumber = 1; unitNumber <= units; unitNumber++) {
       const configKey = `${machine.id}_${unitNumber}`;
       const selected = machine.configMode === "shared"
@@ -810,7 +878,7 @@ function equipmentQtyFromConfiguratorState(
       const selectedSet = new Set(selected);
       for (const accessoryId of selectedSet) add(machine.type, configKey, accessoryId);
 
-      for (const accessory of getAccessoriesFlat(machine.type)) {
+      for (const accessory of getAccessoriesFlat(catalogType)) {
         if (!accessory.isQtyInput || accessory.isHeader || selectedSet.has(accessory.id)) continue;
         if (accessory.requires && !selectedSet.has(accessory.requires)) continue;
         const quantity = Number(state.accQty?.[`${configKey}_${accessory.id}`] || 0);
@@ -878,7 +946,7 @@ function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { selle
 }
 
 async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
-  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price";
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price,currency";
   try {
     const { data, error } = await supabase
       .from("crm_configurations_view")
@@ -898,12 +966,12 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
 
     const { data: details, error: detailsError } = await supabase
       .from("configurations")
-      .select("id,state_json,note,total_price")
+      .select("id,state_json,note,total_price,currency")
       .in("id", missingStateIds);
     if (detailsError || !details) return rows;
 
     const detailById = new Map(
-      (details as Array<Pick<BudgetOrderRow, "id" | "state_json" | "note" | "total_price">>)
+      (details as Array<Pick<BudgetOrderRow, "id" | "state_json" | "note" | "total_price" | "currency">>)
         .map((detail) => [String(detail.id), detail]),
     );
     return rows.map((row) => {
@@ -914,6 +982,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
         state_json: row.state_json ?? detail.state_json,
         note: row.note ?? detail.note,
         total_price: row.total_price ?? detail.total_price,
+        currency: row.currency ?? detail.currency,
       };
     });
   } catch {
@@ -923,9 +992,9 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       .or("case_status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null")
       .neq("case_status", "deleted")
       .limit(5000);
-    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
+    let res = await trySel("id,title,order_number,state_json,note,total_price,currency,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     if (res.error && /state_json/.test(res.error.message || "")) {
-      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
+      res = await trySel("id,title,order_number,note,total_price,currency,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     }
     if (res.error) throw res.error;
     return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInFiscalYear(r, year));
@@ -1096,7 +1165,7 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
  * Build sales actuals by walking configurator orders (the same scoped
  * source the CRM Orders page uses). Each order contributes:
  *   • qty_sold  → sum of state.machineConfigs[*].qty per machine_type
- *   • value_sold → calcConfigurationTotals(state).finalPrice, allocated
+ *   • value_sold → frozen order total normalized to DKK, allocated
  *                  proportionally per machine when there are multiple types
  * Stored under a stable read key whose display identity is
  * (seller, year, product_key, month). The legacy budget_line_id field is kept
@@ -1118,8 +1187,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       seenOrderIds.add(orderId);
       if ((row.case_status as string | null) === "deleted" || !isSubmittedBudgetOrder(row)) continue;
 
-      // Month bucketing: order_sent_at → submitted_at → created_at. Delivery
-      // date is deliberately not required for Budget actuals.
+      // Delivery date decides the budget month. Legacy orders without one use
+      // the documented order_sent_at → submitted_at → created_at fallback.
       const dateRaw = orderDateRaw(row);
       const d = dateRaw ? new Date(dateRaw) : null;
       if (!d || isNaN(d.getTime())) continue;
@@ -1139,11 +1208,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         const tp = Number(row.total_price ?? 0);
         if (Number.isFinite(tp) && tp > 0) finalPrice = tp;
       }
+      const sourceCurrency = resolveBudgetOrderCurrency(row.currency, state?.currency ?? state?.language);
+      const finalPriceDkk = toDkk(finalPrice, sourceCurrency);
 
       const { qtyByKey, totalQty } = machineQtyFromOrder(row, productByNormKey);
       if (totalQty === 0) continue;
 
-      const addActual = (productKey: string, qty: number, value: number) => {
+      const addActual = (productKey: string, qty: number, valueDkk: number) => {
         const actualId = `actual_${year}_${productKey}_${seller.email.replace(/[^a-z0-9]/gi, "")}`;
         const prev = totals.get(actualId) || {
           budget_line_id: actualId,
@@ -1160,13 +1231,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           monthly_order_details: Array.from({ length: 12 }, () => [] as BudgetOrderDetail[]),
         };
         prev.qty_sold += qty;
-        prev.value_sold += value;
+        prev.value_sold += valueDkk;
         if (!prev.monthly_qty) prev.monthly_qty = ZERO12();
         if (!prev.monthly_value) prev.monthly_value = ZERO12();
         if (!prev.monthly_dealers) prev.monthly_dealers = Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>);
         if (!prev.monthly_order_details) prev.monthly_order_details = Array.from({ length: 12 }, () => [] as BudgetOrderDetail[]);
         prev.monthly_qty[monthIdx] += qty;
-        prev.monthly_value[monthIdx] += value;
+        prev.monthly_value[monthIdx] += valueDkk;
         const dealerName =
           (row.dealer_name as string | null) ||
           (row.dealer_company_name as string | null) ||
@@ -1184,12 +1255,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           product_key: productKey,
           quantity: qty,
           order_total: finalPrice,
+          currency: sourceCurrency,
         });
         totals.set(actualId, prev);
       };
 
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
-        addActual(machineKey, qty, finalPrice * (qty / totalQty));
+        addActual(machineKey, qty, finalPriceDkk * (qty / totalQty));
       }
       for (const [equipmentKey, qty] of Object.entries(equipmentQtyFromOrder(row, productByNormKey, equipmentLookup))) {
         addActual(equipmentKey, qty, 0);
@@ -1381,8 +1453,8 @@ export function reorderCalendarMonthsForFiscalYear<T>(values: readonly T[]): T[]
   return FISCAL_MONTH_ORDER.map((calendarMonthIdx) => values[calendarMonthIdx]);
 }
 
-export function availableYears(): number[] {
-  const current = currentFiscalYearForBudget();
+export function availableYears(now: Date = new Date()): number[] {
+  const current = currentFiscalYearForBudget(now);
   const base = Math.max(current, 2026);
   return [base - 1, base, base + 1];
 }
@@ -1598,6 +1670,11 @@ export interface AggregatedBudget {
   totals: { budgetQty: number; ordersQty: number; forecastQty: number; scorePct: number };
 }
 
+/** Canonical Budget performance: submitted-order quantity / original budget quantity. */
+export function calculateBudgetScorePct(originalBudgetQty: number, ordersQty: number): number {
+  return originalBudgetQty === 0 ? 0 : Math.round((ordersQty / originalBudgetQty) * 100);
+}
+
 /**
  * Scope budget lines + actuals + forecasts to a single seller using the
  * same rules CrmBudgetPage uses (seller_email match OR seed_<year>_<key>_<emailSlug>).
@@ -1608,28 +1685,41 @@ export function aggregateBudget(
   forecasts: BudgetForecast[],
   actuals: SalesActual[],
   sellerEmail: string | null,
+  dealerLines: BudgetDealerLine[] = [],
+  year: number | null = null,
 ): AggregatedBudget {
+  const yearLines = year === null ? lines : lines.filter((line) => line.year === year);
   const scopedLines = sellerEmail
-    ? lines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
-    : lines;
+    ? yearLines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
+    : yearLines;
   const scopedLineIds = new Set(scopedLines.map(l => l.id));
   const sellerRef = sellerEmail
     ? BUDGET_SELLERS.find(s => norm(s.email) === norm(sellerEmail))
     : null;
   const scopedActuals = actuals.filter(a => {
     if (!a.product_key || !a.year) return false;
+    if (year !== null && a.year !== year) return false;
     if (!sellerEmail) return true;
     return norm(a.seller_email) === norm(sellerEmail)
       || norm(a.seller_key) === norm(sellerEmail)
       || (!!sellerRef && upper(a.seller_initials) === upper(sellerRef.initials));
   });
   const scopedForecasts = forecasts.filter(f => scopedLineIds.has(f.budget_line_id));
+  const sellerEmails = sellerEmail ? new Set([norm(sellerEmail)]) : null;
+  const scopedDealerLines = year === null
+    ? dealerLines
+    : dealerLines.filter((line) => line.year === year);
 
   // Determine all machine product_keys we should display: those with budget
   // lines (scoped) AND those that have actual orders (so a machine with
   // orders but no budget still shows, instead of "Intet budget" hiding it).
   const productMeta = new Map<string, string>(); // key → name
   for (const l of scopedLines) productMeta.set(l.product_key, l.product_name || l.product_key);
+  for (const line of scopedDealerLines) {
+    if (line.excluded_from_total || line.qty <= 0) continue;
+    if (sellerEmails && !sellerEmails.has(norm(line.seller_email))) continue;
+    productMeta.set(line.product_key, line.product_name || line.product_key);
+  }
   for (const a of scopedActuals) {
     const pk = a.product_key;
     const product = BUDGET_PRODUCTS.find(p => normKey(p.key) === normKey(pk));
@@ -1640,7 +1730,15 @@ export function aggregateBudget(
   for (const [pk, name] of productMeta) {
     const linesFor = scopedLines.filter(l => l.product_key === pk);
     const lineIds = new Set(linesFor.map(l => l.id));
-    const budgetQty = linesFor.reduce((s, l) => s + (l.qty_budget || 0), 0);
+    const manualMonthly = Array.from({ length: 12 }, () => 0);
+    for (const line of linesFor) {
+      const monthly = splitAnnualQuantityMonthly(line.qty_budget || 0, line.monthly_split || EVEN_SPLIT);
+      monthly.forEach((quantity, monthIdx) => { manualMonthly[monthIdx] += quantity; });
+    }
+    const dealerMonthly = aggregateDealerBudgetMonthly(scopedDealerLines, pk, sellerEmails);
+    const dealerMonths = hasDealerBudgetByMonth(scopedDealerLines, pk, sellerEmails);
+    const budgetQty = mergeMonthlyPreferDealer(manualMonthly, dealerMonthly, dealerMonths)
+      .reduce((sum, quantity) => sum + quantity, 0);
     const ordersQty = scopedActuals
       .filter(a => normKey(a.product_key) === normKey(pk))
       .reduce((s, a) => s + (a.qty_sold || 0), 0);
@@ -1648,7 +1746,7 @@ export function aggregateBudget(
       .filter(f => lineIds.has(f.budget_line_id))
       .reduce((s, f) => s + (f.qty_forecast || 0), 0);
     const remainingGap = Math.max(0, budgetQty - ordersQty);
-    const scorePct = budgetQty === 0 ? 0 : Math.round((ordersQty / budgetQty) * 100);
+    const scorePct = calculateBudgetScorePct(budgetQty, ordersQty);
     byMachine.push({ product_key: pk, product_name: name, budgetQty, ordersQty, forecastQty, remainingGap, scorePct });
   }
 
@@ -1658,7 +1756,15 @@ export function aggregateBudget(
     (order.get(a.product_key) ?? 999) - (order.get(b.product_key) ?? 999)
     || a.product_name.localeCompare(b.product_name));
 
-  const totals = byMachine.reduce(
+  // CRM Budget's top-level score covers the rendered machine blocks only.
+  // Equipment and unknown order-only rows remain visible in byMachine, but do
+  // not inflate the canonical seller score.
+  const scoreRows = byMachine.filter((row) =>
+    BUDGET_PRODUCTS.some((product) =>
+      product.category === "machine" && normKey(product.key) === normKey(row.product_key),
+    ),
+  );
+  const totals = scoreRows.reduce(
     (t, r) => {
       t.budgetQty += r.budgetQty;
       t.ordersQty += r.ordersQty;
@@ -1667,7 +1773,7 @@ export function aggregateBudget(
     },
     { budgetQty: 0, ordersQty: 0, forecastQty: 0, scorePct: 0 },
   );
-  totals.scorePct = totals.budgetQty === 0 ? 0 : Math.round((totals.ordersQty / totals.budgetQty) * 100);
+  totals.scorePct = calculateBudgetScorePct(totals.budgetQty, totals.ordersQty);
   return { byMachine, totals };
 }
 
@@ -1920,6 +2026,108 @@ export function aggregateDealerBudgetSellerBreakdown(
   }
   return Array.from(totalsBySeller.values())
     .sort((a, b) => a.initials.localeCompare(b.initials));
+}
+
+/**
+ * Initializes a seller/year working budget exactly once from the canonical
+ * original-budget aggregation. The database function is transactional and
+ * refuses to touch partially initialized or referenced working budgets.
+ */
+export async function initializeWorkingBudgetFromOriginal(
+  year: number,
+  sellerEmail: string,
+): Promise<WorkingBudgetInitializationResult> {
+  const normalizedEmail = sellerEmail.trim().toLowerCase();
+  if (!normalizedEmail) return { status: "no_original_budget", seeded_count: 0 };
+
+  const { data, error } = await supabase.rpc("initialize_crm_working_budget_from_original", {
+    p_year: year,
+    p_seller_email: normalizedEmail,
+  });
+  if (error) {
+    throw new BudgetPersistenceError(
+      `Working budget initialization failed: ${errorText(error)}`,
+      "crm_budget_forecasts",
+      error,
+    );
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    status: (row?.status || "no_original_budget") as WorkingBudgetInitializationStatus,
+    seeded_count: Number(row?.seeded_count || 0),
+  };
+}
+
+/** Resolve the seller scopes that the current Budget view may initialize. */
+export function workingBudgetInitializationSellerEmails(
+  lines: BudgetLine[],
+  dealerLines: BudgetDealerLine[],
+  sellerEmail: string | null,
+): string[] {
+  if (sellerEmail) return [sellerEmail.trim().toLowerCase()].filter(Boolean);
+  return Array.from(new Set(
+    [...lines.map(line => line.seller_email), ...dealerLines.map(line => line.seller_email)]
+      .map(email => (email || "").trim().toLowerCase())
+      .filter(Boolean),
+  )).sort();
+}
+
+export interface OriginalBudgetDealerAllocation {
+  dealer_account_id: string | null;
+  dealer_account_number: string | null;
+  dealer_name: string;
+  qty: number;
+}
+
+export interface OriginalBudgetBasis {
+  total: number;
+  allocations: OriginalBudgetDealerAllocation[];
+}
+
+/** Read-only view of the imported dealer allocation behind one budget cell.
+ *  `monthIdx = null` aggregates the full fiscal year. Working-budget
+ *  references deliberately never participate in this calculation. */
+export function originalBudgetBasisForCell(
+  rows: BudgetDealerLine[],
+  year: number,
+  monthIdx: number | null,
+  productKey: string,
+  sellerEmails: Set<string> | null,
+): OriginalBudgetBasis | null {
+  const matching = rows.filter((row) =>
+    !row.excluded_from_total &&
+    row.qty > 0 &&
+    row.year === year &&
+    (monthIdx === null || row.month_idx === monthIdx) &&
+    productKeysEqual(row.product_key, productKey) &&
+    (!sellerEmails || sellerEmails.has((row.seller_email || "").toLowerCase()))
+  );
+  if (matching.length === 0) return null;
+
+  const grouped = new Map<string, OriginalBudgetDealerAllocation>();
+  for (const row of matching) {
+    const key = row.dealer_account_id
+      || row.dealer_account_number
+      || row.dealer_name_norm
+      || row.dealer_name
+      || row.id;
+    const current = grouped.get(key) || {
+      dealer_account_id: row.dealer_account_id,
+      dealer_account_number: row.dealer_account_number,
+      dealer_name: row.dealer_name?.trim() || row.dealer_account_number || "Ukendt forhandler",
+      qty: 0,
+    };
+    current.qty += row.qty;
+    grouped.set(key, current);
+  }
+
+  const allocations = Array.from(grouped.values()).sort((a, b) =>
+    b.qty - a.qty || a.dealer_name.localeCompare(b.dealer_name)
+  );
+  return {
+    total: allocations.reduce((sum, allocation) => sum + allocation.qty, 0),
+    allocations,
+  };
 }
 
 /** Pick the largest non-excluded dealer row for a given (year, month, product,

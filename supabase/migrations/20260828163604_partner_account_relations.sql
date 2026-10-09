@@ -30,18 +30,14 @@ create table if not exists public.partner_account_relations (
     relation_type
   )
 );
-
 create index if not exists partner_account_relations_source_idx
   on public.partner_account_relations(source_account_id)
   where active = true;
-
 create index if not exists partner_account_relations_target_idx
   on public.partner_account_relations(target_account_id)
   where active = true;
-
 create index if not exists partner_account_relations_type_idx
   on public.partner_account_relations(relation_type);
-
 create or replace function public.partner_account_kind(account_id uuid)
 returns text
 language sql
@@ -66,7 +62,6 @@ as $$
     where id = account_id
   ) source_data;
 $$;
-
 create or replace function public.validate_partner_account_relation()
 returns trigger
 language plpgsql
@@ -99,33 +94,27 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists validate_partner_account_relation_trigger on public.partner_account_relations;
 create trigger validate_partner_account_relation_trigger
 before insert or update on public.partner_account_relations
 for each row
 execute function public.validate_partner_account_relation();
-
 alter table public.partner_account_relations enable row level security;
-
 revoke all on public.partner_account_relations from anon, public;
 grant select, insert, update, delete on public.partner_account_relations to authenticated;
 grant all on public.partner_account_relations to service_role;
-
 drop policy if exists partner_account_relations_backend_select on public.partner_account_relations;
 create policy partner_account_relations_backend_select
 on public.partner_account_relations
 for select
 to authenticated
 using (public.is_timan_backend());
-
 drop policy if exists partner_account_relations_backend_insert on public.partner_account_relations;
 create policy partner_account_relations_backend_insert
 on public.partner_account_relations
 for insert
 to authenticated
 with check (public.is_timan_backend());
-
 drop policy if exists partner_account_relations_backend_update on public.partner_account_relations;
 create policy partner_account_relations_backend_update
 on public.partner_account_relations
@@ -133,14 +122,12 @@ for update
 to authenticated
 using (public.is_timan_backend())
 with check (public.is_timan_backend());
-
 drop policy if exists partner_account_relations_backend_delete on public.partner_account_relations;
 create policy partner_account_relations_backend_delete
 on public.partner_account_relations
 for delete
 to authenticated
 using (public.is_timan_backend());
-
 -- Backfill read-only compatibility data into the new network table so the
 -- overview can show existing relations without changing the old scope model.
 insert into public.partner_account_relations (
@@ -165,7 +152,6 @@ where child.parent_account_number is not null
   and public.partner_account_kind(parent.id) = 'importer'
   and public.partner_account_kind(child.id) in ('dealer', 'service_partner', 'dealer_customer')
 on conflict (source_account_id, target_account_id, relation_type) do nothing;
-
 do $$
 begin
   if to_regclass('public.service_partner_dealer_links') is not null then

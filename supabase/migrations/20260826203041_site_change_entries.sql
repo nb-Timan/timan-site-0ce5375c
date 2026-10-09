@@ -3,7 +3,6 @@
 -- Public users only read the safe projection table.
 
 create extension if not exists pgcrypto;
-
 create table if not exists public.site_change_entries (
   id uuid primary key default gen_random_uuid(),
   source text not null default 'manual',
@@ -33,7 +32,6 @@ create table if not exists public.site_change_entries (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create table if not exists public.site_change_public_entries (
   id uuid primary key references public.site_change_entries(id) on delete cascade,
   published_at timestamptz not null,
@@ -47,7 +45,6 @@ create table if not exists public.site_change_public_entries (
   source_ref text,
   updated_at timestamptz not null default now()
 );
-
 create index if not exists site_change_entries_status_idx
   on public.site_change_entries (status, implemented_at desc);
 create index if not exists site_change_entries_module_idx
@@ -60,7 +57,6 @@ create index if not exists site_change_public_published_idx
   on public.site_change_public_entries (published_at desc);
 create index if not exists site_change_public_roles_gin
   on public.site_change_public_entries using gin (affected_roles);
-
 create or replace function public.site_change_touch_updated_at()
 returns trigger
 language plpgsql
@@ -70,12 +66,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists site_change_entries_touch_updated_at on public.site_change_entries;
 create trigger site_change_entries_touch_updated_at
 before update on public.site_change_entries
 for each row execute function public.site_change_touch_updated_at();
-
 create or replace function public.sync_site_change_public_entry()
 returns trigger
 language plpgsql
@@ -135,20 +129,16 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists sync_site_change_public_entry on public.site_change_entries;
 create trigger sync_site_change_public_entry
 before insert or update or delete on public.site_change_entries
 for each row execute function public.sync_site_change_public_entry();
-
 alter table public.site_change_entries enable row level security;
 alter table public.site_change_public_entries enable row level security;
-
 revoke all on table public.site_change_entries from anon, authenticated;
 revoke all on table public.site_change_public_entries from anon, authenticated;
 grant select, insert, update, delete on table public.site_change_entries to authenticated;
 grant select on table public.site_change_public_entries to anon, authenticated;
-
 drop policy if exists site_change_entries_admin_select on public.site_change_entries;
 create policy site_change_entries_admin_select
 on public.site_change_entries
@@ -165,7 +155,6 @@ using (
       )
   )
 );
-
 drop policy if exists site_change_entries_admin_insert on public.site_change_entries;
 create policy site_change_entries_admin_insert
 on public.site_change_entries
@@ -182,7 +171,6 @@ with check (
       )
   )
 );
-
 drop policy if exists site_change_entries_admin_update on public.site_change_entries;
 create policy site_change_entries_admin_update
 on public.site_change_entries
@@ -210,7 +198,6 @@ with check (
       )
   )
 );
-
 drop policy if exists site_change_entries_admin_delete on public.site_change_entries;
 create policy site_change_entries_admin_delete
 on public.site_change_entries
@@ -227,14 +214,12 @@ using (
       )
   )
 );
-
 drop policy if exists site_change_public_anon_all on public.site_change_public_entries;
 create policy site_change_public_anon_all
 on public.site_change_public_entries
 for select
 to anon
 using ('all' = any(affected_roles));
-
 drop policy if exists site_change_public_role_read on public.site_change_public_entries;
 create policy site_change_public_role_read
 on public.site_change_public_entries
@@ -257,7 +242,6 @@ using (
       )
   )
 );
-
 insert into public.site_change_entries (
   source,
   source_ref,

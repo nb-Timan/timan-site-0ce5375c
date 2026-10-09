@@ -1,6 +1,3 @@
--- Add canonical Timan user phone numbers and expose them through the
--- existing minimal seller directory used by partner-detail seller cards.
-
 alter table public.app_users
   add column if not exists phone text;
 
@@ -25,4 +22,4 @@ with (security_invoker = off) as
     );
 
 revoke all on public.app_user_directory from anon, public;
-grant select on public.app_user_directory to authenticated, service_role;
+grant select on public.app_user_directory to authenticated, service_role;;

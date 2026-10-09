@@ -11,16 +11,13 @@ create table if not exists public.crm_number_sequences (
   next_number integer not null,
   updated_at timestamptz not null default now()
 );
-
 alter table public.crm_number_sequences enable row level security;
-
 insert into public.crm_number_sequences (sequence_key, prefix, next_number)
 values
   ('lead', 'L', 1001),
   ('quote', 'T', 4001),
   ('order', 'O', 7001)
 on conflict (sequence_key) do nothing;
-
 do $$
 declare
   v_next integer;
@@ -62,7 +59,6 @@ begin
      where sequence_key = 'order';
   end if;
 end $$;
-
 create table if not exists public.crm_sales_reset_audit_log (
   id uuid primary key default gen_random_uuid(),
   action text not null check (action in ('preview', 'execute')),
@@ -71,9 +67,7 @@ create table if not exists public.crm_sales_reset_audit_log (
   confirmation text,
   created_at timestamptz not null default now()
 );
-
 alter table public.crm_sales_reset_audit_log enable row level security;
-
 create or replace function public.can_manage_crm_sales_reset()
 returns boolean
 language sql
@@ -94,11 +88,9 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_manage_crm_sales_reset() from public;
 revoke all on function public.can_manage_crm_sales_reset() from anon;
 grant execute on function public.can_manage_crm_sales_reset() to authenticated;
-
 create or replace function public.next_crm_sequence_value(p_sequence_key text)
 returns integer
 language plpgsql
@@ -136,11 +128,9 @@ begin
   return v_next;
 end;
 $$;
-
 revoke all on function public.next_crm_sequence_value(text) from public;
 revoke all on function public.next_crm_sequence_value(text) from anon;
 grant execute on function public.next_crm_sequence_value(text) to authenticated;
-
 create or replace function public.next_crm_document_number(p_sequence_key text)
 returns text
 language plpgsql
@@ -168,11 +158,9 @@ begin
   return v_prefix || '-' || v_number::text;
 end;
 $$;
-
 revoke all on function public.next_crm_document_number(text) from public;
 revoke all on function public.next_crm_document_number(text) from anon;
 grant execute on function public.next_crm_document_number(text) to authenticated;
-
 create or replace function public.assign_crm_lead_no()
 returns trigger
 language plpgsql
@@ -186,7 +174,6 @@ begin
   return new;
 end;
 $$;
-
 do $$
 begin
   if to_regclass('public.crm_leads') is not null then
@@ -197,7 +184,6 @@ begin
       execute function public.assign_crm_lead_no();
   end if;
 end $$;
-
 create or replace function public.crm_sales_reset_table_count(p_table_name text)
 returns integer
 language plpgsql
@@ -216,7 +202,6 @@ begin
   return coalesce(v_count, 0);
 end;
 $$;
-
 create or replace function public.preview_crm_sales_reset()
 returns jsonb
 language plpgsql
@@ -288,11 +273,9 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.preview_crm_sales_reset() from public;
 revoke all on function public.preview_crm_sales_reset() from anon;
 grant execute on function public.preview_crm_sales_reset() to authenticated;
-
 create or replace function public.execute_crm_sales_reset(p_confirmation text)
 returns jsonb
 language plpgsql
@@ -406,7 +389,6 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.execute_crm_sales_reset(text) from public;
 revoke all on function public.execute_crm_sales_reset(text) from anon;
 grant execute on function public.execute_crm_sales_reset(text) to authenticated;

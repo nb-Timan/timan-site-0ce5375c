@@ -19,7 +19,6 @@ BEGIN
     EXECUTE format('ALTER TABLE public.dealer_contacts DROP CONSTRAINT %I', constraint_name);
   END IF;
 END $$;
-
 ALTER TABLE public.dealer_contacts
   ADD CONSTRAINT dealer_contacts_contact_area_check
   CHECK (contact_area IN ('director','sales','workshop','parts','marketing','finance'));

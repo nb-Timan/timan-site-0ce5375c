@@ -66,6 +66,7 @@ export async function buildConfiguratorOwnership(
       email?: string | null;
       name?: string | null;
     } | null;
+    sellerVerifiedByServer?: boolean;
     dealer?: {
       account_id?: string | null;
       account_number?: string | null;
@@ -132,7 +133,9 @@ export async function buildConfiguratorOwnership(
   // Only honoured for backend / timan_seller users. For external roles the
   // override is ignored: their cases are not "sold by" anyone in Timan
   // unless a backend user later reassigns.
-  const allowSellerOverride = portalRole === 'timan_backend' || portalRole === 'timan_seller';
+  const allowSellerOverride = portalRole === 'timan_backend'
+    || portalRole === 'timan_seller'
+    || overrides?.sellerVerifiedByServer === true;
   let assignedSellerIdOverride: string | null = null;
   if (allowSellerOverride && sellerOverride) {
     if (sellerOverride.initials) sellerInitials = sellerOverride.initials.toUpperCase();

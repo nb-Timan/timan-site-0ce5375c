@@ -67,9 +67,28 @@ describe('Academy module access', () => {
     const academyPage = readFileSync('src/pages/AcademyPage.tsx', 'utf8');
 
     expect(editor).toContain('academy: "Timan Academy"');
-    expect(editor).toContain('{ label: "Academy", modules: ["academy"] }');
+    expect(editor).toContain('data-access-domain="Academy"');
     expect(routes).toContain('<AcademyAccessGuard><AcademyPage /></AcademyAccessGuard>');
-    expect(portal).toContain('const academyEnabled = canAccessAcademy(effectiveUser);');
+    expect(portal).toContain("const academyEnabled = hasTopLevelPortalAreaAccess(effectiveUser, 'academy');");
     expect(academyPage).toContain('useEffectivePortalUserState(appUser)');
+  });
+
+  it('applies Academy completion gates to normal routes using canonical cycle progress', () => {
+    const guard = readFileSync('src/components/academy/AcademyCapabilityGuard.tsx', 'utf8');
+    const provider = readFileSync('src/context/AcademyAccessContext.tsx', 'utf8');
+
+    expect(guard).toContain('isAcademyCapabilityUnlocked');
+    expect(guard).toContain('TRAINING_CASE_BYPASSES');
+    expect(provider).toContain('getMyAcademyCycle(viewAsUserId)');
+    expect(provider).toContain('snapshot.completionIds');
+  });
+
+  it('uses the active Academy case to restrict Portal Basics without changing real portal permissions', () => {
+    const portal = readFileSync('src/pages/PortalPage.tsx', 'utf8');
+    const sandbox = readFileSync('src/lib/academySandbox.ts', 'utf8');
+
+    expect(portal).toContain('academySandbox.getAllowedPortalHomeCardIds()');
+    expect(portal).toContain('academyAllowedHomeCards.includes(card.id)');
+    expect(sandbox).toContain("'portal.basics_5': ['academy', 'dealer_data', 'messe']");
   });
 });

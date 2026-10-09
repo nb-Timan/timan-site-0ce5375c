@@ -19,6 +19,7 @@ import {
   getLooseToolAccessories,
 } from "@/data/machines";
 import type { Accessory, Machine } from "@/types/configurator";
+import { isProductActive, publishedProduct } from '@/lib/publishedProductMaster';
 
 export type ProductGroupKey =
   | "RC-751"
@@ -44,7 +45,7 @@ export interface SeedRow {
   item_text_da: string;
   price_dkk: number | null;
   price_eur: number | null;
-  price_sek: null;
+  price_sek: number | null;
   group: ProductGroupKey;
 }
 
@@ -62,30 +63,33 @@ function pickDa(name: Accessory["name"] | Machine["name"]): string {
 function machineRow(m: Machine, group: ProductGroupKey): SeedRow | null {
   const item = String(m.varenr || "").trim();
   if (!item) return null;
+  const published = publishedProduct(item);
   return {
     item_number: item,
-    item_text_da: pickDa(m.name),
+    item_text_da: published?.item_text_da ?? pickDa(m.name),
     price_dkk: Number.isFinite(m.priceDKK) ? m.priceDKK : null,
     price_eur: Number.isFinite(m.priceEUR) ? m.priceEUR : null,
-    price_sek: null,
+    price_sek: published?.price_sek ?? null,
     group,
   };
 }
 
 function accessoryRow(a: Accessory, group: ProductGroupKey): SeedRow | null {
-  if (!a || a.isHeader) return null;
+  if (!a || a.isHeader || a.hidden) return null;
+  if (!isProductActive(a.varenr)) return null;
   const item = String(a.varenr || "").trim();
   if (!item || item.toUpperCase() === "HEADER") return null;
   const dkk = Number.isFinite(a.priceDKK) ? a.priceDKK : 0;
   const eur = Number.isFinite(a.priceEUR) ? a.priceEUR : 0;
+  const published = publishedProduct(item);
   // Skip rows where both prices are zero (placeholders / option-only headers)
-  if (!dkk && !eur) return null;
+  if (!dkk && !eur && !published) return null;
   return {
     item_number: item,
-    item_text_da: pickDa(a.name),
-    price_dkk: dkk || null,
-    price_eur: eur || null,
-    price_sek: null,
+    item_text_da: published?.item_text_da ?? pickDa(a.name),
+    price_dkk: published?.price_dkk ?? (dkk || null),
+    price_eur: published?.price_eur ?? (eur || null),
+    price_sek: published?.price_sek ?? null,
     group,
   };
 }
@@ -163,4 +167,13 @@ export function groupForItemNumber(
 export function groupOrderIndex(g: ProductGroupKey): number {
   const i = PRODUCT_GROUP_ORDER.indexOf(g);
   return i === -1 ? PRODUCT_GROUP_ORDER.length : i;
+}
+
+export function filterByProductGroup<T extends { item_number: string }>(
+  items: T[],
+  group: "all" | ProductGroupKey,
+  map: Map<string, ProductGroupKey> = buildVarenrGroupMap(),
+): T[] {
+  if (group === "all") return items;
+  return items.filter((item) => map.get(item.item_number) === group);
 }

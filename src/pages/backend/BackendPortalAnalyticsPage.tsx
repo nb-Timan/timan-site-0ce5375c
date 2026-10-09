@@ -12,6 +12,7 @@ import {
   CalendarDays,
   CheckSquare,
   Clock3,
+  Info,
   Minus,
   MonitorUp,
   RefreshCw,
@@ -24,6 +25,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -36,6 +38,11 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Tooltip as UiTooltip,
+  TooltipContent as UiTooltipContent,
+  TooltipTrigger as UiTooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatDateTime } from "@/lib/format-date";
@@ -43,9 +50,11 @@ import { isBackendActor } from "@/lib/portalAccess";
 import {
   fetchPortalUsageFilterOptions,
   fetchPortalUsageAnalytics,
+  fetchPortalUsageUserComparisons,
   type PortalUsageAnalytics,
   type PortalUsageAnalyticsFilterOptions,
   type PortalUsageModuleSummary,
+  type PortalUsageUserComparison,
 } from "@/lib/portalModuleUsageAnalyticsService";
 import {
   analyticsUserKey,
@@ -60,6 +69,18 @@ import {
   type PortalAnalyticsTrend,
 } from "@/lib/portalAnalyticsTrends";
 import { resolvePortalAnalyticsUserSelectionView } from "@/lib/portalAnalyticsUserSelectionView";
+import {
+  buildPortalAnalyticsComparison,
+  PORTAL_ANALYTICS_COMPARISON_LIMIT,
+  type PortalAnalyticsSeries,
+} from "@/lib/portalAnalyticsComparison";
+import {
+  calculatePortalActivityIndexes,
+  mergePortalActivityCohort,
+  takePortalActivityTopFive,
+  type PortalActivityIndexRow,
+} from "@/lib/portalAnalyticsActivityIndex";
+import { getPortalAnalyticsCopy } from "@/lib/portalAnalyticsI18n";
 
 const ALL = "__all__";
 const PERIODS = [
@@ -195,6 +216,72 @@ function KpiCard({
   );
 }
 
+function TopActivityCard({
+  rows,
+  periodDays,
+  copy,
+}: {
+  rows: PortalActivityIndexRow[];
+  periodDays: number;
+  copy: ReturnType<typeof getPortalAnalyticsCopy>;
+}) {
+  const deltaLabel = (row: PortalActivityIndexRow) => {
+    if (row.delta.state === "unavailable") return copy.unavailable;
+    if (row.delta.state === "new") return copy.newActivity;
+    if (row.delta.state === "flat") return `— ${row.delta.percent ?? 0} %`;
+    return `${row.delta.state === "up" ? "↑" : "↓"} ${Math.abs(row.delta.percent || 0)} %`;
+  };
+
+  return (
+    <Card className="min-w-0 rounded-lg">
+      <CardHeader className="space-y-1 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">{copy.topActivity}</CardTitle>
+          <UiTooltip>
+            <UiTooltipTrigger asChild>
+              <button type="button" className="text-slate-400 hover:text-slate-700" aria-label={copy.activityIndex}>
+                <Info className="h-4 w-4" />
+              </button>
+            </UiTooltipTrigger>
+            <UiTooltipContent className="max-w-xs text-xs">{copy.explanation}</UiTooltipContent>
+          </UiTooltip>
+        </div>
+        <p className="text-xs text-slate-500">{copy.period(periodDays)}</p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {rows.map((row, index) => (
+          <UiTooltip key={row.user_key}>
+            <UiTooltipTrigger asChild>
+              <div className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)_2rem_auto] items-center gap-1.5 text-xs">
+                <span className="text-slate-400">{index + 1}.</span>
+                <span className="truncate font-medium text-slate-800">{displayUserName(row)}</span>
+                <span className="text-right font-bold tabular-nums text-slate-950">{row.currentIndex}</span>
+                <span className={row.delta.state === "up" || row.delta.state === "new"
+                  ? "whitespace-nowrap text-emerald-700"
+                  : row.delta.state === "down"
+                    ? "whitespace-nowrap text-rose-700"
+                    : "whitespace-nowrap text-slate-500"}
+                >
+                  {deltaLabel(row)}
+                </span>
+              </div>
+            </UiTooltipTrigger>
+            <UiTooltipContent className="max-w-xs text-xs">
+              <div className="font-semibold">{copy.activityIndex}: {row.currentIndex}</div>
+              <div>{copy.previousPeriod(periodDays)}: {row.previousIndex}</div>
+              <div>{copy.activeDays}: {row.current.activeDays}</div>
+              <div>{copy.activeTime}: {formatSeconds(row.current.activeSeconds)}</div>
+              <div>{copy.sessions}: {row.current.sessions}</div>
+              <div>{copy.visits}: {row.current.visits}</div>
+            </UiTooltipContent>
+          </UiTooltip>
+        ))}
+        {rows.length === 0 && <p className="text-xs text-slate-400">{copy.noActivity}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 function EmptyChart() {
   return <div className="flex h-full items-center justify-center text-sm text-slate-400">Ingen data endnu.</div>;
 }
@@ -237,6 +324,68 @@ function ActiveDaysChart({ rows }: { rows: PortalUsageAnalytics["active_days_ove
         <Line type="monotone" dataKey="active_users" name="Aktive brugere" stroke="#047857" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="visits" name="Besøg" stroke="#2563eb" strokeWidth={2} dot={false} />
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ComparisonActivityChart({
+  rows,
+  series,
+}: {
+  rows: Array<Record<string, string | number>>;
+  series: PortalAnalyticsSeries[];
+}) {
+  if (!rows.some((row) => series.some((item) => Number(row[item.dataKey]) > 0))) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="day" tick={{ fontSize: 11 }} minTickGap={24} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={34} />
+        <Tooltip formatter={(value: number, name: string) => [value, name]} labelFormatter={(label) => `Dato: ${label}`} />
+        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, whiteSpace: "normal" }} />
+        {series.map((item) => (
+          <Line
+            key={item.key}
+            type="monotone"
+            dataKey={item.dataKey}
+            name={item.name}
+            stroke={item.color}
+            strokeWidth={2}
+            dot={false}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ComparisonModuleBars({
+  rows,
+  series,
+  valueKey = "visits",
+}: {
+  rows: Array<Record<string, string | number>>;
+  series: PortalAnalyticsSeries[];
+  valueKey?: "visits" | "active_seconds";
+}) {
+  const data = rows.map((row) => ({ ...row, name: formatModuleKey(String(row.moduleKey || "")) }));
+  if (!data.some((row) => series.some((item) => Number(row[item.dataKey]) > 0))) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 24 }} barGap={2}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-12} textAnchor="end" height={58} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={40} />
+        <Tooltip
+          formatter={(value: number, name: string) => [valueKey === "active_seconds" ? formatSeconds(value) : value, name]}
+          labelFormatter={(label) => `Modul: ${label}`}
+        />
+        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, whiteSpace: "normal" }} />
+        {series.map((item) => (
+          <Bar key={item.key} dataKey={item.dataKey} name={item.name} fill={item.color} radius={[3, 3, 0, 0]} />
+        ))}
+      </BarChart>
     </ResponsiveContainer>
   );
 }
@@ -334,7 +483,7 @@ function SelectedUserSummary({ user }: { user: PortalUsageAnalytics["users"][num
 
 export default function BackendPortalAnalyticsPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const isBackend = isBackendActor(appUser);
 
@@ -345,6 +494,7 @@ export default function BackendPortalAnalyticsPage() {
   const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
   const [days, setDays] = useState("30");
   const [analytics, setAnalytics] = useState<PortalUsageAnalytics | null>(null);
+  const [userComparisons, setUserComparisons] = useState<PortalUsageUserComparison[]>([]);
   const [filterOptions, setFilterOptions] = useState<PortalUsageAnalyticsFilterOptions | null>(null);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -364,6 +514,7 @@ export default function BackendPortalAnalyticsPage() {
     let cancelled = false;
     setBusy(true);
     setErr(null);
+    setUserComparisons([]);
 
     fetchPortalUsageFilterOptions()
       .then(async (options) => {
@@ -378,18 +529,31 @@ export default function BackendPortalAnalyticsPage() {
           selectedUserKeys,
         });
         const hasScopedAudience = audience !== "portal" || selectedRoles.length > 0 || selectedUserKeys.length > 0 || partnerType !== "all";
-        const data = await fetchPortalUsageAnalytics({
-          userKeys: scope.effectiveUserKeys.length > 0 ? scope.effectiveUserKeys : (hasScopedAudience ? NO_USERS_FILTER : null),
-          moduleKeys: selectedModuleKeys,
-          days: Number(days),
-        });
+        const comparisonUsers = selectedUserKeys.length >= 2
+          && scope.effectiveUsers.length <= PORTAL_ANALYTICS_COMPARISON_LIMIT
+          ? scope.effectiveUsers
+          : [];
+        const [data, comparisons] = await Promise.all([
+          fetchPortalUsageAnalytics({
+            userKeys: scope.effectiveUserKeys.length > 0 ? scope.effectiveUserKeys : (hasScopedAudience ? NO_USERS_FILTER : null),
+            moduleKeys: selectedModuleKeys,
+            days: Number(days),
+          }),
+          comparisonUsers.length >= 2
+            ? fetchPortalUsageUserComparisons(comparisonUsers, {
+                moduleKeys: selectedModuleKeys,
+                days: Number(days),
+              })
+            : Promise.resolve([]),
+        ]);
         if (!cancelled) {
           data.filters = options;
           setAnalytics(data);
+          setUserComparisons(comparisons);
         }
       })
-      .catch((error: any) => {
-        if (!cancelled) setErr(error?.message || String(error));
+      .catch((error: unknown) => {
+        if (!cancelled) setErr(error instanceof Error ? error.message : String(error));
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -401,12 +565,45 @@ export default function BackendPortalAnalyticsPage() {
   }, [appUser?.email, audience, days, isBackend, partnerType, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
-  const selectedUserCount = selectedUserKeys.length;
+  const selectedUserCount = selectedUserKeys.length ? resolvedScope.effectiveUsers.length : 0;
   const userSelectionView = resolvePortalAnalyticsUserSelectionView(selectedUserCount);
   const showSingleUserSummary = userSelectionView === "single" && Boolean(selectedUser);
   const showUsersTable = userSelectionView !== "single";
   const hasAudienceFilter = audience !== "portal" || partnerType !== "all" || selectedUserKeys.length > 0 || selectedRoles.length > 0;
   const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
+  const comparisonLimitExceeded = selectedUserCount > PORTAL_ANALYTICS_COMPARISON_LIMIT;
+  const comparisonData = useMemo(
+    () => buildPortalAnalyticsComparison(userComparisons),
+    [userComparisons],
+  );
+  const comparisonActive = userSelectionView === "multi"
+    && !comparisonLimitExceeded
+    && comparisonData.series.length === selectedUserCount;
+  const analyticsCopy = useMemo(() => getPortalAnalyticsCopy(uiLanguage), [uiLanguage]);
+  const topActivityRows = useMemo(() => {
+    if (!analytics) return [];
+    const metrics = analytics.activity_users.map((user) => ({
+      ...user,
+      current: {
+        activeDays: user.current_active_days,
+        activeSeconds: user.current_active_seconds,
+        sessions: user.current_sessions,
+        visits: user.current_visits,
+      },
+      previous: {
+        activeDays: user.previous_active_days,
+        activeSeconds: user.previous_active_seconds,
+        sessions: user.previous_sessions,
+        visits: user.previous_visits,
+      },
+    }));
+    const cohort = mergePortalActivityCohort(resolvedScope.effectiveUsers, metrics);
+    return takePortalActivityTopFive(calculatePortalActivityIndexes(
+      cohort,
+      analytics.period.days,
+      analytics.selected_period_comparison.has_previous_data === true,
+    ));
+  }, [analytics, resolvedScope.effectiveUsers]);
 
   const toggleValue = (current: string[], value: string, setter: (next: string[]) => void) => {
     setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
@@ -607,58 +804,80 @@ export default function BackendPortalAnalyticsPage() {
           <div className="rounded-lg border bg-white p-8 text-center text-sm text-slate-500">Henter brugeraktivitet...</div>
         ) : (
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <KpiCard
                 icon={Users}
                 label="Aktive brugere"
                 value={analytics.totals.user_count}
                 sub={`Periode: ${analytics.period.days} dage`}
-                trend={formatPercentTrend(analytics.comparisons.week.current_users || 0, analytics.comparisons.week.previous_users || 0)}
+                trend={formatPercentTrend(analytics.selected_period_comparison.current_users || 0, analytics.selected_period_comparison.previous_users || 0, analyticsCopy.previousPeriod(analytics.period.days))}
               />
               <KpiCard
                 icon={MonitorUp}
                 label="Sessioner"
                 value={analytics.totals.session_count}
                 sub={`${analytics.totals.visit_count} modulbesøg`}
-                trend={formatCountTrend(analytics.comparisons.week.current_sessions || 0, analytics.comparisons.week.previous_sessions || 0, "sessioner")}
+                trend={formatCountTrend(analytics.selected_period_comparison.current_sessions || 0, analytics.selected_period_comparison.previous_sessions || 0, "sessioner", analyticsCopy.previousPeriod(analytics.period.days))}
               />
               <KpiCard
                 icon={Clock3}
                 label="Samlet aktiv tid"
                 value={formatSeconds(analytics.totals.active_seconds)}
                 sub={`Senest aktiv: ${analytics.totals.last_active_at ? formatDateTime(analytics.totals.last_active_at) : "-"}`}
-                trend={formatPercentTrend(analytics.comparisons.week.current_seconds || 0, analytics.comparisons.week.previous_seconds || 0)}
+                trend={formatPercentTrend(analytics.selected_period_comparison.current_seconds || 0, analytics.selected_period_comparison.previous_seconds || 0, analyticsCopy.previousPeriod(analytics.period.days))}
               />
               <KpiCard
                 icon={CalendarDays}
                 label="Aktive dage 7/30/90"
                 value={`${analytics.totals.active_days_7}/${analytics.totals.active_days_30}/${analytics.totals.active_days_90}`}
-                trend={formatCountTrend(analytics.comparisons.week.current_active_days || 0, analytics.comparisons.week.previous_active_days || 0, "dage")}
+                trend={formatCountTrend(analytics.selected_period_comparison.current_active_days || 0, analytics.selected_period_comparison.previous_active_days || 0, "dage", analyticsCopy.previousPeriod(analytics.period.days))}
               />
+              <TopActivityCard rows={topActivityRows} periodDays={analytics.period.days} copy={analyticsCopy} />
             </div>
 
             {showSingleUserSummary && selectedUser && <SelectedUserSummary user={selectedUser} />}
             {showUsersTable && <DataTable analytics={analytics} />}
+            {comparisonLimitExceeded && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Sammenligning vises for op til {PORTAL_ANALYTICS_COMPARISON_LIMIT} manuelt valgte brugere. De aktuelle data vises samlet.
+              </div>
+            )}
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card className="rounded-lg">
                 <CardHeader><CardTitle className="text-base">Modulbrug denne uge</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ModuleBars rows={analytics.module_usage_this_week} /></CardContent>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonModuleBars rows={comparisonData.weekModuleRows} series={comparisonData.series} />
+                    : <ModuleBars rows={analytics.module_usage_this_week} />}
+                </CardContent>
               </Card>
 
               <Card className="rounded-lg">
                 <CardHeader><CardTitle className="text-base">Modulbrug sidste 30 dage</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ModuleBars rows={analytics.module_usage_last_30_days} /></CardContent>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonModuleBars rows={comparisonData.monthModuleRows} series={comparisonData.series} />
+                    : <ModuleBars rows={analytics.module_usage_last_30_days} />}
+                </CardContent>
               </Card>
 
               <Card className="rounded-lg">
-                <CardHeader><CardTitle className="text-base">Aktive dage over tid</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ActiveDaysChart rows={analytics.active_days_over_time} /></CardContent>
+                <CardHeader><CardTitle className="text-base">{comparisonActive ? "Aktivitet over tid" : "Aktive dage over tid"}</CardTitle></CardHeader>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonActivityChart rows={comparisonData.activityRows} series={comparisonData.series} />
+                    : <ActiveDaysChart rows={analytics.active_days_over_time} />}
+                </CardContent>
               </Card>
 
               <Card className="rounded-lg">
                 <CardHeader><CardTitle className="text-base">Aktiv tid pr. modul</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ModuleBars rows={analytics.modules} valueKey="active_seconds" /></CardContent>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonModuleBars rows={comparisonData.activeSecondsModuleRows} series={comparisonData.series} valueKey="active_seconds" />
+                    : <ModuleBars rows={analytics.modules} valueKey="active_seconds" />}
+                </CardContent>
               </Card>
             </div>
 

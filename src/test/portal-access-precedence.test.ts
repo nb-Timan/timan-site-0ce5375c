@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_MODULE_ACCESS,
+  canManageNewsContent,
   canManageMarketingVideos,
   derivePortalRole,
   deriveStoredPortalRole,
@@ -39,6 +40,20 @@ describe('portal access precedence', () => {
 
   it('lets a manual area override grant extra access', () => {
     expect(hasAreaAccess({ ...seller, allowed_areas: ['marketing'] }, 'marketing')).toBe(true);
+  });
+
+  it('allows only internal users with an explicit Marketing permission to publish site changes', () => {
+    const dealer: any = {
+      email: 'dealer@example.com',
+      role: 'partner',
+      partner_type: 'forhandler',
+      portal_role: 'timan_dealer',
+    };
+
+    expect(canManageNewsContent({ ...seller, permissions: { news_manage: true } })).toBe(true);
+    expect(canManageNewsContent({ ...seller, allowed_areas: ['marketing'], permissions: {} })).toBe(true);
+    expect(canManageNewsContent(seller)).toBe(false);
+    expect(canManageNewsContent({ ...dealer, permissions: { news_manage: true }, allowed_areas: ['marketing'] })).toBe(false);
   });
 
   it('keeps Marketing area access separate from Marketing video management', () => {

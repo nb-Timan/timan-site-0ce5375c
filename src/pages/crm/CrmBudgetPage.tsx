@@ -25,8 +25,10 @@ import {
   BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, currentFiscalYearForBudget, fiscalYearForDate, fiscalYearLabel,
   FISCAL_MONTH_ORDER, reorderCalendarMonthsForFiscalYear,
   listBudgetLines, listForecasts, listSalesActuals, orderDetailsForBudgetCell,
+  initializeWorkingBudgetFromOriginal, workingBudgetInitializationSellerEmails,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   buildOrderActualsByKey, canonicalBudgetProductKey, orderActualKey, monthlyOrderQtyForProduct,
+  calculateBudgetScorePct, splitAnnualQuantityMonthly,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
@@ -34,6 +36,7 @@ import {
   listBudgetDealerLines,
   aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
   aggregateDealerBudgetSellerBreakdown,
+  originalBudgetBasisForCell,
   resolveBudgetScopeEmails,
   collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
@@ -60,11 +63,27 @@ import BudgetSaveConfirmDialog, { type BudgetChangedCell } from "@/components/cr
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
+import BudgetWorkingUnitDialog, { type BudgetWorkingUnitContext } from "@/components/crm/BudgetWorkingUnitDialog";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
-import { formatConvertedMoney } from "@/lib/currency";
+import { formatLocalizedConvertedMoney } from "@/lib/currency";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
+import {
+  resolveWorkingBudgetAggregateAllocation,
+  resolveWorkingBudgetAllocation,
+  type WorkingBudgetAggregateAllocation,
+  type WorkingBudgetSellerAllocationInput,
+} from "@/lib/workingBudgetAllocation";
+import {
+  createWorkingBudgetUnit,
+  listWorkingBudgetUnits,
+  listWorkingBudgetUnitsForYear,
+  moveWorkingBudgetUnit,
+  removeWorkingBudgetUnit,
+  type WorkingBudgetUnit,
+} from "@/lib/workingBudgetMoveService";
+import type { WorkingBudgetMonthState } from "@/lib/workingBudgetUnitActions";
 
 
 // ────────────────────────────────────────────────────────────
@@ -281,22 +300,6 @@ function generatePipeline(_line: BudgetLine, _year: number): PipelineOffer[][] {
 void SAMPLE_DEALERS; void SAMPLE_CUSTOMERS; void SAMPLE_ATTACHMENTS; void SAMPLE_STATUSES; void seedRand;
 
 // ---------- Helpers ----------
-function splitToMonthly(qty: number, split: number[]): number[] {
-  const safe = split.length === 12 ? split : EVEN;
-  // Distribute qty across months by share, then round so totals stay close to qty.
-  const raw = safe.map(s => qty * s);
-  const floors = raw.map(v => Math.floor(v));
-  let remainder = qty - floors.reduce((a, b) => a + b, 0);
-  const order = raw
-    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
-    .sort((a, b) => b.frac - a.frac);
-  const result = [...floors];
-  for (let k = 0; k < order.length && remainder > 0; k++) {
-    result[order[k].i]++; remainder--;
-  }
-  return result;
-}
-
 function fmtDate(iso: string, lang: Language): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -338,9 +341,9 @@ type WorkingDraft = Record<string, number[]>; // budget_line_id -> 12 numbers
 export default function CrmBudgetPage() {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { language: lang } = useLanguage();
+  const { language: lang, uiLanguage } = useLanguage();
   const displayCurrency = usePortalCurrency();
-  const formatDkk = (value: number) => formatConvertedMoney(value, "DKK", displayCurrency);
+  const formatBudgetMoney = (valueDkk: number) => formatLocalizedConvertedMoney(valueDkk, "DKK", displayCurrency, uiLanguage);
   const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const isSeller = isScopedSeller(portalRole);
@@ -358,7 +361,7 @@ export default function CrmBudgetPage() {
   const [quotePipelineRows, setQuotePipelineRows] = useState<ScopedConfiguration[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Working-forecast monthly drafts per line (used as live override; auto-saved).
+  // Retained for legacy unsaved sessions; new +/- unit actions persist atomically.
   const [workingDraft, setWorkingDraft] = useState<WorkingDraft>({});
   const [showAdd, setShowAdd] = useState(false);
   // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
@@ -395,6 +398,9 @@ export default function CrmBudgetPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   // "Add reference" modal state — opened from the small Link2 icon next to a cell.
   const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
+  const [workingUnitAction, setWorkingUnitAction] = useState<BudgetWorkingUnitContext | null>(null);
+  const [workingUnitBusy, setWorkingUnitBusy] = useState(false);
+  const [workingUnitsByLine, setWorkingUnitsByLine] = useState<Record<string, WorkingBudgetUnit[]> | null>(null);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   // Map of cell_key → latest AuditEntry for the current scope (used for the
@@ -482,10 +488,33 @@ export default function CrmBudgetPage() {
       return;
     }
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000, payload: "summary" }), listBudgetDealerLines(year)])
-      .then(([l, f, a, leads, dl]) => {
+      .then(async ([initialLines, initialForecasts, a, leads, dl]) => {
+        let l = initialLines;
+        let f = initialForecasts;
+        const activeSeller = getActiveSellerView(appUser?.email);
+        const scopedSellerEmail = isAdmin
+          ? null
+          : ((activeSeller?.email || appUser?.email || "").trim().toLowerCase() || null);
+        const initializationEmails = workingBudgetInitializationSellerEmails(l, dl, scopedSellerEmail);
+        const initialization = await Promise.all(
+          initializationEmails.map(email => initializeWorkingBudgetFromOriginal(year, email)),
+        );
+        if (initialization.some(result => result.status === "seeded" || result.status === "reconciled")) {
+          [l, f] = await Promise.all([listBudgetLines({ year }), listForecasts(year)]);
+        }
+        const workingUnits = await listWorkingBudgetUnitsForYear(year);
+        const unitsByLine = workingUnits.reduce<Record<string, WorkingBudgetUnit[]>>((grouped, unit) => {
+          (grouped[unit.budget_line_id] ||= []).push(unit);
+          return grouped;
+        }, {});
         setLines(l); setForecasts(f); setActuals(a);
+        setWorkingUnitsByLine(unitsByLine);
         setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));
         setDealerLines(dl);
+      })
+      .catch((error) => {
+        console.error("[budget] working-budget initialization failed", error);
+        toast.error("Arbejdsbudget kunne ikke initialiseres");
       })
       .finally(() => setBusy(false));
     // Re-hydrate effective lock map for this year (per-seller resolved against
@@ -610,6 +639,9 @@ export default function CrmBudgetPage() {
         if (!r.cell_key) continue;
         const item: CellReference = {
           dealer_label: r.dealer_name,
+          dealer_account_id: r.dealer_account_id,
+          dealer_name: r.dealer_name,
+          dealer_account_number: r.dealer_account_number,
           has_lead: !!(r.lead_id && r.lead_id.trim()),
           has_demo: !!(r.demo_id && r.demo_id.trim()),
           note: r.note,
@@ -684,7 +716,7 @@ export default function CrmBudgetPage() {
       if (!d || isNaN(d.getTime()) || fiscalYearForDate(d) !== year) continue;
       const mIdx = d.getMonth();
       const totalQty = Object.values(r.machine_qty_by_key).reduce((s, q) => s + q, 0) || 1;
-      const total = r.total_value || 0;
+      const total = r.total_value_dkk || 0;
       const keys = r.machine_keys.length > 0 ? r.machine_keys : ['__unknown__'];
       for (const key of keys) {
         const qty = r.machine_qty_by_key[key] || 1;
@@ -885,7 +917,7 @@ export default function CrmBudgetPage() {
     const fc = forecasts
       .filter(f => visibleLines.some(l => l.id === f.budget_line_id))
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
-    const score = annualQty > 0 ? Math.round((soldQty / annualQty) * 100) : 0;
+    const score = calculateBudgetScorePct(annualQty, soldQty);
     return { annualBudget, annualQty, sold: { qty: soldQty, value: soldValue }, fc, score };
   }, [grouped, visibleLines, orderActualsByKey, actuals, forecasts, dealerLines, leadContribs, workingDraft, isAdmin, backendFilter, selectedSellerEmail, myEmail, sellerCtxEmail, year]);
 
@@ -919,7 +951,7 @@ export default function CrmBudgetPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <KpiCard label={T.kpi_budget[lang]} value={`${budgetQty.toLocaleString("da-DK")} ${T.pcs[lang]}`} icon={Wallet} tone="primary" />
-            <KpiCard label={T.legend_pipe[lang]} value={formatDkk(pipelineValue)} icon={FileText} tone="ok" />
+            <KpiCard label={T.legend_pipe[lang]} value={formatBudgetMoney(pipelineValue)} icon={FileText} tone="ok" />
             <KpiCard label={T.col_total[lang]} value={`${activeDealerLines.length.toLocaleString("da-DK")} linjer`} icon={Calendar} tone="warn" />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -1017,7 +1049,7 @@ export default function CrmBudgetPage() {
     const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
     const ac = actualsForLine(line)[0];
     const fc = forecasts.find(f => f.budget_line_id === line.id);
-    const budgetMonthly = splitToMonthly(line.qty_budget, split);
+    const budgetMonthly = splitAnnualQuantityMonthly(line.qty_budget, split);
     const ordersMonthly = ordersMonthlyForLine(line);
     const draft = workingDraft[line.id];
     // Source of truth for working forecast (Arbejdsbudget):
@@ -1029,11 +1061,11 @@ export default function CrmBudgetPage() {
     const savedMonthly = (fc?.monthly_qty && fc.monthly_qty.length === 12)
       ? fc.monthly_qty.map(v => Number(v) || 0)
       : null;
-    // Arbejdsbudget is fully independent from Budget. If no forecast has been
-    // saved yet, default to zeros — never fall back to qty_budget (that would
-    // make Budget edits visually mutate Arbejdsbudget).
+    // A missing forecast is shown as zero only while the transactional
+    // seller/year initializer is still pending (or deliberately skipped as
+    // ambiguous). Once seeded, the saved monthly_qty is the independent plan.
     const legacyForecast = (fc && (fc.qty_forecast ?? 0) > 0)
-      ? splitToMonthly(fc.qty_forecast, split)
+      ? splitAnnualQuantityMonthly(fc.qty_forecast, split)
       : Array(12).fill(0);
     const workingMonthly = draft ?? savedMonthly ?? legacyForecast;
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
@@ -1066,6 +1098,118 @@ export default function CrmBudgetPage() {
     }
     for (const [ini, v] of map.entries()) if (!seen.has(ini)) out.push({ initials: ini, value: v });
     return out;
+  }
+
+  /** Backend composes the same canonical allocation resolver per seller. */
+  function workingSellerAllocationForCell({
+    linesIn,
+    productKey,
+    productCode,
+    monthIdx,
+    leadRows,
+  }: {
+    linesIn: BudgetLine[];
+    productKey: string;
+    productCode: string;
+    monthIdx: number;
+    leadRows: LeadWorkingContribution[];
+  }): WorkingBudgetAggregateAllocation {
+    const sellers = new Map<string, {
+      seller_initials: string;
+      seller_email: string | null;
+      workingQty: number;
+      leads: LeadWorkingContribution[];
+      lineIds: string[];
+    }>();
+
+    const sellerIdentity = (emailValue: string | null, initialsValue: string | null) => {
+      const email = (emailValue || "").trim().toLowerCase();
+      const initials = (initialsValue || "").trim().toUpperCase();
+      const canonical = BUDGET_SELLERS.find((seller) =>
+        seller.email.toLowerCase() === email || seller.initials.toUpperCase() === initials
+      );
+      return {
+        email: email || canonical?.email.toLowerCase() || null,
+        initials: initials || canonical?.initials.toUpperCase() || "—",
+      };
+    };
+
+    for (const line of linesIn) {
+      const identity = sellerIdentity(line.seller_email, line.seller_initials);
+      const key = identity.email || identity.initials;
+      const seller = sellers.get(key) || {
+        seller_initials: identity.initials,
+        seller_email: identity.email,
+        workingQty: 0,
+        leads: [],
+        lineIds: [],
+      };
+      seller.workingQty += lineMonthly(line).workingMonthly[monthIdx] || 0;
+      seller.lineIds.push(line.id);
+      sellers.set(key, seller);
+    }
+
+    for (const lead of leadRows) {
+      const identity = sellerIdentity(lead.owner_email, null);
+      const key = identity.email || identity.initials;
+      const seller = sellers.get(key) || {
+        seller_initials: identity.initials,
+        seller_email: identity.email,
+        workingQty: 0,
+        leads: [],
+        lineIds: [],
+      };
+      seller.workingQty += lead.qty;
+      seller.leads.push(lead);
+      sellers.set(key, seller);
+    }
+
+    const canonicalOrder = BUDGET_SELLERS.map((seller) => seller.initials.toUpperCase());
+    const inputs: WorkingBudgetSellerAllocationInput[] = Array.from(sellers.values())
+      .filter((seller) => seller.workingQty > 0)
+      .sort((a, b) => {
+        const aIndex = canonicalOrder.indexOf(a.seller_initials);
+        const bIndex = canonicalOrder.indexOf(b.seller_initials);
+        const aOrder = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+        const bOrder = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+        return aOrder - bOrder || a.seller_initials.localeCompare(b.seller_initials);
+      })
+      .map((seller) => {
+        const sellerCellKey = budgetCellKey({
+          year,
+          seller_initials: seller.seller_initials,
+          product_code: productCode,
+          month_idx: monthIdx,
+          budget_type: "arbejdsbudget",
+        });
+        const references = refsByCell[sellerCellKey] || [];
+        const sellerScope = seller.seller_email ? new Set([seller.seller_email]) : new Set<string>();
+        return {
+          seller_initials: seller.seller_initials,
+          seller_email: seller.seller_email,
+          workingQty: seller.workingQty,
+          originalBasis: originalBudgetBasisForCell(
+            dealerLines,
+            year,
+            monthIdx,
+            productKey,
+            sellerScope,
+          ),
+          references: references.map((reference) => ({
+            dealer_account_id: reference.dealer_account_id,
+            dealer_name: reference.dealer_name || reference.dealer_label,
+            dealer_account_number: reference.dealer_account_number,
+            qty: reference.qty,
+          })),
+          hasWorkingChange: !!latestAuditByCell[sellerCellKey] || seller.leads.length > 0,
+          units: workingUnitsByLine == null
+            ? undefined
+            : seller.lineIds.flatMap((lineId) => workingUnitsByLine[lineId] || [])
+              .filter((unit) => unit.month_idx === monthIdx),
+        };
+      });
+
+    return resolveWorkingBudgetAggregateAllocation(inputs);
   }
 
   /** Mirrors mergeMonthlyPreferDealer for the Budget tooltip. Imported dealer
@@ -1194,41 +1338,127 @@ export default function CrmBudgetPage() {
     }
   }
 
-  // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
-  //
-  // Bug fix: previously each stepper press auto-saved (upsertForecast wrote
-  // an annual qty_forecast which was then redistributed across months on next
-  // read) AND triggered the "Stor budgetændring" popup per cell. Spec says:
-  //   • collect changes in a local draft
-  //   • show ONE confirmation modal at "Afslut redigering"
-  //   • save the exact draft values per (seller, model, month, year)
-  // adjustWorking therefore only mutates the in-memory draft now.
-  async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    // Backend/global is read-only — only sellers (incl. backend in "Vis som sælger") may edit.
-    if (isAdmin) return;
-    if (editModeUntil == null) return;
+  // Working Budget +/- changes are persisted atomically because the quantity
+  // and its dealer allocation rows form one canonical unit of data.
+  async function openWorkingUnitAction(
+    line: BudgetLine,
+    monthIdx: number,
+    action: "increase" | "decrease",
+    months: WorkingBudgetMonthState[],
+  ) {
+    if (workingUnitBusy) return;
+    if (Object.keys(workingDraft).length > 0) {
+      toast.message("Gem eller annullér dine øvrige Working Budget-ændringer først.");
+      return;
+    }
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
-    const lineId = persisted.id;
-    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-    const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
-    const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
-      ? fcExisting.monthly_qty.map(v => Number(v) || 0)
-      : ((fcExisting && (fcExisting.qty_forecast ?? 0) > 0)
-          ? splitToMonthly(fcExisting.qty_forecast, split)
-          : Array(12).fill(0));
-    const prevDraft = workingDraft[lineId] ?? baselineMonthly;
-    const oldVal = prevDraft[monthIdx] ?? 0;
-    const newVal = Math.max(0, oldVal + delta);
-    if (newVal === oldVal) return;
+    setWorkingUnitBusy(true);
+    try {
+      const units = await listWorkingBudgetUnits(persisted.id);
+      setWorkingUnitsByLine((current) => ({
+        ...(current || {}),
+        [persisted.id]: units,
+      }));
+      setWorkingUnitAction({
+        budgetLineId: persisted.id,
+        modelName: persisted.product_name,
+        sellerLabel: persisted.seller_initials || persisted.seller_name || "—",
+        action,
+        monthIdx,
+        monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+        months: months.map((month) => ({
+          ...month,
+          units: units.filter((unit) => unit.month_idx === month.monthIdx),
+        })),
+      });
+    } catch (error) {
+      console.error("[budget] unit loading failed", error);
+      toast.error("Working Budget-enheder kunne ikke hentes", { description: "Genindlæs siden og prøv igen." });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
+  }
 
-    setWorkingDraft(prev => {
-      const cur = prev[lineId] ?? prevDraft;
-      const next = [...cur];
-      next[monthIdx] = newVal;
-      return { ...prev, [lineId]: next };
-    });
+  async function refreshWorkingBudgetAfterUnitAction() {
+    const [fresh, workingUnits] = await Promise.all([
+      listForecasts(year),
+      listWorkingBudgetUnitsForYear(year),
+    ]);
+    const unitsByLine = workingUnits.reduce<Record<string, WorkingBudgetUnit[]>>((grouped, unit) => {
+      (grouped[unit.budget_line_id] ||= []).push(unit);
+      return grouped;
+    }, {});
+    setForecasts(fresh);
+    setWorkingUnitsByLine(unitsByLine);
+    setWorkingDraft({});
+    setAuditRefreshKey((key) => key + 1);
+    setWorkingUnitAction(null);
     bumpEditActivity();
+  }
+
+  async function confirmWorkingAdd() {
+    if (!workingUnitAction || workingUnitBusy) return;
+    const month = workingUnitAction.months.find((candidate) => candidate.monthIdx === workingUnitAction.monthIdx);
+    if (!month) return;
+    setWorkingUnitBusy(true);
+    try {
+      await createWorkingBudgetUnit({
+        budgetLineId: workingUnitAction.budgetLineId,
+        monthIdx: workingUnitAction.monthIdx,
+        expectedValue: month.allocation.total,
+        requestId: crypto.randomUUID(),
+      });
+      await refreshWorkingBudgetAfterUnitAction();
+      toast.success("Enhed tilføjet til Working Budget");
+    } catch (error) {
+      console.error("[budget] unit adjustment failed", error);
+      const message = error instanceof Error ? error.message : "Ændringen kunne ikke gemmes";
+      toast.error("Working Budget blev ikke ændret", { description: message });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
+  }
+
+  async function confirmWorkingRemove(unit: WorkingBudgetUnit) {
+    if (!workingUnitAction || workingUnitBusy) return;
+    setWorkingUnitBusy(true);
+    try {
+      await removeWorkingBudgetUnit({
+        unitId: unit.id,
+        expectedVersion: unit.version,
+        requestId: crypto.randomUUID(),
+      });
+      await refreshWorkingBudgetAfterUnitAction();
+      toast.success("Enhed fjernet fra Working Budget");
+    } catch (error) {
+      console.error("[budget] unit removal failed", error);
+      const message = error instanceof Error ? error.message : "Ændringen kunne ikke gemmes";
+      toast.error("Working Budget blev ikke ændret", { description: message });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
+  }
+
+  async function confirmWorkingMove(unit: WorkingBudgetUnit, destinationMonthIdx: number) {
+    if (!workingUnitAction || workingUnitBusy) return;
+    setWorkingUnitBusy(true);
+    try {
+      await moveWorkingBudgetUnit({
+        unitId: unit.id,
+        targetMonthIdx: destinationMonthIdx,
+        expectedVersion: unit.version,
+        requestId: crypto.randomUUID(),
+      });
+      await refreshWorkingBudgetAfterUnitAction();
+      toast.success("Working Budget-enhed flyttet");
+    } catch (error) {
+      console.error("[budget] unit move failed", error);
+      const message = error instanceof Error ? error.message : "Flytningen kunne ikke gemmes";
+      toast.error("Enheden blev ikke flyttet", { description: message });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
   }
   // void to silence unused warnings while the per-cell large-change popup is disabled.
   void isLargeBudgetChange;
@@ -1246,7 +1476,7 @@ export default function CrmBudgetPage() {
       const baseline = (fc?.monthly_qty && fc.monthly_qty.length === 12)
         ? fc.monthly_qty.map(v => Number(v) || 0)
         : ((fc && (fc.qty_forecast ?? 0) > 0)
-            ? splitToMonthly(fc.qty_forecast, split)
+            ? splitAnnualQuantityMonthly(fc.qty_forecast, split)
             : Array(12).fill(0));
       for (let i = 0; i < 12; i++) {
         const oldV = baseline[i] ?? 0;
@@ -1382,7 +1612,7 @@ export default function CrmBudgetPage() {
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    const monthlyQty = splitAnnualQuantityMonthly(persisted.qty_budget, split);
     const manualVal = monthlyQty[monthIdx] ?? 0;
     // Displayed value uses the same dealer-prefer merge as render.
     const displayedVal = hasDealerForCell ? dealerSumForCell : manualVal;
@@ -1428,7 +1658,7 @@ export default function CrmBudgetPage() {
     },
   ) {
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    const monthlyQty = splitAnnualQuantityMonthly(persisted.qty_budget, split);
     monthlyQty[monthIdx] = newVal;
     const newQty = monthlyQty.reduce((a, b) => a + b, 0);
     const newSplit: number[] = newQty > 0 ? monthlyQty.map(v => v / newQty) : EVEN;
@@ -1515,10 +1745,6 @@ export default function CrmBudgetPage() {
     });
     setAuditRefreshKey(k => k + 1);
   }
-
-
-  // (Working forecast is auto-saved on each stepper press in adjustWorking.)
-
   // Per-row lock/delete actions removed — central Budgetstatus / Åbningsvindue
   // controls are now the single source of truth. (deleteBudgetLine + setLineLock
   // service helpers remain available for future admin tooling.)
@@ -1931,9 +2157,9 @@ export default function CrmBudgetPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-        <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={formatDkk(totals.annualBudget)} icon={Wallet} tone="primary" />
-        <KpiCard label={T.kpi_orders[lang]} value={`${totals.sold.qty}`} sub={formatDkk(totals.sold.value)} icon={Wallet} tone="ok" />
-        <KpiCard label={T.kpi_working[lang]} value={`${totals.fc.qty}`} sub={formatDkk(totals.fc.value)} icon={Wallet} tone="warn" />
+        <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={formatBudgetMoney(totals.annualBudget)} icon={Wallet} tone="primary" />
+        <KpiCard label={T.kpi_orders[lang]} value={`${totals.sold.qty}`} sub={formatBudgetMoney(totals.sold.value)} icon={Wallet} tone="ok" />
+        <KpiCard label={T.kpi_working[lang]} value={`${totals.fc.qty}`} sub={formatBudgetMoney(totals.fc.value)} icon={Wallet} tone="warn" />
         <KpiCard label={T.kpi_score[lang]} value={`${totals.score}%`} sub={`${totals.sold.qty} / ${totals.annualQty} ${T.pcs[lang]}`} icon={Wallet} />
       </div>
 
@@ -2012,6 +2238,7 @@ export default function CrmBudgetPage() {
                       blockProductKey,
                       scopeEmails,
                       budgetMonthly,
+                      baseWorking,
                       leadWorkingByMonth,
                       workingMonthly,
                     } = renderedMonthlyForBlock({ keyPrefix, rowLines, fallbackProductKey });
@@ -2052,6 +2279,9 @@ export default function CrmBudgetPage() {
                     const totalWorking = workingMonthly.reduce((a, b) => a + b, 0);
                     const totalPipeline = quoteCellsByMonth.reduce((s, c) => s + c.qty, 0);
                     const totalPipelineValue = quoteCellsByMonth.reduce((s, c) => s + c.value, 0);
+                    const annualOriginalBasis = originalBudgetBasisForCell(
+                      dealerLines, year, null, blockProductKey, scopeEmails,
+                    );
 
                     const totalPerf = totalOrders - totalBudget;
                     const scorePct = totalBudget > 0 ? Math.round((totalOrders / totalBudget) * 100) : 0;
@@ -2068,6 +2298,34 @@ export default function CrmBudgetPage() {
                       month_idx: i,
                       budget_type: type,
                     });
+                    const workingActionMonths: WorkingBudgetMonthState[] = Array.from({ length: 12 }, (_, monthIdx) => {
+                      const actionCellKey = cellKeyFor(monthIdx, "arbejdsbudget");
+                      const originalBasis = originalBudgetBasisForCell(
+                        dealerLines, year, monthIdx, blockProductKey, scopeEmails,
+                      );
+                      const references = refsByCell[actionCellKey] || [];
+                      return {
+                        monthIdx,
+                        monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+                        units: (workingUnitsByLine?.[primaryLine.id] || [])
+                          .filter((unit) => unit.month_idx === monthIdx),
+                        allocation: resolveWorkingBudgetAllocation({
+                          workingQty: baseWorking[monthIdx] || 0,
+                          originalBasis,
+                          references: references.map((reference) => ({
+                            dealer_account_id: reference.dealer_account_id,
+                            dealer_name: reference.dealer_name || reference.dealer_label,
+                            dealer_account_number: reference.dealer_account_number,
+                            qty: reference.qty,
+                          })),
+                          hasWorkingChange: !!latestAuditByCell[actionCellKey],
+                          units: workingUnitsByLine == null
+                            ? undefined
+                            : (workingUnitsByLine[primaryLine.id] || [])
+                              .filter((unit) => unit.month_idx === monthIdx),
+                        }),
+                      };
+                    });
                     return (
                       <Fragment key={`block-${keyPrefix}`}>
                         {/* BUDGET / ORDERS — gray Budget cell becomes editable for backend when unlocked */}
@@ -2083,6 +2341,9 @@ export default function CrmBudgetPage() {
                             const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
                             const orderDetails = orderDetailsFor(blockProductKey, productName, i);
                             const tipTitle = `${monthLabel} · ${productName}`;
+                            const originalBudgetBasis = originalBudgetBasisForCell(
+                              dealerLines, year, i, blockProductKey, scopeEmails,
+                            );
                             // Reference distribution context. `delta_total`
                             // is the CELL's current total (b), so modalens
                             // "Fordelt: X / N" matches det antal stk. cellen
@@ -2105,6 +2366,7 @@ export default function CrmBudgetPage() {
                               actor_name: appUser?.display_name || null,
                               change_id: latest?.id || null,
                               delta_total: b,
+                              original_budget_basis: originalBudgetBasis,
                             };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
@@ -2120,6 +2382,7 @@ export default function CrmBudgetPage() {
                                        total={b}
                                        rows={budgetRows}
                                        references={refsByCell[ck]}
+                                       originalBudgetBasis={originalBudgetBasis}
                                        totalAtBottom
                                      >
                                        <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block tabular-nums">{b}</span>
@@ -2150,7 +2413,7 @@ export default function CrmBudgetPage() {
                                    </div>
                                 ) : (
                                   <>
-                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]} totalAtBottom>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]} originalBudgetBasis={originalBudgetBasis} totalAtBottom>
                                       <span className="text-slate-500">{b}</span>
                                     </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
@@ -2174,6 +2437,7 @@ export default function CrmBudgetPage() {
                               title={`Budget total · ${productName}`}
                               total={totalBudget}
                               rows={budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, null)}
+                              originalBudgetBasis={annualOriginalBasis}
                               totalAtBottom
                             >
                               <span className="text-slate-600">{totalBudget}</span>
@@ -2214,7 +2478,7 @@ export default function CrmBudgetPage() {
                                     <div className="text-xs space-y-2">
                                       <div className="font-semibold border-b border-slate-200 pb-1">
                                         {cell.quotes.length} {T.tip_quotes[lang]} · {monthLabel} · {productName}
-                                        <span className="ml-2 tabular-nums">{formatDkk(cell.value)}</span>
+                                        <span className="ml-2 tabular-nums">{formatBudgetMoney(cell.value)}</span>
                                       </div>
                                       {cell.quotes.map((q) => (
                                         <div key={q.id} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
@@ -2228,7 +2492,7 @@ export default function CrmBudgetPage() {
                                           <div className="text-slate-600">{T.tip_machine[lang]}: {productName} · {q.machine_qty_by_key[blockProductKey] || 1} stk.</div>
                                           <div className="flex justify-between">
                                             <span className="text-slate-500">{q.seller_initials || q.seller_email || "—"}</span>
-                                            <span className="font-semibold tabular-nums">{formatDkk(q.total_value)}</span>
+                                            <span className="font-semibold tabular-nums">{formatLocalizedConvertedMoney(q.total_value, q.currency, displayCurrency, uiLanguage)}</span>
                                           </div>
                                         </div>
                                       ))}
@@ -2238,7 +2502,7 @@ export default function CrmBudgetPage() {
                               </td>
                             );
                           })}
-                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums" title={formatDkk(totalPipelineValue)}>{totalPipeline}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums" title={formatBudgetMoney(totalPipelineValue)}>{totalPipeline}</td>
                           <td className="px-2 py-2"></td>
                         </tr>
 
@@ -2252,10 +2516,25 @@ export default function CrmBudgetPage() {
                             const latest = latestAuditByCell[ck];
                             const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
                             const workRows = sellerBreakdownFor(linesForAgg, i, "working");
+                            const originalBudgetBasis = originalBudgetBasisForCell(
+                              dealerLines, year, i, blockProductKey, scopeEmails,
+                            );
                             const latestNewW = (latest?.new_value as Record<string, unknown> | null) || null;
                             const latestOldW = (latest?.old_value as Record<string, unknown> | null) || null;
                             const refOldW = latestOldW && typeof latestOldW.value === "number" ? (latestOldW.value as number) : w;
                             const refNewW = latestNewW && typeof latestNewW.value === "number" ? (latestNewW.value as number) : w;
+                            const cellLeads = leadWorkingByMonth[i];
+                            const workingReferences = refsByCell[ck] || [];
+                            const hasWorkingChange = !!latest || cellLeads.length > 0;
+                            const workingSellerAllocation = isAdmin && backendFilter === "all"
+                              ? workingSellerAllocationForCell({
+                                  linesIn: linesForAgg,
+                                  productKey: blockProductKey,
+                                  productCode: primaryLine.item_number || primaryLine.product_key,
+                                  monthIdx: i,
+                                  leadRows: cellLeads,
+                                })
+                              : null;
                             const refCtx: BudgetReferenceContext = {
                               cell_key: ck, budget_year: year,
                               seller_initials: primaryLine.seller_initials,
@@ -2270,8 +2549,24 @@ export default function CrmBudgetPage() {
                               actor_name: appUser?.display_name || null,
                               change_id: latest?.id || null,
                               delta_total: w,
+                              original_budget_basis: originalBudgetBasis,
+                              has_working_change: hasWorkingChange,
                             };
-                            const cellLeads = leadWorkingByMonth[i];
+                            const workingAllocation = resolveWorkingBudgetAllocation({
+                              workingQty: w,
+                              originalBasis: originalBudgetBasis,
+                              references: workingReferences.map((reference) => ({
+                                dealer_account_id: reference.dealer_account_id,
+                                dealer_name: reference.dealer_name || reference.dealer_label,
+                                dealer_account_number: reference.dealer_account_number,
+                                qty: reference.qty,
+                              })),
+                              hasWorkingChange,
+                              units: workingUnitsByLine == null
+                                ? undefined
+                                : (workingUnitsByLine[primaryLine.id] || [])
+                                  .filter((unit) => unit.month_idx === i),
+                            });
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {cellLeads.length > 0 && (
@@ -2309,22 +2604,25 @@ export default function CrmBudgetPage() {
                                 {canEditWorking ? (
                                     <div className="inline-flex items-center gap-x-0.5 bg-slate-800 rounded px-0.5 h-5 leading-none align-middle min-w-[88px] justify-center">
                                       <button
-                                        onClick={() => adjustWorking(primaryLine, i, -1)}
+                                        onClick={() => openWorkingUnitAction(primaryLine, i, "decrease", workingActionMonths)}
+                                        disabled={workingActionMonths[i]?.allocation.total <= 0}
                                         className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-700 rounded"
-                                        title="−1"
+                                        title="Reducer eller flyt 1 enhed"
                                       ><Minus className="h-2.5 w-2.5" /></button>
                                       <BudgetCellInsight
                                         title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                         total={w}
                                         rows={workRows}
-                                        references={refsByCell[ck]}
+                                        references={workingReferences}
+                                        workingAllocation={workingAllocation}
+                                        workingSellerAllocation={workingSellerAllocation}
                                       >
                                         <span className="min-w-[14px] text-center font-semibold inline-block tabular-nums">{w}</span>
                                       </BudgetCellInsight>
                                       <button
-                                        onClick={() => adjustWorking(primaryLine, i, +1)}
+                                        onClick={() => openWorkingUnitAction(primaryLine, i, "increase", workingActionMonths)}
                                         className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-700 rounded"
-                                        title="+1"
+                                        title="Tilføj eller flyt 1 enhed"
                                       ><Plus className="h-2.5 w-2.5" /></button>
                                       <button
                                         type="button"
@@ -2339,7 +2637,9 @@ export default function CrmBudgetPage() {
                                     title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                     total={w}
                                     rows={workRows}
-                                    references={refsByCell[ck]}
+                                    references={workingReferences}
+                                    workingAllocation={workingSellerAllocation ? null : workingAllocation}
+                                    workingSellerAllocation={workingSellerAllocation}
                                   >
                                     <span className="font-semibold">{w}</span>
                                   </BudgetCellInsight>
@@ -2651,6 +2951,16 @@ export default function CrmBudgetPage() {
         isAdmin={isAdmin}
         currentSellerInitials={sellerCtxInitials ? sellerCtxInitials.toUpperCase() : null}
         currentSellerEmail={sellerCtxEmail || null}
+      />
+
+      <BudgetWorkingUnitDialog
+        open={workingUnitAction != null}
+        context={workingUnitAction}
+        busy={workingUnitBusy}
+        onClose={() => { if (!workingUnitBusy) setWorkingUnitAction(null); }}
+        onAddNew={confirmWorkingAdd}
+        onRemove={confirmWorkingRemove}
+        onMove={confirmWorkingMove}
       />
 
 

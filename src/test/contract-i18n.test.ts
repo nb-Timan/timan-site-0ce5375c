@@ -69,13 +69,13 @@ describe('contract i18n', () => {
       partnerType: 'service_partner' as const,
       sparePartsDiscountPct: 25,
     };
-    const english = JSON.stringify(renderGuidedContractSections(context, 'en').find((section) => section.stepId === 'discount_structure'));
-    const german = JSON.stringify(renderGuidedContractSections(context, 'de').find((section) => section.stepId === 'discount_structure'));
-    const italian = JSON.stringify(renderGuidedContractSections(context, 'it').find((section) => section.stepId === 'discount_structure'));
+    const english = JSON.stringify(renderGuidedContractSections(context, 'en').find((section) => section.stepId === 'spare_parts_service'));
+    const german = JSON.stringify(renderGuidedContractSections(context, 'de').find((section) => section.stepId === 'spare_parts_service'));
+    const italian = JSON.stringify(renderGuidedContractSections(context, 'it').find((section) => section.stepId === 'spare_parts_service'));
 
-    expect(english).toContain('Spare parts discount: 25%.');
-    expect(german).toContain('Ersatzteilrabatt: 25%.');
-    expect(italian).toContain('Spare parts discount: 25%.');
+    expect(english).toContain('Service Partner’s spare-parts discount is 25%.');
+    expect(german).toContain('Der Ersatzteilrabatt des Servicepartners beträgt 25%.');
+    expect(italian).toContain('Service Partner’s spare-parts discount is 25%.');
     expect(english).not.toContain('Reservedelsrabat');
     expect(german).not.toContain('Maskiner købes gennem');
     expect(italian).not.toContain('Reservedelsrabat');
@@ -134,6 +134,7 @@ describe('contract i18n', () => {
       'Det forventes at',
       'Demo-maskiner må ikke videresælges',
       'Demonstrationsmaskinerabat',
+      'Garantibetingelser for demomaskiner',
     ];
 
     for (const language of ['en', 'de'] as const) {
@@ -144,6 +145,10 @@ describe('contract i18n', () => {
       for (const marker of danishStepFiveMarkers) {
         expect(rendered).not.toContain(marker);
       }
+
+      expect(rendered).toContain(language === 'en'
+        ? '5.1 Warranty terms for demonstration machines:'
+        : '5.1 Garantiebedingungen für Demomaschinen:');
     }
   });
 
@@ -187,7 +192,6 @@ describe('contract i18n', () => {
       'Salgs- og servicedage',
       'Reklamationsarbejde må først',
       'Garanti registreringer',
-      'Garantibetingelser for demomaskiner',
       'Godtgørelse dækkes via kreditnota',
       'Timeløn og Transport',
       'Timesatsen er baseret på dækning',
@@ -241,7 +245,8 @@ describe('contract i18n', () => {
       '16. Lovvalg og værneting:',
     ];
 
-    for (const [language, expectedText] of Object.entries(expected)) {
+    for (const language of Object.keys(expected) as Array<keyof typeof expected>) {
+      const expectedText = expected[language];
       const section = renderGuidedContractSections(context, language)
         .find((entry) => entry.stepId === 'payment_delivery');
       const rendered = JSON.stringify(section);
@@ -278,7 +283,8 @@ describe('contract i18n', () => {
       'Ved retslige tvister afgøres dette ved Sø og Handelsretten i Danmark.',
     ];
 
-    for (const [language, expectedText] of Object.entries(expected)) {
+    for (const language of Object.keys(expected) as Array<keyof typeof expected>) {
+      const expectedText = expected[language];
       const section = renderGuidedContractSections(context, language)
         .find((entry) => entry.stepId === 'termination');
       const rendered = JSON.stringify(section);

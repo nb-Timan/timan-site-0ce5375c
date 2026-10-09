@@ -3,7 +3,6 @@
 
 alter table public.news_posts
   drop constraint if exists news_posts_template_id_check;
-
 alter table public.news_posts
   add constraint news_posts_template_id_check
   check (

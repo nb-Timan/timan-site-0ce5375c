@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Pencil, PlusCircle, Search } from "lucide-react";
+import { Eye, Pencil, Search } from "lucide-react";
 import { ClaimsAdminSidebarLayout } from "@/components/claims/ClaimsAdminSidebarLayout";
 import {
   CLAIM_STATUS_LABEL,
@@ -34,27 +34,19 @@ interface Props {
 
 export default function DealerClaimsMinePage({ readOnly = false, dealerName }: Props) {
   return (
-    <ClaimsAdminSidebarLayout intro={<MineIntro readOnly={readOnly} />}>
+    <ClaimsAdminSidebarLayout canCreateClaim={!readOnly} intro={<MineIntro />}>
       <MineBody dealerName={dealerName} readOnly={readOnly} />
     </ClaimsAdminSidebarLayout>
   );
 }
 
-function MineIntro({ readOnly }: { readOnly: boolean }) {
+function MineIntro() {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="text-3xl font-black tracking-tight">Mine claims</h1>
         <p className="mt-1 text-sm text-slate-500">Søg og filtrér i dine reklamationssager.</p>
       </div>
-      {!readOnly && (
-        <Link
-          to="/portal/service/claims/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
-        >
-          <PlusCircle className="h-4 w-4" /> Ny claim
-        </Link>
-      )}
     </div>
   );
 }

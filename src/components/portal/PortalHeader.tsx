@@ -22,7 +22,9 @@ import { t } from '@/lib/i18n/translations';
 import { getPortalBackInfo } from '@/lib/portalBackNav';
 import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { ACADEMY_PARTNER_MAP, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
+import { clearCurrentCrmLeadsHistoryState, readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -95,14 +97,17 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const navigate = useNavigate();
   const showMesseHomeShortcut = !hideMesseHomeShortcut && location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
   const backInfo = getPortalBackInfo(location.pathname, language, location.search);
+  const crmLeadsReturnTarget = readCrmLeadsReturnTarget(location.state);
   const isDealerUser = derivePortalRole(user) === 'dealer_user';
-  const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator';
-  const portalBackTarget = isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
+  const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator' || (academySandbox.isActive() && location.pathname !== '/academy');
+  const portalBackTarget = crmLeadsReturnTarget
+    ?? (academySandbox.isActive() ? '/academy' : isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to);
   const portalBackLabel = t('previous', uiLanguage);
   const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
-  const academyActive = location.pathname.startsWith('/academy') || new URLSearchParams(location.search).get('academy_mode') === 'true';
+  const academyActive = location.pathname.startsWith('/academy') || academySandbox.isActive();
 
   async function leaveAcademy() {
+    academySandbox.leaveSession();
     clearLocalAcademyEnrollment();
     const restoredUser = await refreshAppUser();
     if (!restoredUser) setAppUser(null);
@@ -110,12 +115,15 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }
 
   function homeTarget(): string {
+    if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) return '/portal?academy_mode=true';
+    if (academyActive) return '/academy';
     if (isMesseVariantUser(user)) return '/messe';
     if (activeMode === 'role:exhibition_user') return '/messe';
     return '/portal';
   }
 
   function chooseMode(mode: ActiveMode) {
+    clearCurrentCrmLeadsHistoryState();
     setActiveModeState(mode);
     setModeMenuOpen(false);
     setActiveMode(user.email, mode);
@@ -205,12 +213,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
       void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
       return;
     }
+    if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) academySandbox.trackPortalBasicsFullscreen();
+    if (academySandbox.getActiveCase() === ACADEMY_PARTNER_MAP) academySandbox.trackPartnerMapFullscreen();
     void (root.requestFullscreen?.() ?? root.webkitRequestFullscreen?.());
   };
 
   return (
     <>
-    {showBackendSideNav && (
+      {showBackendSideNav && (
       <style>{`
         @media (min-width: 1024px) {
           .timan-backend-nav-active main {
@@ -227,7 +237,13 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           <div className="flex flex-col items-start justify-center gap-1.5">
             <button
               type="button"
-              onClick={() => navigate(homeTarget())}
+              onClick={() => {
+                if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) {
+                  academySandbox.trackPortalBasicsLogoHome(location.pathname);
+                }
+                clearCurrentCrmLeadsHistoryState();
+                navigate(homeTarget());
+              }}
               className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
               aria-label={t('portalHeaderHome', uiLanguage)}
               title={t('portalHeaderHome', uiLanguage)}
@@ -292,6 +308,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       role="menuitemradio"
                       aria-checked={uiLanguage === l.code}
                       onClick={() => {
+                        if (academySandbox.isActive()) academySandbox.trackPortalBasicsLanguage(l.code);
                         onLanguageChange(l.code);
                         setLanguageMenuOpen(false);
                       }}
@@ -453,6 +470,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       </div>
+      {academyActive && location.pathname !== '/academy' && (
+        <div className="border-t border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+          <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-2">
+            <span>Academy træningsmiljø · Alt træningsarbejde gemmes lokalt</span>
+            <Link to="/academy" className="font-semibold underline">Tilbage til Min Academy</Link>
+          </div>
+        </div>
+      )}
       {showModeSwitch && activeUserView && (
         <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">

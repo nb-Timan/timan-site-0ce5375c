@@ -23,6 +23,38 @@ export interface EffectiveCrmSellerScope {
   ownerEmail: string | null;
 }
 
+export interface CrmLeadSellerIdentity {
+  id?: string | null;
+  email?: string | null;
+}
+
+const CANONICAL_APP_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve a CRM lead owner to a canonical app_users UUID.
+ * Preview fallback users intentionally use ids such as `u-jtn`; those ids
+ * must never be submitted to production CRM tables.
+ */
+export async function resolveCanonicalCrmLeadSellerId(
+  selectedSeller: CrmLeadSellerIdentity | null | undefined,
+  sessionEmail: string | null | undefined,
+  resolver: typeof resolveSellerId = resolveSellerId,
+): Promise<string | null> {
+  if (selectedSeller?.id && CANONICAL_APP_USER_ID.test(selectedSeller.id)) {
+    return selectedSeller.id;
+  }
+
+  const emails = [selectedSeller?.email, sessionEmail]
+    .map((email) => email?.trim().toLowerCase())
+    .filter((email, index, all): email is string => Boolean(email) && all.indexOf(email) === index);
+
+  for (const email of emails) {
+    const id = await resolver(email);
+    if (id && CANONICAL_APP_USER_ID.test(id)) return id;
+  }
+  return null;
+}
+
 /**
  * Bust the sellerId session cache. Call after editing app_users so that the
  * next CRM page re-resolves from Supabase instead of returning a stale id.

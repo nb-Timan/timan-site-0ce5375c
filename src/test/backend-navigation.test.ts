@@ -16,6 +16,7 @@ describe("backend navigation", () => {
     expect(sections["analytics"].items.map((item) => item.title)).not.toContain("Budget Dashboard");
     expect(sections.system.items.map((item) => item.title)).not.toContain("Nyheder");
     expect(sections.system.items.map((item) => item.title)).not.toContain("Nye features på sitet");
+    expect(sections.system.items.find((item) => item.title === "Mailoversigt")?.to).toBe("/portal/backend/mailoversigt");
   });
 
   it("resolves active backend sidebar section for nested and tabbed routes", () => {
@@ -28,5 +29,6 @@ describe("backend navigation", () => {
     expect(getBackendSectionForPath("/portal/backend/budget-import")).toBe("data-integrations");
     expect(getBackendSectionForPath("/portal/backend/portal-analytics")).toBe("analytics");
     expect(getBackendSectionForPath("/portal/backend/system-map")).toBe("system");
+    expect(getBackendSectionForPath("/portal/backend/mailoversigt")).toBe("system");
   });
 });

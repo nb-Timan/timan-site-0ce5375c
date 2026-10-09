@@ -1,11 +1,11 @@
+import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
 import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
-import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
-import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
-import { usePortalCurrency } from '@/lib/usePortalCurrency';
+import { PRODUCTS, ACCESSORIES, getLocalizedName, getPriceForCurrency, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
+import { formatMoney, resolveDisplayCurrency } from '@/lib/currency';
 import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
 import { t as tPortal } from '@/lib/i18n/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
@@ -15,20 +15,49 @@ import AccountPanel from '@/components/configurator/AccountPanel';
 import OwnershipPicker, { OwnershipSelection, deriveInitialOwnership } from '@/components/configurator/OwnershipPicker';
 import LeadLinkPicker from '@/components/configurator/LeadLinkPicker';
 import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
+import { fetchDealerAccountByNumber, type DealerAccount } from '@/lib/dealerAccountsService';
+import { listDealerContacts, resolveCanonicalFirstContact, type DealerContact } from '@/lib/dealerContactsService';
+import {
+  replaceConfiguratorDealerCustomerData,
+  selectConfiguratorCustomerMode,
+  updateConfiguratorCustomerDraftField,
+  type ConfiguratorCustomerSnapshot,
+} from '@/lib/configuratorCustomerMode';
 import { useAppUser } from '@/context/AppUserContext';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
-import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGES, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibraryService';
-import { listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, productContentKey, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
+import { findMarketingConfiguratorContentRecord, listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, marketingPresentationActions, productContentKey, resolveMarketingConfiguratorCatalogItem, resolveMarketingConfiguratorEditorItem, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
 import MarketingConfiguratorContentEditor from '@/components/configurator/MarketingConfiguratorContentEditor';
 import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingConfiguratorBulkTools';
+import MarketingCampaignManager from '@/components/configurator/MarketingCampaignManager';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
+import { PlanningAvailabilityBadge } from '@/components/configurator/PlanningAvailabilityBadge';
+import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlanningAvailability';
+import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
+import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
+import { ConfiguratorProductDeliveryDates } from '@/components/configurator/ConfiguratorProductDeliveryDates';
+import { ConfiguratorDeliveryAddress } from '@/components/configurator/ConfiguratorDeliveryAddress';
+import { ConfiguratorNettoLines } from '@/components/configurator/ConfiguratorNettoLines';
+import { ConfiguratorStartupOptions } from '@/components/configurator/ConfiguratorStartupOptions';
+import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
+import { SalesStockPricingPanel } from '@/components/configurator/SalesStockPricingPanel';
+import {
+  ConfiguratorDemoMachineControl,
+  ConfiguratorMachineReferenceField,
+  ConfiguratorPurchaseOrderField,
+} from '@/components/configurator/ConfiguratorStep4Controls';
+import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
+import { eligibleCampaignFor, replacePublishedCampaigns } from '@/lib/configuratorCampaigns';
+import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
+import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
+import TimanVideoModal from '@/components/video/TimanVideoModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -40,33 +69,57 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, ensureOrderReferenceNumber, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
+import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
 import { supabase } from '@/lib/supabase';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { getActiveSellerView } from '@/lib/activeMode';
-import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
+import { getC5NavOrderWebhookUrl, getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { buildMainCategories } from '@/lib/mainCategories';
-import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
+import { logMailAuditEvent } from '@/lib/mailAuditService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
-import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
+import {
+  canonicalBaseDiscountPct,
+  resolveConfiguratorPartnerAccountType,
+  toConfiguratorPartnerAccountType,
+  type ConfiguratorPartnerAccountType,
+} from '@/lib/importerDiscount';
 import { resolveConfiguratorContractTerms } from '@/lib/contractCommercialTerms';
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
-import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
-import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
-import { academySandbox } from '@/lib/academySandbox';
+import {
+  buildCrmLeadMachineInterestItemsFromConfigurationState,
+  buildCrmLeadMachineTypesFromConfigurationState,
+  syncLeadFromConfiguration,
+} from '@/lib/crmLeadConfigurationSync';
+import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection, recordOrderRevisionConfirmation } from '@/lib/submittedOrderCorrectionService';
+import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
+import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
+import { buildSubmittedOrderCsv } from '@/lib/submittedOrderCsv';
+import {
+  buildCustomerOrderMailPayload,
+  buildInternalOrderMailPayload,
+  internalOrderMailSubject,
+  INTERNAL_TIMAN_ORDER_EMAIL,
+} from '@/lib/configuratorOrderMail';
+import { ACADEMY_BONUS_CASE_2, ACADEMY_CASE_1, ACADEMY_CASE_3, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_SALES_BONUS_CUSTOMER, isAcademySalesBonusCustomer, withAcademySalesBonusCampaign } from '@/lib/academySalesBonusCampaign';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
+import { filterLooseToolAccessories, LOOSE_TOOL_MACHINE_FILTERS, type LooseToolMachineFilter } from '@/lib/looseToolPresentation';
+import { validateConfiguratorLead, type ConfiguratorLeadField } from '@/lib/configuratorLeadValidation';
+import { buildStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
 import { RecommendationInfoPopover } from '@/components/configurator/RecommendationInfoPopover';
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
-import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
+import { academyProductInstruction, getAcademyCase1ProductNames } from '@/lib/academyProductText';
+import { canReadConfiguratorPlanningAvailability, derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive } from '@/lib/messePreview';
 
 import { toast } from 'sonner';
@@ -74,10 +127,34 @@ import {
   PAYMENT_TERMS_OPTIONS,
   DEFAULT_PAYMENT_TERMS,
   resolvePaymentTerms,
+  getPaymentTermsDocumentValue,
   getPaymentTermsLabel,
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
+import {
+  downloadCanonicalPdfDocument,
+  materializeCanonicalPdfDocument,
+  resolveCanonicalPdfDocument,
+  type CanonicalPdfDocument,
+} from '@/lib/canonicalPdfDocument';
+import { configuratorCurrency, createConfiguratorPricingSnapshot, currentDemoFee, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
+import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive, shouldShowCampaignDisableControl } from '@/lib/calcConfiguration';
+import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
+import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
+import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
+import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, hasProductSplitDelivery, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
+import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
+import { buildSalesStockConfiguratorState, configuratorSalesSourceType, consumeSalesStockHandoff, isSalesStockConfiguration, salesStockAssetContextLines } from '@/lib/salesStockConfigurator';
+import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
+import {
+  reconcileConfiguratorStartupOption,
+  resolveConfiguratorMarketCountry,
+} from '@/lib/configuratorStartup';
+import {
+  canApplyExtraDealerDiscount as resolveExtraDealerDiscountPermission,
+  canSelectConfiguratorDemo,
+} from '../../supabase/functions/_shared/configuratorPermissionContract';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -88,7 +165,17 @@ const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.m
   code: l.code, flag: l.emoji,
 }));
 
-const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
+const IMAGE_UNAVAILABLE_COPY: Record<PortalUiLanguage, string> = {
+  da: 'Billedet kunne ikke indlæses.',
+  en: 'The image could not be loaded.',
+  de: 'Das Bild konnte nicht geladen werden.',
+  it: 'Impossibile caricare l’immagine.',
+  hu: 'A kép nem tölthető be.',
+  sv: 'Bilden kunde inte laddas.',
+  fr: 'L’image n’a pas pu être chargée.',
+  pl: 'Nie udało się wczytać obrazu.',
+  cs: 'Obrázek se nepodařilo načíst.',
+};
 
 function appendInternalBcc<T extends Record<string, unknown>>(payload: T, bccRecipients: string[]): T & {
   bcc: string[];
@@ -119,6 +206,7 @@ type MesseProfileAppUser = AppUser & {
 };
 
 type ConfiguratorSubmitFlowType = 'quote' | 'order';
+type OrderRevisionAction = 'confirmation' | 'send';
 
 function getYoutubeThumbnail(url: string | undefined | null, quality: 'hqdefault' | 'maxresdefault' = 'hqdefault'): string | null {
   if (!url) return null;
@@ -153,15 +241,53 @@ function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
 
 export default function ConfiguratorPage({ marketingEditMode = false }: { marketingEditMode?: boolean }) {
   const {
-    state, setStep, setLanguage: setConfigLanguage, setFlowType, setMachineQty, setConfigMode,
+    state, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
+  const [openProductGroups, setOpenProductGroups] = useState<Record<string, boolean>>({});
+  const stepContentRef = useRef<HTMLFieldSetElement>(null);
+  const equipmentScrollRef = useRef<HTMLDivElement>(null);
+  const pendingStepScrollRef = useRef<number | null>(null);
+  const pendingMachineScrollRef = useRef<number | null>(null);
+  const navigateToStep = useCallback((nextStep: number) => {
+    setState((current) => {
+      if (nextStep === current.step) return current;
+      pendingStepScrollRef.current = nextStep;
+      return { ...current, step: nextStep };
+    });
+  }, [setState]);
+  const navigateToMachine = useCallback((nextMachineIndex: number) => {
+    setState((current) => {
+      if (nextMachineIndex === current.currentMachineIndex) return current;
+      pendingMachineScrollRef.current = nextMachineIndex;
+      return { ...current, currentMachineIndex: nextMachineIndex };
+    });
+  }, [setState]);
+
+  useEffect(() => {
+    if (pendingStepScrollRef.current !== state.step) return;
+    pendingStepScrollRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      stepContentRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [state.step]);
+
+  useEffect(() => {
+    if (state.step !== 3 || pendingMachineScrollRef.current !== state.currentMachineIndex) return;
+    pendingMachineScrollRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      if (equipmentScrollRef.current) equipmentScrollRef.current.scrollTop = 0;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [state.currentMachineIndex, state.step]);
+  const lang = state.language;
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
-  const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<'all' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620'>('all');
+  const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<LooseToolMachineFilter>('all');
   const { appUser: sessionAppUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const renderNewBadge = (isNew?: boolean) => isNew ? (
@@ -179,14 +305,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [uiLanguage]);
 
   useEffect(() => {
-    let cancelled = false;
-    listPublishedMarketingConfiguratorContent().then((rows) => {
-      if (!cancelled) setPublishedMarketingContent(rows);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
     if (!marketingEditMode) return;
     let cancelled = false;
     listMarketingConfiguratorContent().then(({ rows }) => {
@@ -198,9 +316,24 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const navigate = useNavigate();
   const location = useLocation();
   const isAcademyMode = academySandbox.isActive();
+  const activeAcademyCase = isAcademyMode ? academySandbox.getActiveCase() : null;
+  const isAcademyCase3 = activeAcademyCase === ACADEMY_CASE_3;
+  const isAcademySalesBonusCase2 = activeAcademyCase === ACADEMY_BONUS_CASE_2;
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listPublishedMarketingConfiguratorContent(), loadPublishedMarketingCampaigns()]).then(([rows, campaigns]) => {
+      if (cancelled) return;
+      setPublishedMarketingContent(rows);
+      replacePublishedCampaigns(withAcademySalesBonusCampaign(campaigns, activeAcademyCase));
+    });
+    return () => { cancelled = true; };
+  }, [activeAcademyCase]);
+  const [leadValidationErrors, setLeadValidationErrors] = useState<ConfiguratorLeadField[]>([]);
+  const leadValidationBlockedRef = useRef(false);
   // Academy supplies a render-only identity in local training mode. It never
   // modifies the authenticated portal session or reaches production writes.
-  const appUser = isAcademyMode && !sessionAppUser ? getLocalAcademyUser() : sessionAppUser;
+  const appUser = isAcademyMode ? getLocalAcademyUser() : sessionAppUser;
   // Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
@@ -215,15 +348,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const isExhibition = isMessePath || isTimanMesseUser || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
-  // Keep the configurator's internal language in sync with the global portal
-  // language so the top-bar selector controls every page consistently.
-  // `globalLanguage` is the legacy `Language` (sv/fr/pl/cs map to 'en'), which
-  // matches the keys used by the inline T objects throughout the configurator.
+  // Locale controls presentation. Currency is initialized once for an empty
+  // configuration and then remains part of the commercial state.
   useEffect(() => {
-    if (state.language !== globalLanguage) {
-      setConfigLanguage(globalLanguage);
-    }
-  }, [globalLanguage, state.language, setConfigLanguage]);
+    setState((current) => {
+      const emptyDraft = current.step === 1 && current.machineConfigs.length === 0 && !current.pricingSnapshot;
+      const nextCurrency = emptyDraft
+        ? resolveDisplayCurrency({ activeLanguage: uiLanguage })
+        : configuratorCurrency(current);
+      if (current.language === globalLanguage && current.locale === uiLanguage && current.currency === nextCurrency) return current;
+      return { ...current, language: globalLanguage, locale: uiLanguage, currency: nextCurrency };
+    });
+  }, [globalLanguage, uiLanguage, setState]);
 
   // Wrap setLanguage so the in-page flag buttons push BOTH:
   //  - the global portal selection (preserves the real chosen code, e.g. 'fr')
@@ -231,29 +367,43 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   //    keep working without crashes)
   const setLanguage = useCallback((next: PortalUiLanguage) => {
     setGlobalLanguage(next);
-    setConfigLanguage(mapUiLanguageToLegacy(next));
-  }, [setConfigLanguage, setGlobalLanguage]);
+  }, [setGlobalLanguage]);
   // Phase 38/40 — "Ekstra forhandlerrabat (%)" gated by an explicit per-user
   // permission stored in app_users.permissions.can_apply_extra_dealer_discount.
   // We read from the EFFECTIVE portal user so that:
   //   - direct login uses the logged-in user's app_users row, and
   //   - Backend "Vis som <bruger>" uses the previewed user's row,
   // both via the same code path. Falls back to logged-in user when no view-as.
-  const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
+  const { effectiveUser: resolvedEffectiveUser, resolving: viewAsResolving } = useEffectivePortalUserState(appUser);
+  const effectiveUser = resolvedEffectiveUser ?? appUser;
+  const planningEnabled = !isAcademyMode && !isExhibition && !viewAsResolving
+    && hasAreaAccess(resolvedEffectiveUser, 'planning');
+  const planningAvailabilityEnabled = !isAcademyMode && !isExhibition && !viewAsResolving
+    && canReadConfiguratorPlanningAvailability(effectiveUser);
+  const machineAvailability = usePlanningAvailability(planningAvailabilityEnabled,
+    MACHINE_KEYS.map((key) => ({ itemNumber: PRODUCTS[key].varenr,
+      quantity: Math.max(1, state.machineConfigs.find((config) => config.type === key)?.qty ?? 1) })),
+    state.date);
+  const selectedPlanningAttachments = planningSelectedAttachments(state);
+  const attachmentAvailability = usePlanningAvailability(planningAvailabilityEnabled, selectedPlanningAttachments, state.date);
+  const planningConfigurationStatus = worstPlanningStatus([
+    ...state.machineConfigs.map((machine) => machineAvailability[PRODUCTS[machine.type]?.varenr]?.status ?? 'unknown'),
+    ...selectedPlanningAttachments.map((item) => attachmentAvailability[item.itemNumber]?.status ?? 'unknown'),
+  ]);
   const activePortalRole = derivePortalRole(effectiveUser ?? appUser);
+  const canUseDirectPricingMode = !isExhibition && canUseDirectPricing(effectiveUser ?? appUser);
+  const isDirectPricing = state.pricingMode === 'direct';
+  const hasFrozenPricing = hasFrozenConfiguratorPricing(state);
   const isDealerUser = activePortalRole === 'dealer_user';
-  const canApplyExtraDealerDiscount = (() => {
-    const flag = effectiveUser?.permissions?.can_apply_extra_dealer_discount;
-    if (flag === true) return true;
-    if (flag === false) return false;
-    // No explicit override → role default. Backend = true, others = false.
-    // Preserve legacy: respect the older top-level can_edit_discount flag
-    // when an admin already enabled it for a non-backend user.
-    if (activePortalRole === 'timan_backend') return true;
-    return !!effectiveUser?.can_edit_discount;
-  })();
+  // A real Backend session may register an order with a historical delivery
+  // date. View-as deliberately follows the displayed role, not Backend auth.
+  const canSelectPastDeliveryDate = activePortalRole === 'timan_backend';
+  const canApplyExtraDealerDiscount = resolveExtraDealerDiscountPermission({
+    portalRole: activePortalRole,
+    permissions: effectiveUser?.permissions,
+    canEditDiscount: effectiveUser?.can_edit_discount,
+  });
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
     console.debug('[extra-dealer-discount]', {
       loggedInEmail: appUser?.email,
       effectiveEmail: effectiveUser?.email,
@@ -261,87 +411,146 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       resolved: canApplyExtraDealerDiscount,
     });
   }
-  const permissions = {
-    canSeePrices: isExhibition || defaultCanViewPrices(
-      effectiveUser?.can_view_prices,
-      effectiveUser?.portal_role,
-      effectiveUser?.role,
-      effectiveUser?.partner_type,
+  const canSeePrices = isExhibition || defaultCanViewPrices(
+    effectiveUser?.can_view_prices,
+    effectiveUser?.portal_role,
+    effectiveUser?.role,
+    effectiveUser?.partner_type,
+  );
+  const canSelectDemo = canSelectConfiguratorDemo({
+    portalRole: activePortalRole,
+    hasConfiguratorAccess: hasModuleAccess(
+      activePortalRole,
+      'byg_din_timan',
+      getUserModuleAccessOverride(effectiveUser),
     ),
-    canSubmitOrder: defaultCanSubmitOrder(
+    canViewPrices: canSeePrices,
+    isDirectPricing,
+    isExhibition,
+  });
+  const permissions = {
+    canSeePrices,
+    canSubmitOrder: isAcademySalesBonusCase2 || defaultCanSubmitOrder(
       effectiveUser?.can_submit_order,
       effectiveUser?.portal_role,
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSetDiscount: (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user',
+    canSetDiscount: isDirectPricing
+      ? canUseDirectPricingMode
+      : (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user',
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 
   // Dealer User + Messe pricing rule: see gross list price. Messe may add
   // one manual discount in step 4, but no base/quantity/delivery/demo discounts.
   const isDealerUserPricing = isDealerUser;
+  const isSalesStockMode = isSalesStockConfiguration(state);
+  const canEditSalesStockPricing = activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
   const isGrossPriceMode = isDealerUserPricing || isExhibition;
   const displayCalc = calcResult && isGrossPriceMode
-    ? (() => {
-        const manualPct = isExhibition ? (state.manualDealerDiscountPct || 0) : 0;
-        const manualAmount = calcResult.subtotal * (manualPct / 100);
-        return {
-          ...calcResult,
-          discountDetails: manualAmount > 0
-            ? [{ txt: `Ekstra rabat (${manualPct}%)`, amount: manualAmount, varenr: '795042' }]
-            : [],
-          totalDiscount: manualAmount,
-          totalPct: manualPct,
-          currentPrice: calcResult.subtotal - manualAmount,
-        };
-      })()
+    ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
     : calcResult;
+  const campaignPricingActive = isCampaignPricingActive(displayCalc?.campaignLines);
+  const campaignPricingRelevant = shouldShowCampaignDisableControl(state, calcResult?.campaignLines, isGrossPriceMode);
+  const machineDeliveryDiscountByUnit = useMemo(
+    () => new Map((displayCalc?.deliveryDiscounts ?? []).map(discount => [discount.unitNumber, discount])),
+    [displayCalc?.deliveryDiscounts],
+  );
 
   const leaveAcademy = useCallback(async () => {
+    academySandbox.leaveSession();
     clearLocalAcademyEnrollment();
     const restoredUser = await refreshAppUser();
     if (!restoredUser) setAppUserCtx(null);
     navigate('/portal', { replace: true });
   }, [navigate, refreshAppUser, setAppUserCtx]);
   const [academyCase, setAcademyCase] = useState(() => academySandbox.getCase1());
+  const [academyCase3, setAcademyCase3] = useState(() => academySandbox.getCase3());
+  const [academySalesBonusCase2, setAcademySalesBonusCase2] = useState(() => academySandbox.getSalesBonusCase2());
   const academyMachineConfigs = useMemo(() => state.machineConfigs.map((machine) => {
     const accessoryIds = machine.configMode === 'shared'
       ? machine.acc
       : Array.from({ length: machine.qty }, (_, index) => state.individualUnitConfigs[`${machine.id}_${index + 1}`]?.acc ?? []).flat();
     return { type: machine.type, acc: accessoryIds, qty: machine.qty };
   }), [state.machineConfigs, state.individualUnitConfigs]);
+  const getAcademySalesBonusCase2Input = useCallback(() => ({
+    machineConfigs: state.machineConfigs,
+    individualUnitConfigs: state.individualUnitConfigs,
+    deliveryMethod: state.deliveryMethod,
+    flowType: state.flowType,
+    campaignLines: calcResult?.campaignLines ?? [],
+    customerValid: validateConfiguratorLead(state).valid,
+    customerIsSynthetic: isAcademySalesBonusCustomer(state as unknown as Record<string, unknown>),
+  }), [calcResult?.campaignLines, state]);
+  const loadAcademySalesBonusCustomer = useCallback(() => {
+    setState((current) => {
+      let next = selectConfiguratorCustomerMode(current, 'manual');
+      for (const [field, value] of Object.entries(ACADEMY_SALES_BONUS_CUSTOMER)) {
+        if (field === 'email') continue;
+        next = updateConfiguratorCustomerDraftField(next, field as keyof ConfiguratorCustomerSnapshot, value);
+      }
+      return { ...next, email: ACADEMY_SALES_BONUS_CUSTOMER.email };
+    });
+  }, [setState]);
   const refreshAcademyCase = useCallback((quoteGenerated?: boolean) => {
     if (!isAcademyMode) return academySandbox.getCase1();
+    if (isAcademyCase3) {
+      const next = academySandbox.evaluateCase3({
+        machineConfigs: state.machineConfigs,
+        individualUnitConfigs: state.individualUnitConfigs,
+        machineDeliveryDates: state.machineDeliveryDates,
+        date: state.date,
+        deliveryDiscounts: calcResult?.deliveryDiscounts ?? [],
+      });
+      setAcademyCase3(next);
+      return next;
+    }
+    if (isAcademySalesBonusCase2) {
+      const next = academySandbox.evaluateSalesBonusCase2(getAcademySalesBonusCase2Input());
+      setAcademySalesBonusCase2(next);
+      return next;
+    }
     const next = academySandbox.evaluate({
       machineConfigs: academyMachineConfigs,
-      deliveryDiscount: Boolean(displayCalc?.discountDetails.some((discount) => /levering|delivery/i.test(discount.txt))),
-      quantityDiscount: state.machineConfigs.reduce((sum, machine) => sum + (PRODUCTS[machine.type]?.isDiscountEligible ? machine.qty : 0), 0) >= 2,
+      wiringHarnessInCart: Boolean(calcResult?.lineItems.some((lineItem) => lineItem.varenr === ACC_ID_WIRE_HARNESS)),
+      quantityDiscount: Boolean(calcResult?.discountDetails.some((discount) => discount.varenr === '795043' && discount.amount > 0)),
       quoteGenerated,
     });
     setAcademyCase(next);
     return next;
-  }, [academyMachineConfigs, displayCalc, isAcademyMode, state.machineConfigs]);
+  }, [academyMachineConfigs, calcResult, getAcademySalesBonusCase2Input, isAcademyCase3, isAcademyMode, isAcademySalesBonusCase2, state.date, state.individualUnitConfigs, state.machineConfigs, state.machineDeliveryDates]);
 
   useEffect(() => {
     if (isAcademyMode) refreshAcademyCase();
   }, [isAcademyMode, refreshAcademyCase]);
 
   useEffect(() => {
-    if (isAcademyMode && !academySandbox.getCase1().started) {
+    const caseStarted = isAcademySalesBonusCase2
+      ? academySandbox.getSalesBonusCase2().started
+      : isAcademyCase3
+        ? academySandbox.getCase3().started
+        : academySandbox.getCase1().started;
+    if (isAcademyMode && !caseStarted) {
       navigate('/academy', { replace: true });
     }
-  }, [isAcademyMode, navigate]);
+  }, [isAcademyCase3, isAcademyMode, isAcademySalesBonusCase2, navigate]);
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
   // PDF, the order/quote payload, the email and any persisted state cannot
   // include it. Runs on every change to permission or state.
   useEffect(() => {
-    if (!isExhibition && !canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
+    if (!isDirectPricing && !isExhibition && !canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
       setState((s) => ({ ...s, manualDealerDiscountPct: 0 }));
     }
-  }, [isExhibition, canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
+  }, [isDirectPricing, isExhibition, canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
+
+  useEffect(() => {
+    if (isDirectPricing && !canUseDirectPricingMode && !hasFrozenPricing) {
+      setState((current) => ({ ...current, pricingMode: 'partner' }));
+    }
+  }, [canUseDirectPricingMode, hasFrozenPricing, isDirectPricing, setState]);
 
   // Phase 27 — Payment terms: visible only when the ACTIVE mode/role is
   // Backend or Timan Sælger AND the user has `can_manage_payment_terms`.
@@ -362,6 +571,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // panel picker. Re-derived whenever the logged-in user (or their active
   // "view as" mode) changes.
   const [ownership, setOwnership] = useState<OwnershipSelection>(() => deriveInitialOwnership(appUser));
+  const [selectedCustomerDealer, setSelectedCustomerDealer] = useState<DealerAccount | null>(null);
+  const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
+  const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
+  const previousCustomerDealerKey = useRef<string | null>(null);
+  // A dealer's term is a default for a new draft, never a later replacement
+  // for an explicitly selected or restored order term.
+  const paymentTermsExplicitRef = useRef(false);
+  const paymentTermsDealerIdRef = useRef<string | null>(null);
 
   // Step 3 reminder for Timan 3330 → varenr 721122 (centerslange).
   // Acknowledged set is keyed by unit configKey so it does not repeat for the
@@ -378,6 +595,137 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
 
+  const customerModeCopy = configuratorCustomerModeCopy(uiLanguage);
+  const submittedOrderCopy = configuratorSubmittedOrderCopy(uiLanguage);
+  const sortedDealerContacts = useMemo(() => dealerContacts
+    .filter((contact) => Boolean(contact.name?.trim()))
+    .slice()
+    .sort((left, right) => Number(right.is_primary) - Number(left.is_primary)
+      || left.created_at.localeCompare(right.created_at)), [dealerContacts]);
+
+  const buildDealerCustomerSnapshot = useCallback((dealer: DealerAccount, contact: DealerContact | null, useCanonicalContactFallback = true): ConfiguratorCustomerSnapshot => {
+    const resolvedContact = contact ?? (useCanonicalContactFallback
+      ? resolveCanonicalFirstContact(dealer, sortedDealerContacts)
+      : null);
+    return {
+      firmanavn: dealer.company_name || '',
+      kontaktperson: resolvedContact?.name?.trim() || '',
+      telefon: resolvedContact?.phone?.trim() || dealer.phone || '',
+      emailRecipient: resolvedContact?.email?.trim() || dealer.email || '',
+      address: dealer.address_line_1 || dealer.address || '',
+      postalCode: dealer.postal_code || '',
+      city: dealer.city || '',
+      country: dealer.country || '',
+    };
+  }, [sortedDealerContacts]);
+
+  // The commercial dealer from Internal assignment is independent from the
+  // visible customer snapshot. A dealer change clears only dealer-derived
+  // contact data; the manual customer draft is intentionally retained.
+  const customerDealerKey = ownership.dealerAccountId || ownership.dealerNumber || '';
+  useEffect(() => {
+    const previousKey = previousCustomerDealerKey.current;
+    previousCustomerDealerKey.current = customerDealerKey;
+    if (!previousKey || previousKey === customerDealerKey) return;
+    setDealerContacts([]);
+    setSelectedCustomerDealer(null);
+    setState((current) => replaceConfiguratorDealerCustomerData(current, {
+      firmanavn: '', kontaktperson: '', telefon: '', emailRecipient: '', address: '', postalCode: '', city: '', country: '',
+    }, ''));
+  }, [customerDealerKey, setState]);
+
+  useEffect(() => {
+    if (!ownership.dealerNumber) {
+      setSelectedCustomerDealer(null);
+      setDealerContacts([]);
+      setDealerContactsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    if (isAcademyMode) {
+      const dealer = academyPartnerDataSandbox.listDealers().find((candidate) =>
+        candidate.id === ownership.dealerAccountId || candidate.account_number === ownership.dealerNumber,
+      ) || null;
+      if (!cancelled) setSelectedCustomerDealer(dealer);
+      return () => { cancelled = true; };
+    }
+    fetchDealerAccountByNumber(ownership.dealerNumber).then(({ row }) => {
+      if (!cancelled) setSelectedCustomerDealer(row);
+    });
+    return () => { cancelled = true; };
+  }, [isAcademyMode, ownership.dealerAccountId, ownership.dealerNumber]);
+
+  useEffect(() => {
+    if (!selectedCustomerDealer) return;
+    let cancelled = false;
+    setDealerContactsLoading(true);
+    if (isAcademyMode) {
+      setDealerContacts([]);
+      setDealerContactsLoading(false);
+      return;
+    }
+    listDealerContacts(selectedCustomerDealer.id)
+      .then((contacts) => {
+        if (!cancelled) setDealerContacts(contacts);
+      })
+      .catch(() => {
+        if (!cancelled) setDealerContacts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDealerContactsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAcademyMode, selectedCustomerDealer]);
+
+  const activeConfiguratorCountry = resolveConfiguratorMarketCountry(
+    selectedCustomerDealer?.country,
+    viewAsResolving ? null : effectiveUser?.country,
+    isAcademyMode ? 'DK' : null,
+  );
+
+  useEffect(() => {
+    if (!activeConfiguratorCountry || hasFrozenPricing) return;
+    const reconciled = reconcileConfiguratorStartupOption(activeConfiguratorCountry, state.deliveryDeliverStartup);
+    if (reconciled === state.deliveryDeliverStartup) return;
+    setState(current => ({ ...current, deliveryDeliverStartup: reconciled }));
+  }, [activeConfiguratorCountry, hasFrozenPricing, setState, state.deliveryDeliverStartup]);
+
+  useEffect(() => {
+    if (!selectedCustomerDealer || dealerContactsLoading) return;
+    setState((current) => {
+      const persistedContact = sortedDealerContacts.find((contact) => contact.id === current.dealerContactId) || null;
+      const defaultContact = persistedContact || sortedDealerContacts.find((contact) => contact.is_primary) || (sortedDealerContacts.length === 1 ? sortedDealerContacts[0] : null);
+      return replaceConfiguratorDealerCustomerData(
+        current,
+        buildDealerCustomerSnapshot(selectedCustomerDealer, defaultContact),
+        defaultContact?.id || '',
+      );
+    });
+  }, [buildDealerCustomerSnapshot, dealerContactsLoading, selectedCustomerDealer, setState, sortedDealerContacts]);
+
+  const applyDealerCustomerMode = useCallback((contactId?: string) => {
+    if (!selectedCustomerDealer) return;
+    const requestedContactId = contactId ?? state.dealerContactId;
+    const contact = contactId === ''
+      ? null
+      : sortedDealerContacts.find((candidate) => candidate.id === requestedContactId)
+        || sortedDealerContacts.find((candidate) => candidate.is_primary)
+        || (sortedDealerContacts.length === 1 ? sortedDealerContacts[0] : null);
+    setState((current) => selectConfiguratorCustomerMode(
+      replaceConfiguratorDealerCustomerData(
+        current,
+        buildDealerCustomerSnapshot(selectedCustomerDealer, contact, contactId !== ''),
+        contact?.id || '',
+      ),
+      'dealer',
+    ));
+  }, [buildDealerCustomerSnapshot, selectedCustomerDealer, setState, sortedDealerContacts, state.dealerContactId]);
+
+  const updateActiveCustomerField = useCallback((field: keyof ConfiguratorCustomerSnapshot, value: string) => {
+    setState((current) => updateConfiguratorCustomerDraftField(current, field, value));
+    setLeadValidationErrors((current) => current.filter((item) => item !== field));
+  }, [setState]);
+
   // Phase 63 — Importør standard-rabat (30%).
   // Slår op på den valgte forhandler (eller den auto-låste dealer for
   // eksterne brugere) og afgør basisrabatten:
@@ -385,63 +733,76 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   //   • 25% ellers
   // Skriver resultatet ind i state.baseDiscountPct, så calc, PDF, payload,
   // gemte cases og CRM-synkronisering alle bruger samme værdi.
-  const [selectedDealerCustomerType, setSelectedDealerCustomerType] = useState<string | null>(null);
+  const [selectedDealerPartnerType, setSelectedDealerPartnerType] = useState<ConfiguratorPartnerAccountType | null>(null);
   const [selectedDealerContractBaseDiscountPct, setSelectedDealerContractBaseDiscountPct] = useState<number | null>(null);
+  const campaignDealerIdRef = useRef(ownership.dealerAccountId);
+  useEffect(() => {
+    const previousDealerId = campaignDealerIdRef.current || '';
+    const nextDealerId = ownership.dealerAccountId || '';
+    campaignDealerIdRef.current = nextDealerId;
+    if (previousDealerId && previousDealerId !== nextDealerId && state.campaignDisabled && !hasFrozenPricing) {
+      setState((current) => ({ ...current, campaignDisabled: false }));
+    }
+  }, [hasFrozenPricing, ownership.dealerAccountId, setState, state.campaignDisabled]);
   useEffect(() => {
     let cancelled = false;
     const dealerId = ownership.dealerAccountId;
+    if (paymentTermsDealerIdRef.current !== dealerId) {
+      paymentTermsDealerIdRef.current = dealerId;
+      paymentTermsExplicitRef.current = false;
+    }
     if (!dealerId) {
-      setSelectedDealerCustomerType(null);
+      setSelectedDealerPartnerType(null);
       setSelectedDealerContractBaseDiscountPct(null);
       return;
     }
     (async () => {
       try {
-        const { data } = await supabase
+        const { data } = isAcademyMode ? { data: academyPartnerDataSandbox.listDealers().find((dealer) => dealer.id === dealerId) } : await supabase
           .from('dealer_accounts')
           .select('customer_type, customer_type_label, dealer_type, standard_machine_discount_pct, importer_discount_pct, payment_terms')
           .eq('id', dealerId)
           .maybeSingle();
         if (cancelled) return;
-        const ct =
-          (data?.customer_type as string | null) ??
-          (data?.customer_type_label as string | null) ??
-          (data?.dealer_type as string | null) ??
-          null;
         const terms = resolveConfiguratorContractTerms(data ?? {});
-        setSelectedDealerCustomerType(ct);
-        setSelectedDealerContractBaseDiscountPct(terms.baseDiscountPct);
-        if (terms.baseDiscountPct !== null || terms.paymentTerms !== null) {
+        const partnerAccountType = toConfiguratorPartnerAccountType(terms.partnerType) ?? 'dealer';
+        const baseDiscountPct = canonicalBaseDiscountPct(partnerAccountType, terms.baseDiscountPct);
+        setSelectedDealerPartnerType(partnerAccountType);
+        setSelectedDealerContractBaseDiscountPct(baseDiscountPct);
+        if (!hasFrozenPricing && (baseDiscountPct !== null || (terms.paymentTerms !== null && !paymentTermsExplicitRef.current))) {
           setState((current) => ({
             ...current,
-            ...(terms.baseDiscountPct !== null ? { baseDiscountPct: terms.baseDiscountPct } : {}),
-            ...(terms.paymentTerms !== null ? { paymentTerms: terms.paymentTerms } : {}),
+            partnerAccountType,
+            baseDiscountPct,
+            ...(current.partnerAccountType && current.partnerAccountType !== partnerAccountType ? { campaignDisabled: false } : {}),
+            ...(terms.paymentTerms !== null && !paymentTermsExplicitRef.current ? { paymentTerms: terms.paymentTerms } : {}),
           }));
         }
       } catch {
         if (!cancelled) {
-          setSelectedDealerCustomerType(null);
+          setSelectedDealerPartnerType(null);
           setSelectedDealerContractBaseDiscountPct(null);
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [ownership.dealerAccountId]);
+  }, [hasFrozenPricing, isAcademyMode, ownership.dealerAccountId, setState]);
 
   useEffect(() => {
-    if (selectedDealerContractBaseDiscountPct !== null) return;
-    const userIsImporter = isImporterAppUser(effectiveUser);
-    const dealerCt = selectedDealerCustomerType;
-    const pct = resolveBaseDiscountPct({
-      appUser: effectiveUser,
-      dealer: dealerCt ? { customer_type: dealerCt } : null,
-    });
-    const target = userIsImporter ? IMPORTER_BASE_DISCOUNT_PCT : pct;
-    const current = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : DEFAULT_BASE_DISCOUNT_PCT;
-    if (Math.abs(target - current) > 1e-6) {
-      setState((s) => ({ ...s, baseDiscountPct: target }));
+    if (hasFrozenPricing) return;
+    const partnerAccountType = selectedDealerPartnerType
+      ?? resolveConfiguratorPartnerAccountType({ appUser: effectiveUser, persisted: state.partnerAccountType });
+    const target = canonicalBaseDiscountPct(partnerAccountType, selectedDealerContractBaseDiscountPct ?? state.baseDiscountPct);
+    const current = canonicalBaseDiscountPct(partnerAccountType, state.baseDiscountPct);
+    if (state.partnerAccountType !== partnerAccountType || Math.abs(target - current) > 1e-6) {
+      setState((s) => ({
+        ...s,
+        partnerAccountType,
+        baseDiscountPct: target,
+        ...(s.partnerAccountType && s.partnerAccountType !== partnerAccountType ? { campaignDisabled: false } : {}),
+      }));
     }
-  }, [effectiveUser?.portal_role, effectiveUser?.partner_type, selectedDealerCustomerType, selectedDealerContractBaseDiscountPct, state.baseDiscountPct, setState]);
+  }, [effectiveUser, hasFrozenPricing, selectedDealerContractBaseDiscountPct, selectedDealerPartnerType, state.baseDiscountPct, state.partnerAccountType, setState]);
 
   // Build the ownership payload sent to saveConfiguration / order webhook.
   // Picker selections override active "view as" mode when the internal
@@ -491,48 +852,83 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   const [savingChanges, setSavingChanges] = useState(false);
 
-  const lang = state.language;
-  const displayCurrency = usePortalCurrency();
-  const formatDisplayMoney = (value: number) => formatMoney(
-    convertCurrency(value, currencyFromLanguage(lang), displayCurrency),
-    displayCurrency,
-  );
+  const displayCurrency = configuratorCurrency(state);
+  const formatDisplayMoney = (value: number) => formatMoney(value, displayCurrency);
   // Use uiLanguage (9-locale) for translation lookups so PL/SE/FR/CZ resolve
   // to their own strings. `lang` (5-locale state.language) still drives
   // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
   // localisation, which only have 5-language coverage.
   const T = (key: string) => t(key, uiLanguage);
-  // Modal/HTML "content language" — collapses sv/fr/pl/cs to 'en' so chrome
-  // inside modals matches the product/accessory data (which is only available
-  // in da/en/de/it/hu). Prevents mixed-language modals.
+  const validateNewLeadIntent = useCallback(() => {
+    const result = validateConfiguratorLead(state);
+    const ownershipValid = (isAcademyMode || isExhibition || Boolean(ownership.dealerNumber))
+      && (!isExhibition || Boolean(ownership.sellerEmail));
+    leadValidationBlockedRef.current = !result.valid || !ownershipValid;
+    setLeadValidationErrors(result.invalidFields);
+    if (result.valid && ownershipValid) return true;
+
+    const firstField = result.invalidFields[0];
+    if (firstField) navigateToStep(firstField === 'machineConfigs' ? 1 : 4);
+    toast.error(tPortal('configuratorLeadValidationTitle', uiLanguage), {
+      description: !ownershipValid
+        ? tPortal('configuratorLeadOwnershipMessage', uiLanguage)
+        : result.invalidEmail
+        ? tPortal('configuratorLeadInvalidEmail', uiLanguage)
+        : tPortal('configuratorLeadValidationMessage', uiLanguage),
+    });
+    if (firstField) {
+      window.setTimeout(() => {
+        document.getElementById(`configurator-lead-${firstField}`)?.focus();
+      }, 0);
+    }
+    return false;
+  }, [isAcademyMode, isExhibition, navigateToStep, ownership.dealerNumber, ownership.sellerEmail, state, uiLanguage]);
+  const leadFieldClass = (field: ConfiguratorLeadField) => cn(
+    'w-full rounded-lg border p-2',
+    leadValidationErrors.includes(field) && 'border-red-500 ring-2 ring-red-100',
+  );
+  // Legacy document content remains five-language, while every UI label uses
+  // the actual nine-language portal locale.
   const contentUiLang = resolveContentUiLanguage(uiLanguage);
+  const productRevision = useProductMasterRevision();
+  const marketingCatalog = useMemo(
+    () => { void productRevision; return listMarketingConfiguratorCatalog(uiLanguage); },
+    [uiLanguage, productRevision],
+  );
   const marketingCatalogByKey = useMemo(
-    () => new Map(listMarketingConfiguratorCatalog(uiLanguage).map((item) => [item.productKey, item])),
-    [uiLanguage],
+    () => new Map(marketingCatalog.map((item) => [item.productKey, item])),
+    [marketingCatalog],
   );
   // Marketing may only affect the visual product content. Every configuration
   // and price calculation below continues to use the original canonical item.
   const marketingContentFor = (machineType: string, itemId: string | undefined) => {
     if (!itemId) return null;
-    const key = productContentKey(machineType, itemId);
-    if (marketingEditMode) {
-      return marketingEditorRecords.find((record) => record.product_key === key && record.status === 'draft')?.content
-        || marketingEditorRecords.find((record) => record.product_key === key && record.status === 'published')?.content
-        || publishedMarketingContent.get(key)?.content
-        || null;
-    }
-    return publishedMarketingContent.get(key)?.content || null;
+    const catalogItem = resolveMarketingConfiguratorCatalogItem(marketingCatalog, machineType, itemId);
+    if (!catalogItem) return null;
+    const content = marketingEditMode
+      ? findMarketingConfiguratorContentRecord(marketingEditorRecords, catalogItem, 'draft')?.content
+        || findMarketingConfiguratorContentRecord(marketingEditorRecords, catalogItem, 'published')?.content
+        || findMarketingConfiguratorContentRecord(publishedMarketingContent.values(), catalogItem, 'published')?.content
+        || null
+      : findMarketingConfiguratorContentRecord(publishedMarketingContent.values(), catalogItem, 'published')?.content || null;
+    return content ? resolveMarketingProductIdentity(catalogItem?.itemNumber, content, lang, catalogItem?.defaults.title) : null;
   };
+  const campaignClock = useMarketingBadgeClock();
+  const campaignSelection = useMemo(() => configurationCampaignSelection(state), [state]);
+  const marketingCampaignFor = (machineType: string, itemId: string | undefined) => itemId
+    ? eligibleCampaignFor(productContentKey(machineType, itemId), campaignSelection, campaignClock, state.partnerAccountType ?? 'dealer') ?? null
+    : null;
   const openMarketingEditor = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return;
-    const item = marketingCatalogByKey.get(productContentKey(machineType, itemId));
+    const item = resolveMarketingConfiguratorEditorItem(marketingCatalog, marketingEditorRecords, machineType, itemId);
     if (item) setMarketingEditorItem(item);
   };
   const marketingContentState = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return null;
-    const key = productContentKey(machineType, itemId);
-    if (marketingEditorRecords.some((record) => record.product_key === key && record.status === 'published')) return 'published';
-    if (marketingEditorRecords.some((record) => record.product_key === key && record.status === 'draft')) return 'draft';
+    const item = resolveMarketingConfiguratorCatalogItem(marketingCatalog, machineType, itemId);
+    if (!item) return null;
+    if (findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'published')) return 'published';
+    if (findMarketingConfiguratorContentRecord(marketingEditorRecords, item, 'draft')) return 'draft';
     return 'missing';
   };
   const marketingEditButton = (machineType: string, itemId: string | undefined) => marketingEditMode ? (
@@ -549,24 +945,35 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const label = state === 'draft' ? 'Kladde' : 'Publiceret';
     return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>{label}</span>;
   };
-  const renderMarketingBadge = (content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main') => <MarketingConfiguratorBadge badge={content?.badge} schedule={content} language={uiLanguage} variant={variant} />;
-  const TC = (key: string) => t(key, contentUiLang);
+  const renderMarketingBadge = (machineType: string, itemId: string | undefined, content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main', demo = false) => {
+    const campaign = marketingCampaignFor(machineType, itemId);
+    return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} campaignProduct={campaign?.products.find(product => product.productKey === productContentKey(machineType, itemId || '') && product.role !== 'trigger')} language={uiLanguage} variant={variant} suppressCampaign={demo || state.campaignDisabled === true} />;
+  };
+  const TC = (key: string) => t(key, uiLanguage);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
-  const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
+  const deliveryDiscountPercentLabel = `${DELIVERY_DISCOUNT_PERCENT.toLocaleString(uiLanguage)}%`;
+  const deliveryDiscountLegend = T('calendarDiscountNote').replace(/\d+(?:[.,]\d+)?\s*%/, deliveryDiscountPercentLabel);
+  const academyProductNames = getAcademyCase1ProductNames(lang);
+  const academyProductCopy = (key: string) => academyProductInstruction(tPortal(key, uiLanguage), academyProductNames);
 
   const totalQty = state.machineConfigs.reduce((sum, c) => sum + c.qty, 0);
+  const baseMachineQty = baseMachineQuantity(state);
   const discountEligibleQty = state.machineConfigs.reduce((sum, c) => sum + (PRODUCTS[c.type]?.isDiscountEligible ? c.qty : 0), 0);
   const flowSelected = !!state.flowType;
 
   // Modal states
-  const [infoModal, setInfoModal] = useState<{ title: string; content: string } | null>(null);
-  const [marketingInformation, setMarketingInformation] = useState<{ title: string; description: string; keyFeatures: string[]; specs: { label: string; value: string }[] } | null>(null);
+  const [infoModal, setInfoModal] = useState<{ title: string; content: string; overviewImages?: { src: string; alt: string }[] } | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState<ConfiguratorImagePreview | null>(null);
+  const [productVideoPreview, setProductVideoPreview] = useState<{ title: string; url: string } | null>(null);
+  const [marketingInformation, setMarketingInformation] = useState<{ title: string; description: string; keyFeatures: string[]; specs: { label: string; value: string }[]; overviewImages?: { src: string; alt: string }[] } | null>(null);
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [oilModalOpen, setOilModalOpen] = useState(false);
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const submitInFlightRef = useRef(false);
+  const canonicalPdfCacheRef = useRef<{ cacheKey: string; documentFile: CanonicalPdfDocument } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
@@ -585,8 +992,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [backendCorrectionSessionId, setBackendCorrectionSessionId] = useState<string | null>(null);
   const [backendCorrectionDialogOpen, setBackendCorrectionDialogOpen] = useState(false);
   const [backendCorrectionReason, setBackendCorrectionReason] = useState('');
+  const [legacyOrderRepriceApproved, setLegacyOrderRepriceApproved] = useState(false);
   const [startingBackendCorrection, setStartingBackendCorrection] = useState(false);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
+  const [machineDeliveryEditorOpen, setMachineDeliveryEditorOpen] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
   const [salesArgsData, setSalesArgsData] = useState<SalesArgsStructured | null>(null);
@@ -611,9 +1020,36 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // links the new lead to the row.
   const [pendingNewLead, setPendingNewLead] = useState(false);
 
+  const handleOwnershipChange = useCallback((next: OwnershipSelection) => {
+    setOwnership(next);
+    if (!savedConfigurationId && (
+      next.sellerEmail !== ownership.sellerEmail || next.dealerAccountId !== ownership.dealerAccountId
+    )) setLinkedLeadId(null);
+  }, [savedConfigurationId, ownership.sellerEmail, ownership.dealerAccountId]);
+
+  useEffect(() => {
+    if (baseMachineQty >= 2 || totalQty >= 2 || hasProductSplitDelivery(state)) return;
+    setMachineDeliveryEditorOpen(false);
+    if (Object.keys(state.machineDeliveryDates ?? {}).length === 0) return;
+    setState(current => ({ ...current, machineDeliveryDates: {} }));
+  }, [baseMachineQty, totalQty, setState, state]);
+
   useEffect(() => {
     savedConfigurationIdRef.current = savedConfigurationId;
   }, [savedConfigurationId]);
+
+  const requestPlanningDelivery = async (demandKey: string, itemNumber: string) => {
+    if (!planningEnabled || !savedConfigurationId || orderLocked) return;
+    const { error } = await supabase.rpc('planning_request_delivery', {
+      p_configuration_id: savedConfigurationId,
+      p_demand_key: demandKey,
+      p_item_number: itemNumber,
+      p_requested_date: state.date || null,
+      p_note: null,
+    });
+    if (error) toast.error(tPortal('planningActionError', uiLanguage));
+    else toast.success(tPortal('planningDeliveryRequestOpen', uiLanguage));
+  };
 
   const canSaveConfiguratorAsLead = (() => {
     const flag = effectiveUser?.permissions?.can_save_configurator_as_lead;
@@ -622,27 +1058,39 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     return activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
   })();
   const canCorrectSubmittedOrder = activePortalRole === 'timan_backend';
+  const requiresLegacyOrderReprice = state.flowType === 'order' && orderLocked && (!state.pricingSnapshot || state.pricingSnapshot.totalsOnly);
   const submittedOrderEditorLocked = state.flowType === 'order' && orderLocked && !backendCorrectionSessionId;
   const existingConfigurationLeadLocked = Boolean(savedConfigurationId && linkedLeadId);
-  const canCreateLeadForCurrentConfiguration = !savedConfigurationId && !linkedLeadId;
+  const canCreateLeadForCurrentConfiguration = !linkedLeadId;
 
   const handleStartBackendCorrection = useCallback(async () => {
     if (!savedConfigurationId || !backendCorrectionReason.trim() || startingBackendCorrection) return;
+    if (requiresLegacyOrderReprice && !legacyOrderRepriceApproved) {
+      toast.error('Bekræft aktiv prisopdatering før denne ældre ordre kan ændres.', {
+        description: 'Ordren mangler et historisk pris-snapshot. Den kan kun åbnes med dagens priser efter dit eksplicitte valg.',
+      });
+      return;
+    }
     setStartingBackendCorrection(true);
     try {
+      if (requiresLegacyOrderReprice) {
+        setState(current => ({ ...current, pricingSnapshot: createConfiguratorPricingSnapshot(current) }));
+      }
       const { sessionId, error } = await beginSubmittedOrderCorrection(savedConfigurationId, backendCorrectionReason);
       if (error || !sessionId) {
         toast.error(error || 'Kunne ikke starte Backend-rettelse');
         return;
       }
       setBackendCorrectionSessionId(sessionId);
+      setState(refreshConfiguratorProductDescriptions);
       setBackendCorrectionDialogOpen(false);
       setBackendCorrectionReason('');
+      setLegacyOrderRepriceApproved(false);
       toast.success('Backend-rettelse er åbnet. Gem ændringer for at låse ordren igen.');
     } finally {
       setStartingBackendCorrection(false);
     }
-  }, [savedConfigurationId, backendCorrectionReason, startingBackendCorrection]);
+  }, [savedConfigurationId, backendCorrectionReason, startingBackendCorrection, requiresLegacyOrderReprice, legacyOrderRepriceApproved, setState]);
 
   // "Gem ændringer / Save changes" — writes the current edits back to the
   // SAME saved case (no new row, no new quote/order number). Only enabled
@@ -672,6 +1120,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
    * available. Returns the created lead id, or null on failure.
    */
   const createLeadFromCurrentState = useCallback(async (): Promise<string | null> => {
+    if (!validateNewLeadIntent()) return null;
     try {
       const { createLead } = await import('@/lib/crmLeadsService');
       const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
@@ -694,6 +1143,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         notes = lines.join('\n');
       } catch { /* */ }
       if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+      const salesStockContext = salesStockAssetContextLines(state);
+      if (salesStockContext.length) notes = [notes, salesStockContext.join('\n')].filter(Boolean).join('\n\n');
       const quoteRef = savedQuoteNumber || savedOrderNumber;
       if (quoteRef) notes = (notes ? notes + '\n\n' : '') + `Tilbud: ${quoteRef}`;
 
@@ -701,28 +1152,43 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         ? await resolveSid(ownership.sellerEmail)
         : await resolveSid(appUser?.email);
 
-      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const machineTypes = buildCrmLeadMachineTypesFromConfigurationState(state);
+      const machineInterestItems = buildCrmLeadMachineInterestItemsFromConfigurationState(state);
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
-      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
-        .filter(Boolean).join(' · ') || null;
+      const contact = {
+        company: state.firmanavn,
+        contactPerson: state.kontaktperson,
+        address: state.address,
+        postalCode: state.postalCode,
+        city: state.city,
+        zipCity: '',
+        phone: state.telefon,
+        email: state.email,
+        country: state.country,
+      };
+      const contactInfo = buildStructuredContactInformation(contact) || null;
 
       const created = await createLead({
         title,
+        sales_source_type: configuratorSalesSourceType(state),
         owner_user_id: sellerId,
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
-        linked_dealer_id: ownership.dealerNumber || null,
+        linked_dealer_id: ownership.dealerAccountId || null,
+        linked_dealer_contact_id: state.dealerContactId || null,
         first_contact_date: new Date().toISOString().slice(0, 10),
         expected_close_date: null,
         next_followup_date: null,
         machine_types: machineTypes,
+        machine_interest_items: machineInterestItems,
         next_activity: 'Konfigurator-lead',
         demo_has_run: null,
         contact_type: null,
         customer_type: null,
         contact_information: contactInfo,
+        ...structuredCrmLeadContactColumns(contact),
         trade_fair: null,
-        country: null,
+        country: state.country,
         notes: notes || null,
         estimated_value: Math.round(estimatedValue || 0),
         probability: 10,
@@ -733,13 +1199,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         attachments: [],
         status: 'open',
         incomplete_from_configurator: true,
-      });
+      }, { requireRemote: true });
       return created.id;
     } catch (err) {
       console.error('[createLeadFromCurrentState] failed:', err);
       return null;
     }
-  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc]);
+  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc, validateNewLeadIntent]);
 
   /**
    * If the user selected "Opret nyt lead" in the picker, create the lead
@@ -755,7 +1221,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (!pendingNewLead) return null;
     const newId = await createLeadFromCurrentState();
     if (!newId) {
-      toast.error({ da: 'Kunne ikke oprette lead', en: 'Failed to create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'A lead létrehozása sikertelen' }[lang]);
+      if (!leadValidationBlockedRef.current) {
+        toast.error({ da: 'Kunne ikke oprette lead', en: 'Failed to create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'A lead létrehozása sikertelen' }[lang]);
+      }
       return null;
     }
     setLinkedLeadId(newId);
@@ -792,22 +1260,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [savedConfigurationId, linkedLeadId, syncingLead, lang]);
 
 
-  const handleSaveChanges = useCallback(async () => {
+  const handleSaveChanges = useCallback(async (): Promise<boolean> => {
     if (academySandbox.isActive()) {
       toast.info('Academy-træning gemmes kun lokalt.');
-      return;
+      return false;
     }
-    if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
-    if (savingChanges) return;
+    if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return false; }
+    if (savingChanges) return false;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked && !backendCorrectionSessionId) {
       toast.error(T('orderAlreadySubmittedToast'));
-      return;
+      return false;
     }
     setSavingChanges(true);
     try {
       const ownershipPayload = await getRequiredOwnershipPayload();
-      if (!ownershipPayload) return;
+      if (!ownershipPayload) return false;
       // If the user picked "Opret nyt lead" in the picker, create the
       // lead now so the saved row carries the lead_id link from the start.
       const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
@@ -817,7 +1285,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         if (serverCheck.locked && !backendCorrectionSessionId) {
           setOrderLocked(true);
           toast.error(T('orderAlreadySubmittedToast'));
-          return;
+          return false;
         }
         const res = await updateConfiguration(savedConfigurationId, state, {
           ownership: ownershipPayload,
@@ -825,27 +1293,27 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           pricingMode: isExhibition ? 'messe' : undefined,
         });
         if (res.error) {
-          toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
+          toast.error(T('saveFailed'), {
             description: res.error,
           });
-          return;
+          return false;
         }
         if (res.itemsError) {
-          toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
+          toast.error(T('saveFailed'), {
             description: res.itemsError,
           });
-          return;
+          return false;
         }
         if (backendCorrectionSessionId) {
           const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
           if (completion.error) {
             toast.error('Ændringerne blev gemt, men rettelsesvinduet kunne ikke afsluttes.', { description: completion.error });
-            return;
+            return false;
           }
           setBackendCorrectionSessionId(null);
         }
-        toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
-          description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
+        toast.success(T('caseSaved'), {
+          description: `${T('caseIdLabel')}: ${savedConfigurationId}`,
         });
         if (effectiveLeadId) void handleSyncLinkedLead({ quiet: true });
         // Readback verification — confirm the row is visible in current Min konto scope.
@@ -855,10 +1323,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             toast.error('Sagen blev gemt, men kan ikke vises i Min konto. Tjek ejer/sælger-tilknytning.');
           }
         } catch { /* ignore */ }
+        return true;
       } else {
         if (!appUser) {
-          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case');
-          return;
+          toast.error(T('saveFailed'));
+          return false;
         }
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
@@ -869,10 +1338,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           pricingMode: isExhibition ? 'messe' : undefined,
         });
         if (saveRes.error) {
-          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
+          toast.error(T('saveFailed'), {
             description: saveRes.error,
           });
-          return;
+          return false;
         }
         if (saveRes.id) {
           setSavedConfigurationId(saveRes.id);
@@ -882,10 +1351,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           setIsSavedCurrent(true);
         }
         if (saveRes.itemsError) {
-          toast.error(state.language === 'da' ? 'Sag gemt, men linjer fejlede' : 'Case saved, but line items failed', {
+          toast.error(T('saveFailed'), {
             description: saveRes.itemsError,
           });
-          return;
+          return false;
         }
         // Readback verification before showing success.
         let visibleInScope = true;
@@ -898,10 +1367,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         if (!visibleInScope) {
           toast.error('Sagen blev gemt, men kan ikke vises i Min konto. Tjek ejer/sælger-tilknytning.');
         } else {
-          toast.success(state.language === 'da' ? 'Sag gemt' : 'Case saved', {
-            description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
+          toast.success(T('caseSaved'), {
+            description: saveRes.id ? `${T('caseIdLabel')}: ${saveRes.id}` : undefined,
           });
         }
+        return visibleInScope;
       }
     } finally {
       setSavingChanges(false);
@@ -912,18 +1382,20 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async (options?: { quiet?: boolean }): Promise<string | null> => {
+    if (!validateNewLeadIntent()) return null;
     if (academySandbox.isActive()) {
       refreshAcademyCase();
       const lead = academySandbox.saveLead();
       refreshAcademyCase();
+      if (isAcademyCase3) setAcademyCase3(academySandbox.getCase3());
       setLinkedLeadId(lead.leadId);
       if (!options?.quiet) toast.success('Academy-lead gemt lokalt');
       return lead.leadId;
     }
     if (savingAsLead) return null;
-    // Saved configurations retain their relation. New lead creation is only
-    // available before the first configuration save.
-    if (savedConfigurationId || linkedLeadId) {
+    // An existing relation is idempotent. A saved case without a lead may
+    // still be explicitly promoted via "Gem som lead".
+    if (linkedLeadId) {
       if (!options?.quiet) {
         toast.info(
           { da: 'Denne konfiguration er allerede knyttet til et lead.',
@@ -960,33 +1432,50 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         notes = lines.join('\n');
       } catch { /* */ }
       if (state.comment) notes = (notes ? notes + '\n\n' : '') + state.comment;
+      const salesStockContext = salesStockAssetContextLines(state);
+      if (salesStockContext.length) notes = [notes, salesStockContext.join('\n')].filter(Boolean).join('\n\n');
 
       const sellerId = ownership.sellerEmail
         ? await resolveSid(ownership.sellerEmail)
         : await resolveSid(appUser?.email);
 
-      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const machineTypes = buildCrmLeadMachineTypesFromConfigurationState(state);
+      const machineInterestItems = buildCrmLeadMachineInterestItemsFromConfigurationState(state);
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
-      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
-        .filter(Boolean).join(' · ') || null;
+      const contact = {
+        company: state.firmanavn,
+        contactPerson: state.kontaktperson,
+        address: state.address,
+        postalCode: state.postalCode,
+        city: state.city,
+        zipCity: '',
+        phone: state.telefon,
+        email: state.email,
+        country: state.country,
+      };
+      const contactInfo = buildStructuredContactInformation(contact) || null;
 
       const created = await createLead({
         title,
+        sales_source_type: configuratorSalesSourceType(state),
         owner_user_id: sellerId,
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
-        linked_dealer_id: ownership.dealerNumber || null,
+        linked_dealer_id: ownership.dealerAccountId || null,
+        linked_dealer_contact_id: state.dealerContactId || null,
         first_contact_date: new Date().toISOString().slice(0, 10),
         expected_close_date: null,
         next_followup_date: null,
         machine_types: machineTypes,
+        machine_interest_items: machineInterestItems,
         next_activity: 'New lead',
         demo_has_run: null,
         contact_type: null,
         customer_type: null,
         contact_information: contactInfo,
+        ...structuredCrmLeadContactColumns(contact),
         trade_fair: null,
-        country: null,
+        country: state.country,
         notes: notes || null,
         estimated_value: Math.round(estimatedValue || 0),
         probability: 10,
@@ -997,7 +1486,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         attachments: [],
         status: 'open',
         incomplete_from_configurator: true,
-      });
+      }, { requireRemote: true });
 
       setLinkedLeadId(created.id);
       setLeadPickerKey(k => k + 1);
@@ -1010,15 +1499,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         const ownershipPayload = await getRequiredOwnershipPayload();
         if (ownershipPayload && appUser) {
           if (savedConfigurationId) {
-            const updRes = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload, pricingMode: isExhibition ? 'messe' : undefined });
+            const updRes = await updateConfiguration(savedConfigurationId, state, {
+              ownership: ownershipPayload,
+              leadId: created.id,
+              pricingMode: isExhibition ? 'messe' : undefined,
+            });
             if (updRes.error) throw new Error(updRes.error);
-            try {
-              await supabase.from('configurations')
-                .update({ lead_id: created.id })
-                .eq('id', savedConfigurationId);
-            } catch (e) {
-              console.warn('[handleSaveAsLead] link lead_id failed:', e);
-            }
           } else {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
@@ -1069,7 +1555,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc, refreshAcademyCase]);
+  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isAcademyCase3, isExhibition, displayCalc, refreshAcademyCase, validateNewLeadIntent]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -1080,6 +1566,38 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [resumeBusy, setResumeBusy] = useState(false);
   const resumeAttemptedRef = useRef<string | null>(null);
   const leadQuoteAttemptedRef = useRef<string | null>(null);
+  const salesStockHandoffAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (searchParams.get('salesStock') !== '1' || searchParams.get('configId')) return;
+    if (!appUser?.email || salesStockHandoffAttemptedRef.current) return;
+    salesStockHandoffAttemptedRef.current = true;
+    const assets = consumeSalesStockHandoff();
+    if (!assets.length) {
+      toast.error('De valgte salgslageraktiver kunne ikke indlæses.');
+    } else if (!canEditSalesStockPricing) {
+      toast.error('Du har ikke adgang til salgslager-prissætning.');
+    } else {
+      try {
+        setState(buildSalesStockConfiguratorState(assets, state.language, configuratorCurrency(state)));
+        setSavedConfigurationId(null);
+        setSavedQuoteNumber(null);
+        setSavedOrderNumber(null);
+        setSavedSourceQuoteNumber(null);
+        setLinkedLeadId(null);
+        setPendingNewLead(false);
+        setOrderLocked(false);
+        setIsSavedCurrent(false);
+        toast.success('Salgslageraktiver indlæst i Configurator.');
+      } catch (error) {
+        toast.error('Et valgt aktiv findes ikke i den canonical produktkatalog.', {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('salesStock');
+    setSearchParams(next, { replace: true });
+  }, [appUser?.email, canEditSalesStockPricing, searchParams, setSearchParams, setState, state]);
   useEffect(() => {
     const configId = searchParams.get('configId');
     if (!configId) return;
@@ -1106,19 +1624,24 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           dealerNumber: appUser?.dealer_number ?? null,
         });
         if (error || !row) {
-          toast.error(lang === 'da' ? 'Kan ikke åbne sagen' : 'Cannot open case', {
-            description: lang === 'da'
-              ? 'Sagen findes ikke eller du har ikke adgang.'
-              : 'The case does not exist or you do not have access.',
+          toast.error(t('cannotOpenCase', uiLanguage), {
+            description: t('caseAccessDenied', uiLanguage),
           });
           return;
         }
-        const saved = await loadConfigurationByIdUnscoped(configId, appUser.email);
+        let saved = await loadConfigurationByIdUnscoped(configId, appUser.email);
         if (!saved) {
-          toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
+          toast.error(t('failedLoadCase', uiLanguage));
           return;
         }
-        setState(saved.state_json);
+        if (isSavedConfigurationOrderLocked(saved)) {
+          saved = await loadSubmittedOrderConfirmation(configId, appUser.email, effectiveUser?.id);
+        }
+        paymentTermsExplicitRef.current = Boolean(saved.state_json.paymentTerms?.trim());
+        paymentTermsDealerIdRef.current = row.dealer_account_id ?? null;
+        setState(isSavedConfigurationOrderLocked(saved)
+          ? saved.state_json
+          : refreshConfiguratorProductDescriptions(saved.state_json));
         setSavedConfigurationId(saved.id);
         const lockedOnLoad = isSavedConfigurationOrderLocked(saved);
         setOrderLocked(lockedOnLoad);
@@ -1126,7 +1649,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         // every UI guard that keys on state.flowType lights up correctly,
         // even if the persisted state_json still says 'quote' (legacy data
         // or a quote that was later converted/submitted as an order).
-        if (lockedOnLoad) setFlowType('order');
+        if (lockedOnLoad) {
+          setFlowType('order');
+          if (searchParams.get('orderCorrection') === '1' && canCorrectSubmittedOrder) {
+            setBackendCorrectionDialogOpen(true);
+          }
+        }
         setSavedQuoteNumber(saved.quote_number);
         setSavedOrderNumber(saved.order_number);
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
@@ -1146,24 +1674,23 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           dealerNumber: row.dealer_account_number ?? row.dealer_number ?? prev.dealerNumber,
           dealerCompanyName: row.dealer_company_name ?? row.dealer_name ?? prev.dealerCompanyName,
         }));
-        toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
-          description: lang === 'da'
-            ? 'Den gemte konfiguration er genindlæst.'
-            : 'The saved configuration has been restored.',
+        toast.success(t('caseLoaded', uiLanguage), {
+          description: t('caseRestored', uiLanguage),
         });
       } catch (e) {
         console.error('[ConfiguratorPage] resume failed', e);
-        toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
+        toast.error(t('failedLoadCase', uiLanguage));
       } finally {
         // Clean the URL so a manual refresh doesn't try to reload (and to
         // avoid duplicate restores when the user starts editing).
         const next = new URLSearchParams(searchParams);
         next.delete('configId');
+        next.delete('orderCorrection');
         setSearchParams(next, { replace: true });
         setResumeBusy(false);
       }
     })();
-  }, [searchParams, appUser, lang, setState, setSearchParams]);
+  }, [searchParams, appUser, effectiveUser?.id, uiLanguage, setState, setSearchParams, setFlowType, canCorrectSubmittedOrder]);
 
   // CRM lead → configurator quote draft (?fromLeadQuote=<lead-id>).
   // This keeps the lead linked and preselects known machines/equipment, then
@@ -1181,7 +1708,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       try {
         const lead = await getLead(leadId);
         if (!lead) {
-          toast.error(lang === 'da' ? 'Leadet blev ikke fundet' : 'Lead was not found');
+          toast.error(t('leadNotFound', uiLanguage));
           return;
         }
         setState((prev) => buildConfiguratorStateFromLead(lead, prev));
@@ -1198,21 +1725,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           sellerEmail: lead.owner_email || prev.sellerEmail,
           dealerAccountId: lead.linked_dealer_id || prev.dealerAccountId,
         }));
-        toast.success(lang === 'da' ? 'Lead indlæst som tilbud' : 'Lead loaded as quote', {
-          description: lang === 'da'
-            ? 'Kontrollér redskaberne og udfyld levering, før tilbuddet gemmes.'
-            : 'Check the equipment and fill delivery before saving the quote.',
+        toast.success(t('leadLoadedAsQuote', uiLanguage), {
+          description: t('leadQuoteRestored', uiLanguage),
         });
       } catch (e) {
         console.error('[ConfiguratorPage] lead quote draft failed', e);
-        toast.error(lang === 'da' ? 'Kunne ikke indlæse leadet' : 'Could not load lead');
+        toast.error(t('leadLoadFailed', uiLanguage));
       } finally {
         const next = new URLSearchParams(searchParams);
         next.delete('fromLeadQuote');
         setSearchParams(next, { replace: true });
       }
     })();
-  }, [searchParams, appUser?.email, lang, setSearchParams, setState]);
+  }, [searchParams, appUser?.email, uiLanguage, setSearchParams, setState]);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
   const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
@@ -1225,21 +1750,21 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       updateConfigurationFlowType(savedConfigurationId, ft, ownershipPayload, { pricingMode: isExhibition ? 'messe' : undefined }).then(res => {
         if (res.error) {
           console.error('[flowType] failed to persist:', res.error);
-          toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
+          toast.error(t('saveChangeFailed', uiLanguage), { description: res.error });
           return;
         }
         if (res.quote_number) setSavedQuoteNumber(res.quote_number);
         if (res.order_number) setSavedOrderNumber(res.order_number);
       });
     }
-  }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload, isExhibition]);
+  }, [state.flowType, setFlowType, savedConfigurationId, uiLanguage, getRequiredOwnershipPayload, isExhibition]);
 
   // Auto-fill delivery date when entering step 2 (15 business days from today, skip weekends)
   useEffect(() => {
     if (state.step !== 2) return;
     if (isExhibition) {
       setState(s => ({ ...s, currentMachineIndex: 0 }));
-      setStep(3);
+      navigateToStep(3);
       return;
     }
     if (state.date) return;
@@ -1254,7 +1779,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     // Safety: if landed on weekend, push to Monday
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
     setDate(format(d, 'yyyy-MM-dd'));
-  }, [state.step, state.date, isExhibition, setDate, setStep]);
+  }, [state.step, state.date, isExhibition, navigateToStep, setDate]);
 
   useEffect(() => {
     if (isExhibition && state.flowType !== 'quote') {
@@ -1273,16 +1798,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
   }, [state.step, isExhibition, ownership.sellerEmail, state.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
+  const isEURCurrency = useCallback(() => displayCurrency !== 'DKK', [displayCurrency]);
 
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
-    const itemName = getLocalizedName(item.name, lang);
-    const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
-    const price = formatDisplayMoney(getPrice(item, lang));
-    const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
+    const itemName = getLocalizedName(item.name, uiLanguage);
+    const itemVarenr = `${itemNoLabel(uiLanguage)}: ${item.varenr}`;
+    const price = formatDisplayMoney(getPriceForCurrency(item, displayCurrency));
+    const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${t('priceLabel', uiLanguage)}: ${price}`;
     setInfoModal({ title: TC('autoAddedTitle'), content: msg });
-  }, [lang, isEURCurrency, contentUiLang]);
+  }, [uiLanguage, displayCurrency]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
   const handleToggleAcc = useCallback((accId: string) => {
@@ -1360,9 +1885,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const p = PRODUCTS[key];
     if (!p?.machineDetails) return;
     const md = p.machineDetails;
-    const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
-    const bullets = md.bullets[lang] || md.bullets.da || [];
+    const mainText = typeof md.main === 'string' ? md.main : (md.main[uiLanguage] || md.main.en || md.main.da);
+    const bullets = md.bullets[uiLanguage] || md.bullets.en || md.bullets.da || [];
     const dims = md.dimensions || [];
+    const specLabelLanguage = uiLanguage;
     let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${TC('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
@@ -1373,33 +1899,58 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
-          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, contentUiLang)}</h5>`;
+          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, specLabelLanguage)}</h5>`;
         } else {
-          const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, contentUiLang)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
+          const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[uiLanguage] || (d.value as any)?.[lang] || (d.value as any)?.en || (d.value as any)?.da || '');
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, specLabelLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
     }
-    setInfoModal({ title: `${TC('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
+    setInfoModal({
+      title: `${TC('machineInfo')}: ${getLocalizedName(p.name, uiLanguage)}`,
+      content: html,
+      overviewImages: md.overviewImageUrls?.map((src, index) => ({
+        src,
+        alt: `${getLocalizedName(p.name, uiLanguage)} - ${TC('dimSpecs')} ${index + 1}`,
+      })),
+    });
   };
 
-  const showMarketingInformation = (title: string, content: { description: string; key_features: string[]; specs: { label: string; value?: unknown }[] }) => {
-    const specs = content.specs.map((spec) => ({
-      label: translateSpecLabel(spec.label, contentUiLang),
-      value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || ''),
+  const showMarketingInformation = (
+    title: string,
+    content: { description: string; key_features: string[]; specs: { label: string; value?: unknown }[] },
+    options?: { specs?: { label: string; value?: unknown }[]; overviewImageUrls?: string[]; specLabelLanguage?: PortalUiLanguage },
+  ) => {
+    const specs = (options?.specs ?? content.specs).map((spec) => ({
+      label: translateSpecLabel(spec.label, options?.specLabelLanguage ?? uiLanguage),
+      value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[uiLanguage] || (spec.value as any)?.[lang] || (spec.value as any)?.en || (spec.value as any)?.da || ''),
     })).filter((spec) => spec.label && spec.value);
-    setMarketingInformation({ title, description: content.description, keyFeatures: content.key_features.filter(Boolean), specs });
+    setMarketingInformation({
+      title,
+      description: content.description,
+      keyFeatures: content.key_features.filter(Boolean),
+      specs,
+      overviewImages: options?.overviewImageUrls?.map((src, index) => ({
+        src,
+        alt: `${title} - ${TC('dimSpecs')} ${index + 1}`,
+      })),
+    });
   };
 
   const showMachineInformation = (key: string) => {
     const machine = PRODUCTS[key];
     const content = machine ? marketingContentFor(key, machine.id) : null;
-    if (!machine || !content) {
+    if (!machine || !content || key === 'Timan 2620') {
       showMachineDetails(key);
       return;
     }
-    showMarketingInformation(content.title || getLocalizedName(machine.name, lang), content);
+    const details = machine.machineDetails;
+    showMarketingInformation(content.title || getLocalizedName(machine.name, uiLanguage), content, {
+      specs: details?.preferCanonicalDimensions ? details.dimensions : undefined,
+      overviewImageUrls: details?.overviewImageUrls,
+      specLabelLanguage: uiLanguage,
+    });
   };
 
   const showSpecs = (accId: string, machineType: string) => {
@@ -1407,7 +1958,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const acc = flatAccs.find(a => String(a.id) === String(accId));
     const marketingContent = marketingContentFor(machineType, accId);
     if (marketingContent) {
-      showMarketingInformation(marketingContent.title || getLocalizedName(acc?.name || '', lang), marketingContent);
+      showMarketingInformation(marketingContent.title || getLocalizedName(acc?.name || '', uiLanguage), marketingContent);
       return;
     }
     const specs = marketingContent?.specs.length ? marketingContent.specs : acc?.specs;
@@ -1418,70 +1969,126 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (techSpecs.length > 0) {
       html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
       techSpecs.forEach(s => {
-        const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[lang] || (s.value as any)?.da || '');
-        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, contentUiLang)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
+        const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[uiLanguage] || (s.value as any)?.[lang] || (s.value as any)?.en || (s.value as any)?.da || '');
+        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, uiLanguage)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
       });
       html += '</div>';
     }
     const marketingDescription = marketingContent?.description || '';
     if (descEntry || marketingDescription) {
-      const val = marketingDescription || (typeof descEntry?.value === 'string' ? descEntry.value : ((descEntry?.value as any)?.[lang] || (descEntry?.value as any)?.da || ''));
+      const val = marketingDescription || (typeof descEntry?.value === 'string' ? descEntry.value : ((descEntry?.value as any)?.[uiLanguage] || (descEntry?.value as any)?.[lang] || (descEntry?.value as any)?.en || (descEntry?.value as any)?.da || ''));
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
     }
-    setInfoModal({ title: marketingContent?.title || getLocalizedName(acc?.name || '', lang), content: html });
+    setInfoModal({ title: marketingContent?.title || getLocalizedName(acc?.name || '', uiLanguage), content: html });
   };
 
   const setReqNumber = (unitNumber: number, value: string) => {
     setState(s => ({ ...s, reqNumbers: { ...s.reqNumbers, [`machine_${unitNumber}`]: value.slice(0, 20) } }));
   };
 
-  const getDemoFee = () => isEURCurrency() ? DEMO_FEE_EUR : DEMO_FEE_DKK;
+  const setMachineDeliveryOverride = (unitNumber: number, enabled: boolean) => {
+    setState(s => {
+      const key = machineDeliveryDateKey(s, unitNumber);
+      const nextDates = { ...(s.machineDeliveryDates ?? {}) };
+      if (enabled) nextDates[key] = nextDates[key] || s.date;
+      else {
+        delete nextDates[key];
+        delete nextDates[`machine_${unitNumber}`];
+      }
+      return { ...s, machineDeliveryDates: nextDates };
+    });
+  };
+
+  const setMachineDeliveryDate = (unitNumber: number, value: string) => {
+    if (!value) return;
+    const selected = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(selected.getTime())) return;
+    if (selected.getDay() === 0 || selected.getDay() === 6) {
+      toast.error(T('weekendDateError'));
+      return;
+    }
+    setState(s => ({
+      ...s,
+      machineDeliveryDates: {
+        ...(s.machineDeliveryDates ?? {}),
+        [machineDeliveryDateKey(s, unitNumber)]: value,
+      },
+    }));
+  };
+
+  const getDemoFee = () => currentDemoFee(displayCurrency);
   const getDemoKey = (varenr: string, unitNumber: number) => `${varenr}_${unitNumber}`;
   const isDemoSelected = (varenr: string, unitNumber: number) => !!state.demoMachines[getDemoKey(varenr, unitNumber)];
 
   const toggleDemoMachine = (varenr: string, unitNumber: number, machineLabel: string) => {
     const key = getDemoKey(varenr, unitNumber);
     const next = !state.demoMachines[key];
+    const suppressesCampaign = next && (displayCalc?.campaignLines ?? [])
+      .some((line) => line.unitNumber === unitNumber && line.applied);
     setState(s => ({ ...s, demoMachines: { ...s.demoMachines, [key]: next } }));
     if (next) {
       const fee = getDemoFee();
       const feeText = formatDisplayMoney(fee);
-      const title = lang === 'da' ? 'Demo maskine valgt' : 'Demo machine selected';
-      const msg = lang === 'da'
-        ? `Du har afkrydset <strong>Demo maskine</strong> for <strong>${machineLabel}</strong>.<br><br>Der er tilføjet en ekstra omkostning på <strong>${feeText}</strong>.<br><br><strong>Vilkår:</strong><br>- Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.<br>- Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.<br>- Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.`
-        : `You have checked <strong>Demo machine</strong> for <strong>${machineLabel}</strong>.<br><br>An extra cost of <strong>${feeText}</strong> has been added.`;
+      const title = T('demoSelectedTitle');
+      const campaignMessage = suppressesCampaign
+        ? `<br><br><strong>${T('demoCampaignSuppressed')}</strong>`
+        : '';
+      const msg = T('demoSelectedMessage')
+        .replace('{machine}', machineLabel)
+        .replace('{fee}', feeText) + campaignMessage;
       setInfoModal({ title, content: msg });
     }
   };
 
-  const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string }, machineType: string) => {
+  const setDirectPricingMode = (enabled: boolean) => {
+    if (enabled && state.flowType !== 'quote') return;
+    if (enabled && Object.values(state.demoMachines ?? {}).some(Boolean)) {
+      toast.error(T('directDemoConflict'));
+      return;
+    }
+    setState(current => ({ ...current, pricingMode: enabled ? 'direct' : 'partner' }));
+  };
+
+  const setCampaignDisabled = (disabled: boolean) => {
+    setState((current) => ({ ...current, campaignDisabled: disabled }));
+  };
+
+  const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string; varenr?: string; name?: Accessory['name'] | SubItem['name'] }, machineType: string) => {
     const marketingContent = marketingContentFor(machineType, item.id);
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
-    const hasSpecs = Boolean(marketingContent?.description || marketingContent?.key_features.length || marketingContent?.specs.length || item.specs?.length);
-    const showVideoIcon = !!videoUrl;
-    const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
-    if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
+    const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, uiLanguage) : machineType);
+    const presentationActions = marketingPresentationActions(marketingContent, item.varenr || item.id);
+    const hasResolvedSpecs = marketingPresentationActions(marketingContent).information || Boolean(item.specs?.length);
+    const showVideoAction = Boolean(videoUrl) || presentationActions.video;
+    const showImageAction = Boolean(imageUrl) || presentationActions.image;
+    const showSpecificationsAction = hasResolvedSpecs || presentationActions.information;
+    if (!showVideoAction && !showImageAction && !showSpecificationsAction) return null;
     return (
       <div className="mt-1 flex gap-2 whitespace-nowrap">
-        {showVideoIcon && (videoUrl ? (
-          <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>🎥 {T('videoLink')}</a>
+        {showVideoAction && (videoUrl ? (
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductVideoPreview({ url: videoUrl, title: productTitle }); }}>🎥 {T('videoLink')}</button>
         ) : (
-          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>🎥 {T('videoLink')}</button>
         ))}
-        {showImageIcon && (imageUrl ? (
-          <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>📸 {T('imageLink')}</a>
+        {showImageAction && (imageUrl ? (
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: imageUrl, title: productTitle, itemNumber: item.varenr || item.id || null }); }}>📸 {T('imageLink')}</button>
         ) : (
-          <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>📸 {T('imageLink')}</button>
         ))}
-        {hasSpecs && <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>}
+        {showSpecificationsAction && (hasResolvedSpecs ? (
+          <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>
+        ) : (
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs font-medium text-gray-400 transition hover:text-gray-600" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toast.info(T('contentComingSoon')); }}>📄 {T('specsLink')}</button>
+        ))}
       </div>
     );
   };
 
-  const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1) => {
+  const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1, renderNestedOptions = true) => {
     const isSelected = selectedIds.includes(sub.id);
     const hasNestedSubs = sub.subItems && sub.subItems.length > 0;
+    const isVariant = sub.relationType === 'variant';
     const marketingContent = marketingContentFor(machineType, sub.id);
     return (
       <div key={sub.id}>
@@ -1496,16 +2103,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           </div>
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
-              <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(sub.name, lang)}</div>
+              <div className="text-sm text-gray-800">{sub.variantLabelKey ? T(sub.variantLabelKey) : marketingContent?.title || getLocalizedName(sub.name, uiLanguage)}</div>
               <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {sub.varenr}</div>
               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
               {renderActionLinks(sub as any, machineType)}
             </div>
-            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPrice(sub, lang)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
+            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(sub, displayCurrency)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
           </div>
         </div>
-        {(isSelected || isLooseToolMode(machineType)) && hasNestedSubs && (
+        {renderNestedOptions && (isSelected || (isLooseToolMode(machineType) && !isVariant)) && hasNestedSubs && (
           <div className="ml-8 mt-2 space-y-2">
+            {isVariant && <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>}
             {sub.subItems!.map(sub2 => renderSubItem(sub2 as SubItem, selectedIds, machineType, level + 1))}
           </div>
         )}
@@ -1517,9 +2125,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const buildConfirmationHtml = (overrides?: { quoteNumber?: string | null; orderNumber?: string | null; sourceQuoteNumber?: string | null; flowType?: ConfiguratorSubmitFlowType }) => {
     if (!calcResult) return '';
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
-    const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
+    const commonDelivery = commonMachineDeliveryDate(state);
+    const delDate = commonDelivery
+      ? new Date(commonDelivery + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK')
+      : T('multipleDeliveryDates');
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
+    const escapeDeliveryHtml = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
+    const deliveryDestinationHtml = deliveryDestinationSections(state).map(({ unit, destination }) => `
+      <div class="border-b border-gray-200 py-2">
+        <p class="font-medium">${unit ? `${TC('machineLabel')} ${unit.unitNumber} – ${escapeDeliveryHtml(unit.machineType)} · ` : ''}${TC(destination.source === 'dealer' ? 'useDealerDeliveryAddress' : destination.source === 'customer' ? 'sameAsCustomerAddress' : 'enterDeliveryAddress')}</p>
+        <p class="mt-1 break-words">${escapeDeliveryHtml(formatDeliveryDestination(destination)).replace(/\n/g, '<br>') || '-'}</p>
+      </div>`).join('');
     const renderFlowType = overrides?.flowType ?? state.flowType;
     const pdfTitle = renderFlowType === 'quote' ? TC('quoteRequestTitle') : TC('orderRequestTitle');
 
@@ -1541,6 +2158,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       if (effSourceQuoteNumber) {
         const label = { da: 'Oprettet fra tilbud', en: 'Created from quote', de: 'Erstellt aus Angebot', it: 'Creato dal preventivo', hu: 'Ajánlatból létrehozva' }[lang] || 'Created from quote';
         lines.push(`<span class="font-medium">${label}</span><span>${effSourceQuoteNumber}</span>`);
+      }
+      if (state.purchaseOrderNumber.trim()) {
+        const label = { da: 'Rekvisitionsnr. / PO nr.', en: 'Requisition / PO no.', de: 'Bestellreferenz / PO-Nr.', it: 'Riferimento ordine / n. PO', hu: 'Beszerzési / PO-szám' }[lang] || 'Requisition / PO no.';
+        lines.push(`<span class="font-medium">${label}</span><span>${state.purchaseOrderNumber.trim()}</span>`);
       }
       if (lines.length === 0) return '';
       return `<div class="mt-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -1566,13 +2187,29 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <span class="font-medium">${TC('confirmPhone')}</span><span>${state.telefon || '-'}</span>
           <span class="font-medium">${TC('confirmEmailSender')}</span><span>${state.email || '-'}</span>
           <span class="font-medium">${TC('confirmEmailRecipient')}</span><span>${(state.emailRecipient || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join(', ') || '-'}</span>
+          <span class="font-medium">${TC('deliveryAddressLine')}</span><span>${state.address || '-'}</span>
+          <span class="font-medium">${TC('deliveryPostalCode')}</span><span>${state.postalCode || '-'}</span>
+          <span class="font-medium">${TC('deliveryCity')}</span><span>${state.city || '-'}</span>
+          <span class="font-medium">${TC('deliveryCountry')}</span><span>${state.country || '-'}</span>
 
           ${state.comment ? `<span class="font-medium">${TC('confirmComment')}</span><span>${state.comment}</span>` : ''}
         </div>
       </div>
+      <div class="mt-6 text-sm text-gray-700">
+        <h2 class="font-bold text-base mb-2">${TC('deliveryAddressSection')}</h2>
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          ${deliveryDestinationHtml}
         </div>
       </div>
-      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${TC('confirmDescription')}</h2>`;
+        </div>
+      </div>
+      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${TC('confirmDescription')}</h2>
+        <div class="hidden border-b border-gray-200 bg-gray-50 px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:grid sm:gap-3 ${permissions.canSeePrices ? 'sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem]'}">
+          <div>${TC('pdfItemNo')}</div>
+          <div>${TC('confirmDescription')}</div>
+          <div class="text-right">${TC('pdfQuantity')}</div>
+          ${permissions.canSeePrices ? `<div class="text-right">${TC('pdfUnitPrice')}</div><div class="text-right">${TC('pdfLineTotal')}</div>` : ''}
+        </div>`;
 
     // Line items
     calcResult.lineItems.forEach(i => {
@@ -1593,40 +2230,42 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       if (i.bold) {
         html += `<div class="text-sm font-bold text-gray-800 pt-3 pb-1 border-t border-gray-200 mt-2">${i.txt}</div>`;
         if (i.isMachine && i.index) {
-          // Always render the base machine line (varenr + name + price) so visible
-          // line items match the subtotal. Display-only; totals are unchanged.
-          const machName = i.txt.replace(/^.*\(([^)]+)\)\s*$/, '$1') || i.txt;
-          const priceCol = permissions.canSeePrices
-            ? `<div class="w-28 shrink-0 text-right price-col">${formatDisplayMoney(i.price)}</div>`
-            : '';
-          html += `<div class="flex items-start text-sm py-1 text-gray-800 font-semibold">
-            <div class="w-16 shrink-0 opacity-80">${varenr}</div>
-            <div class="flex-grow px-2 leading-snug break-words">${machName}</div>
-            ${priceCol}
-          </div>`;
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
             html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('reqNrLabel')}: ${reqVal}</div>`;
           }
+          const unitDeliveryDate = commonDelivery ? '' : machineDeliveryDate(state, i.index);
+          if (unitDeliveryDate) {
+            const formattedUnitDelivery = new Date(`${unitDeliveryDate}T12:00:00`).toLocaleDateString(dateLocale[lang] || 'da-DK');
+            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('confirmDelivery')} ${formattedUnitDelivery}</div>`;
+          }
         }
-      } else {
-        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${TC('autoAdded')}</span>` : '';
-        html += `<div class="flex items-start text-sm py-1 text-gray-600">
-          <div class="w-16 shrink-0 opacity-80">${varenr}</div>
-          <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
-          <div class="w-28 shrink-0 text-right price-col">${formatDisplayMoney(i.price)}</div>
-        </div>`;
       }
+      const description = configuratorLineDescription(i);
+      const quantity = configuratorLineQuantity(i);
+      const unitPrice = configuratorLineUnitPrice(i);
+      const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${TC('autoAdded')}</span>` : '';
+      html += `<div class="grid min-w-0 items-start gap-x-3 gap-y-1 border-b border-gray-100 px-2 py-2 text-sm ${i.bold ? 'font-semibold text-gray-800' : 'text-gray-600'} ${permissions.canSeePrices ? 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'grid-cols-1 sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem]'}">
+        <div class="hidden min-w-0 font-mono text-[11px] font-normal opacity-80 sm:block">${varenr}</div>
+        <div class="min-w-0 ${paddingClass} leading-snug break-words">
+          ${description}${i.isNetto ? ` · ${TC('nettoProducts')}` : ''}${autoTag}
+          <div class="mt-1 text-[11px] font-normal text-gray-500 sm:hidden">
+            <span class="font-mono">${varenr}</span> · ${TC('pdfQuantity')} ${quantity}${permissions.canSeePrices ? ` · ${TC('pdfUnitPrice')} ${formatDisplayMoney(unitPrice)}` : ''}
+          </div>
+        </div>
+        <div class="hidden text-right font-normal tabular-nums sm:block">${quantity}</div>
+        ${permissions.canSeePrices ? `<div class="hidden text-right font-normal tabular-nums sm:block">${formatDisplayMoney(unitPrice)}</div><div class="col-start-2 row-start-1 whitespace-nowrap text-right font-medium tabular-nums sm:col-auto sm:row-auto">${formatDisplayMoney(i.price)}</div>` : ''}
+      </div>`;
     });
 
     // Totals
     html += `<div data-pdf-keep="1" class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
-        <span>${TC('confirmSubtotal')}</span>
-        <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal)}</span>
+        <span>${TC(isDirectPricing ? 'directNetPrice' : 'confirmSubtotal')}</span>
+        <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal - (displayCalc!.nettoTotal ?? 0))}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
-      const discLabel = (state.flowType === 'order' && d.varenr) ? `${d.txt} (${d.varenr})` : d.txt;
+      const discLabel = formatDiscountDetailLabel(d, state.flowType === 'order', uiLanguage);
       html += `<div class="flex justify-between w-full text-xs text-red-600">
         <span>${discLabel}</span><span class="price-col">-${formatDisplayMoney(d.amount)}</span></div>`;
     });
@@ -1636,13 +2275,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <span class="price-col">-${formatDisplayMoney(displayCalc!.totalDiscount)}</span>
       </div>`;
     }
+    if (displayCalc!.nettoTotal) html += `<div class="flex justify-between w-full text-xs mt-1"><span>${TC('nettoProducts')}</span><span class="price-col">${formatDisplayMoney(displayCalc!.nettoTotal)}</span></div>`;
     html += `<div class="flex justify-between w-full text-base font-bold mt-2">
         <span>${TC('confirmTotal')}</span>
         <span class="price-col">${formatDisplayMoney(displayCalc!.currentPrice)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
-        <span>${getPaymentTermsLabel(lang)}</span>
-        <span>${resolvePaymentTerms(state.paymentTerms)}</span>
+        <span>${getPaymentTermsLabel(uiLanguage)}</span>
+        <span>${getPaymentTermsDocumentValue(state.paymentTerms)}</span>
       </div>
       <p class="text-xs text-gray-500 mt-1">${TC('confirmExVat')}</p>
     </div></div></div>`;
@@ -1672,29 +2312,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const openConfirmation = async () => {
 
     // Hard guard: a submitted order can never reopen the send confirmation.
-    if (orderLocked) {
+    if (orderLocked && !backendCorrectionSessionId) {
       toast.error(T('orderCannotResendTitle'));
+      return;
+    }
+    // Resolve canonical ownership before an order reaches its confirmation.
+    // The send path repeats this check so direct calls remain protected.
+    if (state.flowType === 'order' && !(await getRequiredOwnershipPayload())) {
       return;
     }
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
       return;
     }
-
-
-    // NOTE: No auto-save here. Saving only happens on:
-    // 1) Download PDF (quote), 2) Afsend ordre til Timan (order), 3) "+ Gem nuværende" in My account.
-    // If the case is already saved, ensure reference numbers exist for display in the preview.
-    if (savedConfigurationId) {
-      try {
-        const isOrder = state.flowType === 'order';
-        const refs = await ensureReferenceNumbers(savedConfigurationId, isOrder);
-        if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
-        if (refs.order_number) setSavedOrderNumber(refs.order_number);
-      } catch (err) {
-        console.error('Failed to ensure reference numbers:', err);
-      }
-    }
+    setState(refreshConfiguratorProductDescriptions);
+    // Opening the preview is not a commercial transition. Reference numbers
+    // are allocated only by the explicit quote/order action below.
 
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
@@ -1719,23 +2352,56 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   // PDF download + submit (single async flow). Guarded by `submitting` so the
   // button cannot trigger a second PDF/save/webhook.
-  const downloadPdf = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+  const downloadPdf = async (
+    flowOverride?: ConfiguratorSubmitFlowType,
+    options?: { orderRevisionAction?: OrderRevisionAction },
+  ): Promise<boolean> => {
     if (academySandbox.isActive()) {
+      if (isAcademySalesBonusCase2) {
+        const submitted = academySandbox.submitSalesBonusCase2Order(getAcademySalesBonusCase2Input());
+        setAcademySalesBonusCase2(submitted);
+        if (!submitted.orderSubmitted) {
+          toast.error(tPortal('academySalesBonusCase2NotReady', uiLanguage));
+          return false;
+        }
+        setConfirmModalOpen(false);
+        toast.success(tPortal('academySalesBonusCase2OrderSubmitted', uiLanguage));
+        return true;
+      }
+      if (!academySandbox.getCase1().leadId) {
+        toast.error(tPortal('academyCase1NextLead', uiLanguage));
+        return false;
+      }
       setAcademyCase(academySandbox.generateQuote());
       toast.success('Academy-tilbud genereret lokalt');
       return true;
     }
-    if (submitting) return false;
+    if (submitting || submitInFlightRef.current) return false;
+    submitInFlightRef.current = true;
     setSubmitting(true);
     try {
-      return await downloadPdfInner(flowOverride);
+      return await downloadPdfInner(flowOverride, options);
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   };
 
-  const downloadPdfInner = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+  const downloadPdfInner = async (
+    flowOverride?: ConfiguratorSubmitFlowType,
+    options?: { orderRevisionAction?: OrderRevisionAction },
+  ): Promise<boolean> => {
     const effectiveFlowType = flowOverride ?? state.flowType;
+    let documentState = refreshConfiguratorProductDescriptions(state);
+    let documentCalc = hasFrozenConfiguratorPricing(documentState) && !isGrossPriceMode
+      ? buildSubmittedOrderDocument(documentState).calcResult
+      : calculateConfiguration({ ...documentState, manualDealerDiscountPct: isGrossPriceMode && !isExhibition ? 0 : documentState.manualDealerDiscountPct }, { grossManualDiscountOnly: isGrossPriceMode });
+    let completedRevisionId: string | null = null;
+    let confirmationRevisionNumber: number | undefined;
+    if (backendCorrectionSessionId && activePortalRole !== 'timan_backend') {
+      toast.error('Kun Backend kan afslutte en ordrerevision.');
+      return false;
+    }
     let el = confirmContentRef.current;
     if (!el) {
       el = document.createElement('div');
@@ -1754,6 +2420,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     // Resolve "Opret nyt lead" picker selection into a real lead now so
     // the save/send flow links the configuration to the new lead.
     const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
+
+    // Check the canonical server lock before persisting the live state. A
+    // submitted order remains immutable outside an explicit Backend revision.
+    if (activeCaseId && effectiveFlowType === 'order') {
+      const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
+      if (lockCheck.locked && !backendCorrectionSessionId) {
+        setOrderLocked(true);
+        toast.error(T('orderCannotResendTitle'));
+        setConfirmModalOpen(false);
+        return false;
+      }
+    }
 
     if (!activeCaseId && appUser) {
       try {
@@ -1780,12 +2458,45 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return false;
       }
     } else if (activeCaseId) {
+      // Persist the exact live state before preview/PDF/submission. This is
+      // also required for ordinary saved drafts: markAsOrderSubmitted freezes
+      // the database snapshot, so a stale draft must never become the
+      // historical confirmation while the PDF uses newer React state.
+      const preSubmissionSave = await updateConfiguration(activeCaseId, state, {
+        ownership: ownershipPayload,
+        leadId: effectiveLeadId,
+        pricingMode: isExhibition ? 'messe' : undefined,
+      });
+      if (preSubmissionSave.error || preSubmissionSave.itemsError) {
+        toast.error(backendCorrectionSessionId
+          ? 'Kunne ikke gemme ordreændringer før gensendelse.'
+          : T('saveFailed'), {
+          description: preSubmissionSave.error || preSubmissionSave.itemsError || undefined,
+        });
+        return false;
+      }
       try {
-        const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order');
+        const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order', { pricingMode: isExhibition ? 'messe' : undefined });
         if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
         if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
       } catch (err) {
         console.error('Failed to ensure reference numbers before PDF:', err);
+      }
+    }
+
+    // A newly-created quote can be returned without a T-number. Reserve it
+    // before PDF generation so the document body, filename and n8n payload
+    // all identify the same canonical quote.
+    if (activeCaseId && effectiveFlowType === 'quote' && !activeQuoteNumber) {
+      try {
+        const refs = await ensureReferenceNumbers(activeCaseId, false, { pricingMode: isExhibition ? 'messe' : undefined });
+        if (!refs.quote_number) throw new Error('Tilbuddet mangler et canonical tilbudsnummer.');
+        activeQuoteNumber = refs.quote_number;
+        setSavedQuoteNumber(refs.quote_number);
+      } catch (err) {
+        console.error('Failed to ensure quote number before PDF:', err);
+        toast.error(T('saveFailed'), { description: err instanceof Error ? err.message : String(err) });
+        return false;
       }
     }
 
@@ -1808,24 +2519,40 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return false;
       }
 
-      const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
-      if (lockCheck.locked) {
-        setOrderLocked(true);
-        toast.error(T('orderCannotResendTitle'));
-        setConfirmModalOpen(false);
-        return false;
+      // The live trigger only permits an O-number together with the submitted
+      // timestamp. Reserve the sequence value for the outgoing PDF/webhook,
+      // then persist that exact value atomically in markAsOrderSubmitted().
+      // A reopened order must keep its original O-number. Only new order
+      // submissions reserve a number from the sequence.
+      if (!activeOrderNumber) {
+        if (backendCorrectionSessionId) {
+          toast.error('Denne afgivne ordre mangler et canonical ordrenummer og kan ikke revideres sikkert.');
+          return false;
+        }
+        const reservedOrderNumber = await getNextCrmDocumentNumber('order');
+        if (!reservedOrderNumber) {
+          toast.error(T('saveFailed'));
+          return false;
+        }
+        activeOrderNumber = reservedOrderNumber;
+        setSavedOrderNumber(reservedOrderNumber);
       }
-
-      const reservedOrderNumber = await ensureOrderReferenceNumber(activeCaseId);
-      if (!reservedOrderNumber) {
-        toast.error(T('saveFailed'));
-        return false;
-      }
-      activeOrderNumber = reservedOrderNumber;
-      setSavedOrderNumber(reservedOrderNumber);
     }
 
     try {
+      if (effectiveFlowType === 'order' && backendCorrectionSessionId && activeCaseId) {
+        const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
+        if (completion.error) throw new Error(completion.error);
+        completedRevisionId = backendCorrectionSessionId;
+        setBackendCorrectionSessionId(null);
+        const completed = await loadSubmittedOrderConfirmation(activeCaseId, appUser?.email || '', effectiveUser?.id);
+        if (completed.confirmation_revision_id !== completedRevisionId) {
+          throw new Error('En anden revision er nu den aktuelle. Åbn ordren igen.');
+        }
+        documentState = completed.state_json;
+        documentCalc = buildSubmittedOrderDocument(documentState).calcResult;
+        confirmationRevisionNumber = completed.confirmation_revision_number;
+      }
       const jsPDFModule = await import('jspdf');
       const { jsPDF } = jsPDFModule;
       const selectedBulletsArr = salesArgsData
@@ -1834,48 +2561,86 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       const selectedRecArr = recommendationData
         ? recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b))
         : [];
-      const pdf = buildConfiguratorPdf({
-        jsPDF,
-        state,
-        calcResult: displayCalc!,
-        flowType: effectiveFlowType,
-        quoteNumber: activeQuoteNumber,
-        orderNumber: activeOrderNumber,
-        sourceQuoteNumber: activeSourceQuoteNumber,
-        showPrices: permissions.canSeePrices,
-        uiLanguage: lang,
-        contentLanguage: contentUiLang as Language,
-        T,
-        TC,
-        includeSalesArgs,
-        salesArguments: salesArgsData ? {
+      const salesArguments = salesArgsData ? {
           title: { da: 'Fordele ved den valgte løsning', en: 'Benefits of the chosen solution', de: 'Vorteile der gewählten Lösung', it: 'Vantaggi della soluzione scelta', hu: 'A választott megoldás előnyei' }[lang] || 'Benefits of the chosen solution',
           body: `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`,
-        } : null,
-        includeRecommendation,
-        recommendation: recommendationData ? {
+        } : null;
+      const recommendation = recommendationData ? {
           title: { da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang] || 'Timan Recommends',
           body: `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`,
-        } : null,
-      });
+        } : null;
 
       const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
       const pdfFilename = buildConfiguratorPdfFilename({
         flowType: effectiveFlowType,
         refNumber: refNum,
+        revisionNumber: confirmationRevisionNumber,
         T,
       });
-      pdf.save(pdfFilename);
+      const pdfCacheKey = JSON.stringify({
+        flowType: effectiveFlowType,
+        quoteNumber: activeQuoteNumber,
+        orderNumber: activeOrderNumber,
+        sourceQuoteNumber: activeSourceQuoteNumber,
+        revisionNumber: confirmationRevisionNumber,
+        state: documentState,
+        calcResult: documentCalc,
+        showPrices: permissions.canSeePrices,
+        uiLanguage,
+        contentLanguage: contentUiLang,
+        includeSalesArgs,
+        salesArguments,
+        includeRecommendation,
+        recommendation,
+      });
+      const cachedPdf = resolveCanonicalPdfDocument(canonicalPdfCacheRef.current, pdfCacheKey, () => {
+        const pdf = buildConfiguratorPdf({
+          jsPDF,
+          state: documentState,
+          calcResult: documentCalc,
+          revisionNumber: confirmationRevisionNumber,
+          flowType: effectiveFlowType,
+          quoteNumber: activeQuoteNumber,
+          orderNumber: activeOrderNumber,
+          sourceQuoteNumber: activeSourceQuoteNumber,
+          showPrices: permissions.canSeePrices,
+          uiLanguage,
+          contentLanguage: contentUiLang as Language,
+          T,
+          TC,
+          includeSalesArgs,
+          salesArguments,
+          includeRecommendation,
+          recommendation,
+        });
+        return materializeCanonicalPdfDocument(pdf, pdfFilename);
+      });
+      canonicalPdfCacheRef.current = cachedPdf;
+      const canonicalPdf = cachedPdf.documentFile;
+      downloadCanonicalPdfDocument(canonicalPdf);
+      const pdfBase64 = canonicalPdf.base64;
+      const pdfBlob = canonicalPdf.blob;
 
-      // Capture PDF as base64 for webhook payload (strip data URI prefix)
-      let pdfBase64 = '';
-      let pdfBlob: Blob | null = null;
-      try {
-        const dataUri = pdf.output('datauristring');
-        pdfBase64 = dataUri.includes(',') ? dataUri.split(',')[1] : '';
-        pdfBlob = pdf.output('blob');
-      } catch (b64Err) {
-        console.error('Failed to encode PDF as base64:', b64Err);
+      let revisionPdfPath: string | null = null;
+      if (completedRevisionId && activeCaseId) {
+        if (!pdfBlob || !pdfBase64) throw new Error('PDF kunne ikke genereres. Ingen mail er sendt.');
+        const upload = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename, { persistOnConfiguration: false });
+        if (upload.error) throw new Error(upload.error);
+        revisionPdfPath = upload.path;
+        await recordOrderRevisionConfirmation(completedRevisionId, 'generated', effectiveUser?.id ?? null, revisionPdfPath);
+      }
+
+      // Generate-only exits before webhook, mail audit and sent timestamps.
+      if (effectiveFlowType === 'order' && options?.orderRevisionAction === 'confirmation') {
+        if (!completedRevisionId) {
+          toast.error('En Backend-rettelse skal være aktiv for at oprette en ny ordrebekræftelse.');
+          return false;
+        }
+        setConfirmModalOpen(false);
+        toast.success('Ændringer gemt og ny ordrebekræftelse oprettet.', {
+          description: activeOrderNumber || activeCaseId || undefined,
+        });
+        return true;
       }
 
       // Track PDF generation in Supabase (silent — this is part of the SEND flow,
@@ -1888,8 +2653,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       if (effectiveFlowType === 'order') {
         // Upload sent PDF to storage BEFORE webhook so we can include the
         // stored path/filename in the email payload (single source of truth).
-        let orderSentPdfPath: string | null = null;
-        if (activeCaseId && pdfBlob) {
+        let orderSentPdfPath: string | null = revisionPdfPath;
+        if (activeCaseId && pdfBlob && !completedRevisionId) {
           try {
             const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
             if (up.error) console.error('[Order] sent PDF upload error:', up.error);
@@ -1902,29 +2667,35 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         try {
           // Build structured content summary so the email template can render
           // machine + accessory specifications even without parsing the PDF.
-          const contentSummary = buildQuoteContentSummary(state);
+          const contentSummary = completedRevisionId
+            ? buildSubmittedOrderMailSummary(documentState)
+            : buildQuoteContentSummary(documentState);
 
           // Order recipients:
-          //  - Always include "E-mail på udfylder".
-          //  - Also include "E-mail modtager" if filled (may contain multiple
-          //    addresses separated by , or ;).
-          //  - Send Timan's internal copy as BCC.
-          //  - Deduplicate if both fields contain the same address.
-          const emailUdfylder = (state.email || '').trim().toLowerCase();
-          const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
+          //  - Use only the address(es) selected in "E-mail modtager".
+          //  - Keep "E-mail på udfylder" as separate payload metadata.
+          //  - The recipient field may contain multiple addresses separated by
+          //    , or ;.
+          //  - Customer/dealer mail is PDF-only. The internal sales copy is
+          //    sent separately after the order has been frozen successfully.
+          //  - Deduplicate repeated selected addresses.
+          const emailUdfylder = (documentState.email || '').trim().toLowerCase();
+          const emailModtagerRaw = (documentState.emailRecipient || '').trim().toLowerCase();
           const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
           const modtagerList = splitAddrs(emailModtagerRaw);
-          const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
-          const invalid = allEmails.filter(e => !emailRe.test(e));
+          const recipients = Array.from(new Set(modtagerList));
+          const invalid = recipients.filter(e => !emailRe.test(e));
           if (invalid.length > 0) {
-            toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
+            toast.error(T('invalidEmailRecipient'), {
               description: invalid.join(', '),
             });
             return false;
           }
-          const recipients = Array.from(new Set(allEmails));
-          const bccRecipients = [INTERNAL_TIMAN_COPY_EMAIL];
+          if (recipients.length === 0) {
+            toast.error(T('invalidEmailRecipient'));
+            return false;
+          }
           const emailModtager = modtagerList.join(', ');
 
           // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -1932,26 +2703,28 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             flowType: 'order',
             enteredRecipient: state.emailRecipient || null,
             resolvedRecipients: recipients,
-            bccRecipients,
+            bccRecipients: [INTERNAL_TIMAN_ORDER_EMAIL],
             fillerEmail: emailUdfylder || null,
-            internalCopyRecipient: INTERNAL_TIMAN_COPY_EMAIL,
+            internalCopyRecipient: INTERNAL_TIMAN_ORDER_EMAIL,
             quoteDefaultRecipients: [],
           });
 
 
-          const webhookPayload = appendInternalBcc({
+          const baseOrderWebhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Ordre',
             order_number: activeOrderNumber || '',
             quote_number: activeQuoteNumber || '',
             source_quote_number: activeSourceQuoteNumber || '',
-            firma: state.firmanavn,
-            kontaktperson: state.kontaktperson,
-            telefon: state.telefon,
+            revision_id: completedRevisionId,
+            confirmation_revision: confirmationRevisionNumber,
+            firma: documentState.firmanavn,
+            kontaktperson: documentState.kontaktperson,
+            telefon: documentState.telefon,
             email_udfylder: emailUdfylder,
             email_modtager: emailModtager,
             recipients,
-            kommentar: state.comment,
+            kommentar: documentState.comment,
             pdf_url: '',
             pdf_storage_path: orderSentPdfPath || '',
             pdf_filename: pdfFilename,
@@ -1960,14 +2733,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // Structured product/specification data — source of truth is the
             // saved configurator state. Used by n8n to render quote/order
             // emails with full machine + accessory details.
-            language: state.language,
+            language: documentState.language,
+            sender_company: contentSummary.issuer,
             currency: contentSummary.currency,
+            payment_terms: contentSummary.payment_terms,
+            purchase_order_number: contentSummary.purchase_order_number,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
-            totals: contentSummary.totals,
-            state_summary: contentSummary,
-            main_categories: buildMainCategories(state),
-          }, bccRecipients);
+            totals: completedRevisionId ? { subtotal: documentCalc.subtotal, totalDiscount: documentCalc.totalDiscount, finalPrice: documentCalc.currentPrice } : contentSummary.totals,
+            confirmation_lines: completedRevisionId ? buildSubmittedOrderDocument(documentState).lines : undefined,
+            state_summary: completedRevisionId ? {
+              ...contentSummary,
+              totals: { subtotal: documentCalc.subtotal, totalDiscount: documentCalc.totalDiscount, finalPrice: documentCalc.currentPrice },
+            } : contentSummary,
+            main_categories: buildMainCategories(documentState),
+          };
+          const webhookPayload = buildCustomerOrderMailPayload(baseOrderWebhookPayload, recipients);
 
           const orderWebhookUrl = getOrderWebhookUrl();
           console.log('[Order webhook] POST', orderWebhookUrl, {
@@ -1986,6 +2767,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           let failureReason = '';
           let webhookHttpStatus: number | null = null;
           let webhookRespText = '';
+          if (completedRevisionId) {
+            await recordOrderRevisionConfirmation(completedRevisionId, 'begin_send', effectiveUser?.id ?? null, orderSentPdfPath);
+          }
           try {
             const webhookRes = await fetch(orderWebhookUrl, {
               method: 'POST',
@@ -2007,27 +2791,34 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             console.error('[Order webhook] fetch failed:', fetchErr);
           }
 
-          // Audit log (success or failed). Never blocks send flow.
+          // The canonical append-only mail audit mirrors the verified n8n
+          // outcome without ever affecting the delivery result.
           if (activeCaseId) {
-            await logConfigurationEmailSend({
-              configurationId: activeCaseId,
-              documentType: 'order',
-              quoteNumber: activeQuoteNumber || null,
-              orderNumber: activeOrderNumber || null,
-              toRecipients: recipients,
-              ccRecipients: [],
-              bccRecipients,
-              sendStatus: delivered ? 'success' : 'failed',
-              httpStatus: webhookHttpStatus,
-              errorMessage: delivered ? null : failureReason || null,
-              webhookResponse: webhookRespText || null,
-              webhookUrl: orderWebhookUrl,
-              pdfFilename,
-              pdfStoragePath: orderSentPdfPath || null,
-              createdByEmail: appUser?.email || null,
-              sellerEmail: ownership.sellerEmail || null,
-              sellerInitials: ownership.sellerInitials || null,
-            });
+            try {
+              const responsibleSellerId = await resolveSellerId(ownership.sellerEmail || appUser?.email);
+              await logMailAuditEvent({
+                sent_at: delivered ? new Date().toISOString() : null,
+                category: 'order',
+                source_module: 'Configurator',
+                source_action: 'send_order',
+                subject: webhookPayload.subject,
+                to_addresses: recipients,
+                cc_addresses: [],
+                bcc_addresses: [INTERNAL_TIMAN_ORDER_EMAIL],
+                responsible_user_id: responsibleSellerId,
+                responsible_seller_id: responsibleSellerId,
+                related_entity_type: 'configuration',
+                related_entity_id: activeCaseId,
+                related_entity_label: activeOrderNumber || activeQuoteNumber || activeCaseId,
+                status: delivered ? 'sent' : 'failed',
+                provider: 'n8n:timan-afsend-ordre',
+                provider_message_id: null,
+                attachment_count: pdfBase64 ? 1 : 0,
+                error_message: delivered ? null : failureReason || null,
+              });
+            } catch (auditError) {
+              console.error('[order mail audit] failed:', auditError);
+            }
           }
 
           if (delivered) {
@@ -2035,16 +2826,100 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // markAsOrderSubmitted preserves any existing quote_sent_at —
             // sending an order from a case that previously sent a quote
             // must NOT clear the quote sent date.
-            if (activeCaseId) {
-              try {
-                const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, { pricingMode: isExhibition ? 'messe' : undefined });
-                if (submittedOrderNumber) {
-                  activeOrderNumber = submittedOrderNumber;
-                  setSavedOrderNumber(submittedOrderNumber);
-                }
-              } catch (markErr) {
-                console.error('Failed to mark order as submitted:', markErr);
+            if (!activeCaseId) throw new Error('Ordren mangler en canonical sag.');
+
+            try {
+              if (completedRevisionId) {
+                await recordOrderRevisionConfirmation(completedRevisionId, 'sent', effectiveUser?.id ?? null);
+              } else {
+                const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, {
+                  pricingMode: isExhibition ? 'messe' : undefined,
+                  orderNumber: activeOrderNumber,
+                  resend: Boolean(backendCorrectionSessionId),
+                });
+                if (!submittedOrderNumber) throw new Error('Kunne ikke fryse den afsendte ordre.');
+                activeOrderNumber = submittedOrderNumber;
+                setSavedOrderNumber(submittedOrderNumber);
               }
+            } catch (markErr) {
+              console.error('Failed to mark order as submitted:', markErr);
+              setConfirmModalOpen(false);
+              toast.warning('Kundemailen er afsendt, men ordren kunne ikke færdigregistreres. Send ikke igen.', {
+                description: markErr instanceof Error ? markErr.message : String(markErr),
+              });
+              return false;
+            }
+
+            // Only a successfully submitted/frozen order receives the internal
+            // C5/NAV copy. Customer/dealer delivery above is a distinct payload
+            // with one PDF attachment and can never inherit this CSV.
+            let internalDelivered = false;
+            let internalFailureReason = '';
+            let internalAttachmentCount = 0;
+            try {
+              const submitted = await loadConfigurationByIdUnscoped(activeCaseId, appUser?.email || '');
+              if (!submitted) throw new Error('Det frosne ordre-snapshot kunne ikke genindlæses.');
+              const canonicalState = completedRevisionId ? documentState : submitted.state_json;
+              const csv = buildSubmittedOrderCsv({
+                state: canonicalState,
+                orderNumber: activeOrderNumber || submitted.order_number || '',
+                orderDate: submitted.submitted_at || submitted.order_sent_at || new Date().toISOString(),
+                dealerNumber: submitted.dealer_number,
+                dealerName: submitted.dealer_name,
+                sellerInitials: submitted.seller_initials,
+              });
+              const internalPayload = buildInternalOrderMailPayload(baseOrderWebhookPayload, csv);
+              const c5NavWebhookUrl = getC5NavOrderWebhookUrl();
+              const internalRes = await fetch(c5NavWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(internalPayload),
+              });
+              const internalResponseText = await internalRes.text().catch(() => '');
+              console.log('[Order internal webhook] response', internalRes.status, internalRes.type, internalResponseText);
+              if (internalRes.type === 'opaque' || internalRes.type === 'opaqueredirect') {
+                internalFailureReason = 'Opaque response (CORS) — cannot verify internal delivery';
+              } else if (internalRes.ok) {
+                internalDelivered = true;
+                internalAttachmentCount = 1;
+              } else {
+                internalFailureReason = `HTTP ${internalRes.status}`;
+              }
+            } catch (internalError) {
+              internalFailureReason = internalError instanceof Error ? internalError.message : String(internalError);
+              console.error('[Order internal CSV mail] failed:', internalError);
+            }
+
+            try {
+              const responsibleSellerId = await resolveSellerId(ownership.sellerEmail || appUser?.email);
+              await logMailAuditEvent({
+                sent_at: internalDelivered ? new Date().toISOString() : null,
+                category: 'order',
+                source_module: 'Configurator',
+                source_action: 'send_order_internal_csv',
+                subject: internalOrderMailSubject(baseOrderWebhookPayload),
+                to_addresses: [INTERNAL_TIMAN_ORDER_EMAIL],
+                cc_addresses: [],
+                bcc_addresses: [],
+                responsible_user_id: responsibleSellerId,
+                responsible_seller_id: responsibleSellerId,
+                related_entity_type: 'configuration',
+                related_entity_id: activeCaseId,
+                related_entity_label: activeOrderNumber || activeCaseId,
+                status: internalDelivered ? 'sent' : 'failed',
+                provider: 'n8n:timan-afsend-ordre',
+                provider_message_id: null,
+                attachment_count: internalAttachmentCount,
+                error_message: internalDelivered ? null : internalFailureReason || 'Intern CSV-mail blev ikke bekræftet.',
+              });
+            } catch (auditError) {
+              console.error('[order internal mail audit] failed:', auditError);
+            }
+
+            if (!internalDelivered) {
+              toast.warning('Ordren er afsendt, men den interne CSV-kopi kunne ikke bekræftes.', {
+                description: internalFailureReason || undefined,
+              });
             }
             toast.success(T('orderSentToTiman'));
             setConfirmModalOpen(false);
@@ -2098,7 +2973,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           }
         } else if (activeCaseId && !activeQuoteNumber) {
           try {
-            const refs = await ensureReferenceNumbers(activeCaseId, false);
+            const refs = await ensureReferenceNumbers(activeCaseId, false, { pricingMode: isExhibition ? 'messe' : undefined });
             if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
           } catch (err) {
             console.error('Failed to ensure quote number before webhook:', err);
@@ -2106,30 +2981,30 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         }
 
         // Quote recipients:
-        //  - Always include "E-mail på udfylder".
-        //  - Also include "E-mail modtager" if filled (may contain multiple
-        //    addresses separated by , or ;).
+        //  - Use only the address(es) selected in "E-mail modtager".
+        //  - Keep "E-mail på udfylder" as separate payload metadata.
+        //  - The recipient field may contain multiple addresses separated by
+        //    , or ;.
         //  - Send Timan's internal copy as BCC.
-        //  - Deduplicate if both fields contain the same address.
+        //  - Deduplicate repeated selected addresses.
         const emailUdfylder = (state.email || '').trim().toLowerCase();
         const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
         const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
         const modtagerList = splitAddrs(emailModtagerRaw);
-        const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
-        const invalid = allEmails.filter(e => !emailRe.test(e));
+        const recipients = Array.from(new Set(modtagerList));
+        const invalid = recipients.filter(e => !emailRe.test(e));
         if (invalid.length > 0) {
-          toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
+          toast.error(T('invalidEmailRecipient'), {
             description: invalid.join(', '),
           });
           return false;
         }
-        if (allEmails.length === 0) {
-          toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.');
+        if (recipients.length === 0) {
+          toast.error(T('invalidEmailRecipient'));
           return false;
         }
-        const recipients = Array.from(new Set(allEmails));
-        const bccRecipients = [INTERNAL_TIMAN_COPY_EMAIL];
+        const bccRecipients = [INTERNAL_TIMAN_ORDER_EMAIL];
         const emailModtager = modtagerList.join(', ');
 
         // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -2139,7 +3014,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           resolvedRecipients: recipients,
           bccRecipients,
           fillerEmail: emailUdfylder || null,
-          internalCopyRecipient: INTERNAL_TIMAN_COPY_EMAIL,
+          internalCopyRecipient: INTERNAL_TIMAN_ORDER_EMAIL,
           quoteDefaultRecipients: [],
         });
 
@@ -2187,7 +3062,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // includes the selected machines + accessories instead of
             // empty fields.
             language: state.language,
+            sender_company: contentSummary.issuer,
             currency: contentSummary.currency,
+            payment_terms: contentSummary.payment_terms,
+            purchase_order_number: contentSummary.purchase_order_number,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
             totals: contentSummary.totals,
@@ -2235,27 +3113,34 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             console.error('[Quote webhook] fetch failed:', fetchErr);
           }
 
-          // Audit log (success or failed). Never blocks send flow.
+          // The canonical append-only mail audit mirrors the verified n8n
+          // outcome without ever affecting the delivery result.
           if (activeCaseId) {
-            await logConfigurationEmailSend({
-              configurationId: activeCaseId,
-              documentType: 'quote',
-              quoteNumber: activeQuoteNumber || null,
-              orderNumber: activeOrderNumber || null,
-              toRecipients: recipients,
-              ccRecipients: [],
-              bccRecipients,
-              sendStatus: delivered ? 'success' : 'failed',
-              httpStatus: webhookHttpStatus,
-              errorMessage: delivered ? null : failureReason || null,
-              webhookResponse: webhookRespText || null,
-              webhookUrl: quoteWebhookUrl,
-              pdfFilename,
-              pdfStoragePath: quoteSentPdfPath || null,
-              createdByEmail: appUser?.email || null,
-              sellerEmail: ownership.sellerEmail || null,
-              sellerInitials: ownership.sellerInitials || null,
-            });
+            try {
+              const responsibleSellerId = await resolveSellerId(ownership.sellerEmail || appUser?.email);
+              await logMailAuditEvent({
+                sent_at: delivered ? new Date().toISOString() : null,
+                category: 'quote',
+                source_module: 'Configurator',
+                source_action: 'send_quote',
+                subject: `Tilbud ${activeQuoteNumber || activeOrderNumber || ''}`.trim(),
+                to_addresses: recipients,
+                cc_addresses: [],
+                bcc_addresses: bccRecipients,
+                responsible_user_id: responsibleSellerId,
+                responsible_seller_id: responsibleSellerId,
+                related_entity_type: 'configuration',
+                related_entity_id: activeCaseId,
+                related_entity_label: activeQuoteNumber || activeOrderNumber || activeCaseId,
+                status: delivered ? 'sent' : 'failed',
+                provider: 'n8n:timan-afsend-tilbud',
+                provider_message_id: null,
+                attachment_count: pdfBase64 ? 1 : 0,
+                error_message: delivered ? null : failureReason || null,
+              });
+            } catch (auditError) {
+              console.error('[quote mail audit] failed:', auditError);
+            }
           }
 
           if (delivered) {
@@ -2294,6 +3179,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       }
 
     } catch (e) {
+      if (backendCorrectionSessionId || completedRevisionId) {
+        toast.error(completedRevisionId ? 'Revisionen er gemt, men ordrebekræftelsen kunne ikke færdiggøres.' : 'Ordrebekræftelsen kunne ikke oprettes.', {
+          description: e instanceof Error ? e.message : String(e),
+        });
+        return false;
+      }
       // Fallback to browser print
       const printWin = window.open('', '_blank');
       if (!printWin) return false;
@@ -2354,7 +3245,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   ]);
 
   // ======== Delivery startup required check ========
-  const needsStartup = lang === 'da' && state.deliveryMethod === 'deliver';
+  const needsStartup = state.deliveryMethod === 'deliver';
   const canProceedStep2 = !!state.date && !!state.deliveryMethod && (!needsStartup || !!state.deliveryDeliverStartup);
 
   // ======== Startup pricing in calc ========
@@ -2375,12 +3266,28 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   return (
     <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
+      <ConfiguratorImageModal
+        preview={productImagePreview}
+        itemNumberLabel={itemNoLabel(uiLanguage)}
+        unavailableLabel={IMAGE_UNAVAILABLE_COPY[uiLanguage]}
+        onClose={() => setProductImagePreview(null)}
+      />
+      {productVideoPreview && (
+        <TimanVideoModal
+          language={uiLanguage}
+          title={productVideoPreview.title}
+          videoUrl={productVideoPreview.url}
+          onClose={() => setProductVideoPreview(null)}
+        />
+      )}
+
       {/* Info Modal */}
       {infoModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setInfoModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-[620px] w-[95%] max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4 border-b pb-2 text-gray-900">{infoModal.title}</h3>
             <div dangerouslySetInnerHTML={{ __html: infoModal.content }} />
+            {!!infoModal.overviewImages?.length && <div className="mt-5 space-y-4">{infoModal.overviewImages.map((image) => <img key={image.src} src={image.src} alt={image.alt} className={image.src === '/images/rc-751/rc-751-dimensions-overview.png' ? 'mx-auto block h-auto w-full max-w-[720px] object-contain' : 'block h-auto max-h-[60vh] w-full max-w-full object-contain'} />)}</div>}
             <div className="mt-6 text-center">
               <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{TC('close')}</button>
             </div>
@@ -2396,6 +3303,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               {marketingInformation.description && <section className="rounded-lg bg-gray-50 p-3"><h4 className="mb-2 font-bold text-gray-800">{TC('mainInfo')}</h4><p className="whitespace-pre-line text-sm text-gray-700">{marketingInformation.description}</p></section>}
               {marketingInformation.keyFeatures.length > 0 && <section className="border-t border-gray-200 pt-4"><h4 className="mb-2 font-bold text-gray-800">{TC('keyFeatures')}</h4><ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">{marketingInformation.keyFeatures.map((feature, index) => <li key={`${feature}-${index}`}>{feature}</li>)}</ul></section>}
               {marketingInformation.specs.length > 0 && <section className="border-t border-gray-200 pt-4"><h4 className="mb-2 font-bold text-gray-800">{TC('dimSpecs')}</h4><div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-2">{marketingInformation.specs.map((spec, index) => <div key={`${spec.label}-${index}`} className="contents"><span className="font-medium text-gray-700">{spec.label}</span><span className="font-semibold text-gray-900">{spec.value}</span></div>)}</div></section>}
+              {!!marketingInformation.overviewImages?.length && <div className="space-y-4">{marketingInformation.overviewImages.map((image) => <img key={image.src} src={image.src} alt={image.alt} className={image.src === '/images/rc-751/rc-751-dimensions-overview.png' ? 'mx-auto block h-auto w-full max-w-[720px] object-contain' : 'block h-auto max-h-[60vh] w-full max-w-full object-contain'} />)}</div>}
             </div>
             <div className="mt-6 text-center"><button onClick={() => setMarketingInformation(null)} className="rounded-lg border border-gray-300 bg-gray-200 px-6 py-3 font-medium text-gray-700 hover:bg-gray-300">{TC('close')}</button></div>
           </div>
@@ -2420,7 +3328,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   {(() => {
                     const flatAccs = getAccessoriesFlat('RC-1000S');
                     const oil = flatAccs.find(a => a.id === ACC_ID_OIL_NORMAL);
-                    return oil ? formatDisplayMoney(getPrice(oil, lang)) : '';
+                    return oil ? formatDisplayMoney(getPriceForCurrency(oil, displayCurrency)) : '';
                   })()}
                 </div>
               </label>
@@ -2436,7 +3344,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   {(() => {
                     const flatAccs = getAccessoriesFlat('RC-1000S');
                     const oil = flatAccs.find(a => a.id === ACC_ID_OIL_BIO);
-                    return oil ? formatDisplayMoney(getPrice(oil, lang)) : '';
+                    return oil ? formatDisplayMoney(getPriceForCurrency(oil, displayCurrency)) : '';
                   })()}
                 </div>
               </label>
@@ -2479,17 +3387,48 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 {TC('close')}
               </button>
-              <button
-                onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
-                disabled={submitting || (state.flowType === 'order' && orderLocked)}
-                title={state.flowType === 'order' && orderLocked ? TC('orderCannotResendTitle') : undefined}
-                className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-                {state.flowType === 'order' && orderLocked
-                  ? TC('orderSubmittedBadge')
-                  : submitting
-                    ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
-                    : (state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn'))}
-              </button>
+              {state.flowType === 'order' && backendCorrectionSessionId ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (await handleSaveChanges()) setConfirmModalOpen(false);
+                    }}
+                    disabled={submitting || savingChanges}
+                    className="px-4 py-3 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {T('saveCorrection')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadPdf('order', { orderRevisionAction: 'confirmation' })}
+                    disabled={submitting || savingChanges}
+                    className="px-4 py-3 rounded-lg bg-slate-700 font-medium text-white shadow hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {T('saveAndCreateOrderConfirmation')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (!submitting) setConfirmSubmitOpen(true); }}
+                    disabled={submitting || savingChanges}
+                    className="px-4 py-3 rounded-lg bg-emerald-600 font-medium text-white shadow hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {T('saveAndSendOrderConfirmation')}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)) setConfirmSubmitOpen(true); }}
+                  disabled={submitting || (state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)}
+                  title={state.flowType === 'order' && orderLocked && !backendCorrectionSessionId ? TC('orderCannotResendTitle') : undefined}
+                  className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
+                  {state.flowType === 'order' && orderLocked && !backendCorrectionSessionId
+                    ? TC('orderSubmittedBadge')
+                    : submitting
+                      ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
+                      : state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn')}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2500,37 +3439,36 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => { if (!submitting) setConfirmSubmitOpen(false); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-[95%] p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-3 text-gray-900">
-              {state.flowType === 'order'
-                ? (lang === 'da' ? 'Bekræft afsendelse' : 'Confirm submission')
-                : (lang === 'da' ? 'Bekræft afsendelse' : 'Confirm submission')}
+              {T('confirmSubmission')}
             </h3>
             <p className="text-sm text-gray-700 mb-6">
               {state.flowType === 'order'
-                ? (lang === 'da'
-                    ? 'Vil du afsende denne ordre til Timan? Der oprettes et ordrenummer og PDF sendes.'
-                    : 'Do you want to submit this order to Timan? An order number will be created and the PDF will be sent.')
-                : (lang === 'da'
-                    ? 'Vil du afsende dette tilbud? Der oprettes et tilbudsnummer og PDF sendes.'
-                    : 'Do you want to submit this quote? A quote number will be created and the PDF will be sent.')}
+                ? T(backendCorrectionSessionId ? 'confirmCorrectionDescription' : 'confirmOrderDescription')
+                : T('confirmQuoteDescription')}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setConfirmSubmitOpen(false)}
                 disabled={submitting}
                 className="px-5 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50">
-                {lang === 'da' ? 'Annuller' : 'Cancel'}
+                {T('cancelAction')}
               </button>
               <button
                 onClick={async () => {
                   if (submitting) return;
                   setConfirmSubmitOpen(false);
-                  await downloadPdf();
+                  await downloadPdf(
+                    undefined,
+                    backendCorrectionSessionId && state.flowType === 'order'
+                      ? { orderRevisionAction: 'send' }
+                      : undefined,
+                  );
                 }}
                 disabled={submitting}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
                   ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                  : (lang === 'da' ? 'Bekræft' : 'Confirm')}
+                  : (backendCorrectionSessionId && state.flowType === 'order' ? T('saveAndSendOrderConfirmation') : T('confirmAction'))}
               </button>
             </div>
           </div>
@@ -2542,23 +3480,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-[95%] p-6">
             <h3 className="text-xl font-bold mb-3 text-gray-900">
-              {successModal.flowType === 'order'
-                ? (lang === 'da' ? 'Din ordre er nu afsendt' : 'Your order has been submitted')
-                : (lang === 'da' ? 'Dit tilbud er nu afsendt' : 'Your quote has been submitted')}
+              {T(successModal.flowType === 'order' ? 'orderSubmittedSuccessTitle' : 'quoteSubmittedSuccessTitle')}
             </h3>
             <p className="text-sm text-gray-700 mb-6">
-              {successModal.flowType === 'order'
-                ? (lang === 'da'
-                    ? `Ordren er sendt til Timan med ordrenummer ${successModal.orderNumber || '—'}.`
-                    : `The order has been sent to Timan with order number ${successModal.orderNumber || '—'}.`)
-                : (lang === 'da'
-                    ? `Tilbuddet er sendt med tilbudsnummer ${successModal.quoteNumber || '—'}.`
-                    : `The quote has been sent with quote number ${successModal.quoteNumber || '—'}.`)}
+              {T(successModal.flowType === 'order' ? 'orderSubmittedSuccessDescription' : 'quoteSubmittedSuccessDescription')
+                .replace('{number}', successModal.flowType === 'order' ? successModal.orderNumber || '—' : successModal.quoteNumber || '—')}
             </p>
             {successModal.recipients && successModal.recipients.length > 0 && (
               <div className="mb-6 p-3 rounded-lg bg-gray-50 border border-gray-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                  {lang === 'da' ? 'Sendt til' : 'Sent to'}
+                  {T('sentTo')}
                 </p>
                 <ul className="space-y-1">
                   {successModal.recipients.map((r) => (
@@ -2571,7 +3502,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <button
                 onClick={() => { setSuccessModal(null); navigate('/portal'); }}
                 className="px-5 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">
-                {lang === 'da' ? 'Gå til portal forsiden' : 'Go to portal home'}
+                {T('goPortalHome')}
               </button>
               <button
                 onClick={() => {
@@ -2592,7 +3523,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   }
                 }}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow">
-                {lang === 'da' ? 'Tilbage til konfigurator' : 'Back to configurator'}
+                {T('backToConfigurator')}
               </button>
 
             </div>
@@ -2661,10 +3592,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {isDealerUser ? (uiLanguage === 'da' ? 'Tilbage til forside' : 'Back to front page') : tPortal('backToSalesMarketing', uiLanguage)}
+              {isDealerUser ? T('backToHome') : tPortal('backToSalesMarketing', uiLanguage)}
             </span>
             <span className="sm:hidden">
-              {isDealerUser ? (uiLanguage === 'da' ? 'Forside' : 'Home') : (lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : (uiLanguage === 'sv' ? 'Försäljning' : uiLanguage === 'fr' ? 'Ventes' : uiLanguage === 'pl' ? 'Sprzedaż' : uiLanguage === 'cs' ? 'Prodej' : 'Sales'))}
+              {isDealerUser ? T('homeLabel') : tPortal('area_salg_marketing_title', uiLanguage)}
             </span>
           </button>
           ) : (
@@ -2675,71 +3606,128 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </header>
 
       {isAcademyMode && (
-        <section className="mx-auto mb-5 max-w-6xl rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-label="Academy træningsstatus">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold">Academy træning – du arbejder med træningsdata.</p>
-              <p className="mt-1 text-xs">Intet tilbud, lead, mail eller ordre sendes til produktion.</p>
-            </div>
-            <button
-              type="button"
+        <div className="mx-auto w-full max-w-6xl">
+          {isAcademyCase3 ? (
+            <AcademyGuidancePanel
+              title={tPortal('academySalesCase3Title', uiLanguage)}
+              description={tPortal('academySalesCase3Description', uiLanguage)}
+              stepColumns={2}
+              stepNumbers={['1', '2', '3', '4', '5']}
+              stepLabelKey="academyPoint"
+              nextLabelKey="academyNextPoint"
+              steps={[
+                { title: tPortal('academyCase3Point1', uiLanguage), tasks: [{ complete: academyCase3.twoMachinesDifferent, label: tPortal('academyCase3Point1Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point2', uiLanguage), tasks: [{ complete: academyCase3.individualDeliveryDates, label: tPortal('academyCase3Point2Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point3', uiLanguage), tasks: [{ complete: academyCase3.deliveryDiscountOnlyMachine2, label: tPortal('academyCase3Point3Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point4', uiLanguage), tasks: [{ complete: academyCase3.equipmentCorrect, label: tPortal('academyCase3Point4Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point5', uiLanguage), tasks: [{ complete: Boolean(academyCase3.leadId), label: tPortal('academyCase3Point5Done', uiLanguage) }] },
+              ]}
+              next={!academyCase3.twoMachinesDifferent
+                ? tPortal('academyCase3Next1', uiLanguage)
+                : !academyCase3.individualDeliveryDates
+                  ? tPortal('academyCase3Next2', uiLanguage)
+                  : !academyCase3.deliveryDiscountOnlyMachine2
+                    ? tPortal('academyCase3Next3', uiLanguage)
+                    : !academyCase3.equipmentCorrect
+                      ? tPortal('academyCase3Next4', uiLanguage)
+                      : tPortal('academyCase3Next5', uiLanguage)}
+              completion
+              caseId={ACADEMY_CASE_3}
+            />
+          ) : isAcademySalesBonusCase2 ? (
+            <AcademyGuidancePanel
+              title={tPortal('academySalesBonusCase2Title', uiLanguage)}
+              description={tPortal('academySalesBonusCase2Description', uiLanguage)}
+              stepColumns={2}
+              stepNumbers={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']}
+              stepLabelKey="academyPoint"
+              nextLabelKey="academyNextPoint"
+              steps={[
+                { title: tPortal('academyBonus2Point1', uiLanguage), tasks: [{ complete: academySalesBonusCase2.machinesCorrect, label: tPortal('academyBonus2Point1Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point2', uiLanguage), tasks: [{ complete: academySalesBonusCase2.deliveryCorrect, label: tPortal('academyBonus2Point2Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point3', uiLanguage), tasks: [{ complete: academySalesBonusCase2.timan3330OptionsCorrect, label: tPortal('academyBonus2Point3Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point4', uiLanguage), tasks: [{ complete: academySalesBonusCase2.dependency721122Added, label: tPortal('academyBonus2Point4Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point5', uiLanguage), tasks: [{ complete: academySalesBonusCase2.tractorEquipmentCorrect, label: tPortal('academyBonus2Point5Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point6', uiLanguage), tasks: [{ complete: academySalesBonusCase2.campaignTriggered, label: tPortal('academyBonus2Point6Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point7', uiLanguage), tasks: [{ complete: academySalesBonusCase2.campaignBenefitApplied, label: tPortal('academyBonus2Point7Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point8', uiLanguage), tasks: [{ complete: academySalesBonusCase2.orderMode, label: tPortal('academyBonus2Point8Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point9', uiLanguage), tasks: [{ complete: academySalesBonusCase2.syntheticCustomerValid, label: tPortal('academyBonus2Point9Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point10', uiLanguage), tasks: [{ complete: academySalesBonusCase2.orderSubmitted, label: tPortal('academyBonus2Point10Done', uiLanguage) }] },
+              ]}
+              next={tPortal(`academyBonus2Next${[
+                academySalesBonusCase2.machinesCorrect,
+                academySalesBonusCase2.deliveryCorrect,
+                academySalesBonusCase2.timan3330OptionsCorrect,
+                academySalesBonusCase2.dependency721122Added,
+                academySalesBonusCase2.tractorEquipmentCorrect,
+                academySalesBonusCase2.campaignTriggered,
+                academySalesBonusCase2.campaignBenefitApplied,
+                academySalesBonusCase2.orderMode,
+                academySalesBonusCase2.syntheticCustomerValid,
+                academySalesBonusCase2.orderSubmitted,
+              ].findIndex(complete => !complete) + 1 || 10}`, uiLanguage)}
+              completion
+              caseId={ACADEMY_BONUS_CASE_2}
+              actions={<button type="button"
+                onClick={loadAcademySalesBonusCustomer}
+                disabled={academySalesBonusCase2.syntheticCustomerValid}
+                className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
+                {academySalesBonusCase2.syntheticCustomerValid
+                  ? tPortal('academyBonus2CustomerLoaded', uiLanguage)
+                  : tPortal('academyBonus2LoadCustomer', uiLanguage)}
+              </button>}
+            />
+          ) : <AcademyGuidancePanel
+            title={tPortal('academySalesCase1Title', uiLanguage)}
+            description={tPortal('academyConfiguratorDescription', uiLanguage)}
+            stepColumns={2}
+            stepNumbers={['1.1', '1.2', '2.1', '2.2', '3', '4']}
+            stepLabelKey="academyPoint"
+            nextLabelKey="academyNextPoint"
+            steps={[
+              { title: tPortal('academyCase1ChooseMachine', uiLanguage), tasks: [{ complete: academyCase.machine, label: tPortal('academyCase1MachineSelected', uiLanguage) }] },
+              { title: tPortal('academyCase1ChooseRc751', uiLanguage), description: tPortal('academyCase1QuantityDiscountExplanation', uiLanguage), tasks: [
+                { complete: academyCase.rc751, label: tPortal('academyCase1Rc751Selected', uiLanguage) },
+                { complete: academyCase.quantityDiscount, label: tPortal('academyCase1QuantityDiscount', uiLanguage) },
+              ] },
+              { title: academyProductCopy('academyCase1AddOilFlailAndWorkLight'), tasks: [
+                { complete: academyCase.oil, label: academyProductCopy('academyCase1OilSelected') },
+                { complete: academyCase.flail, label: academyProductCopy('academyCase1FlailSelected') },
+                { complete: academyCase.workLight, label: academyProductCopy('academyCase1WorkLightSelected') },
+              ] },
+              { title: tPortal('academyCase1AddWeedBrushAndHarness', uiLanguage), tasks: [
+                { complete: academyCase.weedBrush, label: tPortal('academyCase1WeedBrushSelected', uiLanguage) },
+                { complete: academyCase.wireHarness, label: tPortal('academyCase1HarnessAutomaticallyAdded', uiLanguage) },
+              ] },
+              { title: tPortal('academyCase1SaveLead', uiLanguage), tasks: [{ complete: Boolean(academyCase.leadId), label: tPortal('academyCase1LeadSaved', uiLanguage) }] },
+              { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
+            ]}
+            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.oil || !academyCase.flail || !academyCase.workLight ? academyProductCopy('academyCase1NextOilFlailWorkLight') : !academyCase.weedBrush || !academyCase.wireHarness ? tPortal('academyCase1NextWeedBrushHarness', uiLanguage) : !academyCase.leadId ? tPortal('academyCase1NextLead', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextQuote', uiLanguage)}
+            completion
+            caseId={ACADEMY_CASE_1}
+            actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
-              disabled={academyCase.quoteGenerated}
-              className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {academyCase.quoteGenerated ? 'Træningstilbud genereret' : 'Generér træningstilbud'}
-            </button>
-          </div>
-          <ul className="mt-3 grid gap-x-5 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [academyCase.machine, 'RC-1000 valgt'],
-              [academyCase.quantityDiscount, 'Mængderabat opnået'],
-              [academyCase.flail, 'Slagleklipper 410910 valgt'],
-              [academyCase.weedBrush, 'Ukrudtsbørste 730600 valgt'],
-              [academyCase.requiredComponents, 'Beslag 412603 valgt'],
-              [academyCase.workLight, 'Arbejdslys 412594 valgt'],
-              [academyCase.wireHarness, 'Ledningsnet 412614 tilføjet'],
-              [academyCase.deliveryDiscount, 'Leveringsrabat opnået'],
-              [academyCase.quoteGenerated, 'Tilbud genereret'],
-              [Boolean(academyCase.leadId), 'Gemt som Academy-lead'],
-            ].map(([complete, label]) => (
-              <li key={String(label)} className={complete ? 'text-emerald-800' : 'text-amber-900'}>
-                {complete ? '✓' : '○'} {label}
-              </li>
-            ))}
-          </ul>
-          {!academyCase.completed && academyCase.machine && academyCase.quantityDiscount && academyCase.flail && academyCase.weedBrush && academyCase.requiredComponents && academyCase.workLight && academyCase.wireHarness && academyCase.deliveryDiscount && academyCase.quoteGenerated && !academyCase.leadId && (
-            <p className="mt-3 font-semibold text-amber-950">Sidste trin: Gem sagen som Academy-lead.</p>
-          )}
-          {academyCase.completed && <p className="mt-3 font-semibold text-emerald-800">Case 1 er gennemført.</p>}
-        </section>
+              disabled={academyCase.quoteGenerated || !academyCase.leadId}
+              className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
+              {academyCase.quoteGenerated ? tPortal('academyCase1QuoteGenerated', uiLanguage) : tPortal('academyCase1GenerateQuote', uiLanguage)}
+            </button>}
+          />}
+        </div>
       )}
 
       <AlertDialog open={showLeavePortalConfirm} onOpenChange={setShowLeavePortalConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {lang === 'da' ? 'Forlad konfigurator?'
-                : lang === 'de' ? 'Konfigurator verlassen?'
-                : lang === 'it' ? 'Uscire dal configuratore?'
-                : lang === 'hu' ? 'Elhagyod a konfigurátort?'
-                : 'Leave configurator?'}
+              {T('leaveConfiguratorTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {lang === 'da' ? 'Du har ikke-gemte ændringer. Vil du forlade konfiguratoren?'
-                : lang === 'de' ? 'Sie haben ungespeicherte Änderungen. Möchten Sie den Konfigurator verlassen?'
-                : lang === 'it' ? 'Hai modifiche non salvate. Vuoi uscire dal configuratore?'
-                : lang === 'hu' ? 'Nem mentett módosításaid vannak. Elhagyod a konfigurátort?'
-                : 'You have unsaved changes. Do you want to leave the configurator?'}
+              {T('unsavedLeaveDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>
-              {lang === 'da' ? 'Bliv her'
-                : lang === 'de' ? 'Hier bleiben'
-                : lang === 'it' ? 'Resta qui'
-                : lang === 'hu' ? 'Maradok'
-                : 'Stay here'}
+              {T('stayHere')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
@@ -2747,22 +3735,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 navigate('/portal');
               }}
             >
-              {lang === 'da' ? 'Forlad konfigurator'
-                : lang === 'de' ? 'Konfigurator verlassen'
-                : lang === 'it' ? 'Esci dal configuratore'
-                : lang === 'hu' ? 'Konfigurátor elhagyása'
-                : 'Leave configurator'}
+              {T('leaveConfigurator')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {marketingEditMode && (
-        <MarketingConfiguratorBulkTools
-          catalog={[...marketingCatalogByKey.values()]}
-          records={marketingEditorRecords}
-          onSaved={(record) => setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record])}
-        />
+        <><MarketingCampaignManager catalog={[...marketingCatalogByKey.values()]} language={uiLanguage} /><MarketingConfiguratorBulkTools
+            catalog={[...marketingCatalogByKey.values()]}
+            records={marketingEditorRecords}
+            onSaved={(record) => setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record])}
+          /></>
       )}
 
       {/* Step Tabs */}
@@ -2773,7 +3757,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             const allowed = step <= maxStep;
             return (
             <button key={step}
-              onClick={() => { if (step <= state.step && allowed) setStep(step); }}
+              onClick={() => { if (step <= state.step && allowed) navigateToStep(step); }}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step && allowed ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
               {T(`step${step}Tab`)}
             </button>
@@ -2787,11 +3771,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <main className="lg:col-span-3">
           {state.flowType === 'order' && orderLocked && (
             <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
-              <span><strong>{T('orderLockedBannerStrong')}</strong> — {backendCorrectionSessionId ? 'Backend-rettelse er aktiv. Gem ændringer for at låse igen.' : T('orderLockedBannerText')}</span>
-              <span className="flex items-center gap-3"><span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>{canCorrectSubmittedOrder && !backendCorrectionSessionId && <button type="button" onClick={() => setBackendCorrectionDialogOpen(true)} className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">Ret afgivet ordre</button>}</span>
+              <span><strong>{T('orderLockedBannerStrong')}</strong> — {backendCorrectionSessionId ? submittedOrderCopy.correctionActive : T('orderLockedBannerText')}</span>
+              <span className="flex items-center gap-3"><span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>{canCorrectSubmittedOrder && !backendCorrectionSessionId && <button type="button" onClick={() => setBackendCorrectionDialogOpen(true)} className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">{submittedOrderCopy.editSubmittedOrder}</button>}</span>
             </div>
           )}
-          <fieldset disabled={submittedOrderEditorLocked} className={submittedOrderEditorLocked ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} style={submittedOrderEditorLocked ? { pointerEvents: 'none' } : undefined}>
+          <fieldset ref={stepContentRef} disabled={submittedOrderEditorLocked} className={`${submittedOrderEditorLocked ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} scroll-mt-24`} style={submittedOrderEditorLocked ? { pointerEvents: 'none' } : undefined}>
             {/* Step 1 */}
             {state.step === 1 && (
               <div className="bg-white rounded-2xl shadow p-6">
@@ -2817,35 +3801,49 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const currentQty = config?.qty || 0;
                     const isSelected = currentQty > 0;
                     const marketingContent = marketingContentFor(key, p.id);
-                    const cardSpecs = marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
+                    const cardSpecs = key === 'Timan 2620'
+                      ? p.techSpecs
+                      : marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
                     const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
+                    const cardTitle = marketingContent?.title || getLocalizedName(p.name, uiLanguage);
 
                     return (
                       <MarketingConfiguratorProductCard
                         key={key}
                         className={`transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'hover:border-gray-300'}`}
-                        title={marketingContent?.title || getLocalizedName(p.name, lang)}
+                        title={cardTitle}
                         itemNumber={p.varenr}
                         itemNumberLabel={itemNoLabel(uiLanguage)}
-                        price={permissions.canSeePrices ? formatDisplayMoney(getPrice(p, lang)) : ''}
-                        description={marketingContent?.description}
-                        specs={cardSpecs.map((spec) => ({ label: translateSpecLabel(spec.label, uiLanguage), value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '') }))}
-                        badge={marketingContent?.badge}
+                        price={permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(p, displayCurrency)) : ''}
+                        description={key === 'Timan 2620' ? undefined : marketingContent?.description}
+                        specs={cardSpecs.map((spec) => {
+                          const canonicalValue = p.techSpecs.find((candidate) =>
+                            candidate.label === spec.label
+                            || PORTAL_LANGUAGES.some(({ code }) => translateSpecLabel(candidate.label, code) === spec.label)
+                          )?.value;
+                          const value = canonicalValue && typeof canonicalValue !== 'string' ? canonicalValue : spec.value;
+                          return {
+                            label: translateSpecLabel(spec.label, uiLanguage),
+                            value: typeof value === 'string' ? value : (value?.[uiLanguage] || value?.[lang] || value?.en || value?.da || ''),
+                          };
+                        })}
+                        badge={marketingCampaignFor(key, p.id) ? 'Kampagne' : marketingContent?.badge}
                         badgeSchedule={marketingContent}
+                        campaign={marketingCampaignFor(key, p.id)}
                         language={uiLanguage}
                         status={renderMarketingContentState(key, p.id)}
                         editControl={marketingEditButton(key, p.id)}
                         actions={<>
                           {cardVideoUrl ? (
-                            <a href={cardVideoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
+                            <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductVideoPreview({ url: cardVideoUrl, title: cardTitle }); }} className="flex items-center gap-1 bg-transparent p-0 text-sm font-medium text-emerald-600 hover:text-emerald-800">🎥 {T('videoLink')}</button>
                           ) : (key === 'Timan 2620' && (
-                            <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
+                            <button onClick={(e) => { e.stopPropagation(); toast.info(T('contentComingSoon')); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
                           ))}
                           {cardImageUrl ? (
-                            <a href={cardImageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">📸 {T('imageLink')}</a>
+                            <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: cardImageUrl, title: cardTitle, itemNumber: p.varenr }); }} className="flex items-center gap-1 bg-transparent p-0 text-sm font-medium text-emerald-600 hover:text-emerald-800">📸 {T('imageLink')}</button>
                           ) : (key === 'Timan 2620' && (
-                            <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
+                            <button onClick={(e) => { e.stopPropagation(); toast.info(T('contentComingSoon')); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
                           ))}
                           {(marketingContent || p.machineDetails) && <button onClick={(e) => { e.stopPropagation(); showMachineInformation(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>}
                         </>}
@@ -2863,7 +3861,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                 style={{ width: 32, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
                             </div>
                           </div>
-                          {!isExhibition && currentQty >= 1 && p.isDiscountEligible && (
+                          {planningAvailabilityEnabled && <PlanningAvailabilityBadge
+                            availability={machineAvailability[p.varenr]} language={uiLanguage} />}
+                          {planningEnabled && isSelected
+                            && ['red', 'unknown'].includes(machineAvailability[p.varenr]?.status ?? 'unknown')
+                            && <button type="button" disabled={!savedConfigurationId || orderLocked}
+                              title={!savedConfigurationId ? T('saveCase') : undefined}
+                              onClick={() => { if (config) void requestPlanningDelivery(`${config.id}_1`, p.varenr); }}
+                              className="mt-2 text-xs font-medium text-emerald-800 underline disabled:text-slate-400 disabled:no-underline">
+                              {tPortal('planningRequestDelivery', uiLanguage)}
+                            </button>}
+                          {!isExhibition && !isDirectPricing && currentQty >= 1 && p.isDiscountEligible && (
                             <div className={`mt-1 text-center text-xs ${discountEligibleQty >= 2 ? 'font-semibold text-emerald-600' : 'text-gray-500'}`}
                               dangerouslySetInnerHTML={{ __html: discountEligibleQty >= 4 ? `✅ ${T('qtyStatus4')}` : discountEligibleQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
                           )}
@@ -2894,10 +3902,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <button onClick={() => {
                     if (isExhibition) {
                       setState(s => ({ ...s, currentMachineIndex: 0 }));
-                      setStep(3);
+                      navigateToStep(3);
                       return;
                     }
-                    setStep(2);
+                    navigateToStep(2);
                   }} disabled={!flowSelected || totalQty === 0}
                     className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && totalQty > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
                     {isExhibition ? T('goToEquipment') : T('goToDelivery')}
@@ -2913,87 +3921,116 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 <p className="text-gray-600 font-medium mb-6">{T('step2Desc')}</p>
                 <div className="mb-8 mx-auto max-w-sm">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{T('deliveryDate')}</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          'mt-1 w-full rounded-full justify-start text-left font-normal',
-                          !state.date && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="flex-1 pointer-events-none select-none">
-                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : T('datePlaceholder')}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDeliveryDate}
-                        onSelect={(date) => {
-                          if (!date) return;
-                          const day = date.getDay();
-                          if (day === 0 || day === 6) {
-                            const next = new Date(date);
-                            while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
-                            toast.error('Leveringsdato kan ikke være en weekend.');
-                            setDate(format(next, 'yyyy-MM-dd'));
-                            return;
-                          }
-                          setDate(format(date, 'yyyy-MM-dd'));
-                        }}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const day = date.getDay();
-                          return date < today || day === 0 || day === 6;
-                        }}
-                        modifiers={{
-                          discount: (date) => {
-                            const threshold = new Date();
-                            threshold.setMonth(threshold.getMonth() + 3);
-                            return date > threshold;
-                          },
-                        }}
-                        modifiersStyles={{
-                          discount: {
-                            backgroundColor: 'hsl(45 93% 80%)',
-                            borderRadius: '6px',
-                          },
-                        }}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                      <div className="px-3 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 80%)' }} />
-                        {T('calendarDiscountNote')}
+                  <ConfiguratorDeliveryDatePicker
+                    value={state.date}
+                    onChange={setDate}
+                    locale={dateLocale}
+                    placeholder={T('datePlaceholder')}
+                    ariaLabel={T('deliveryDate')}
+                    discountLegend={deliveryDiscountLegend}
+                    weekendError={T('weekendDateError')}
+                    canSelectPastDate={canSelectPastDeliveryDate}
+                    disabled={submittedOrderEditorLocked}
+                    triggerClassName="mt-1 rounded-full"
+                  />
+                  <div className="mt-2 text-center">
+                    {isDeliveryDiscountEligible(state.date) ? (
+                      <span className="inline-block rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600">
+                        ✅ {T('deliveryDiscountActive')}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-500">{T('deliveryDiscountHint')}</span>
+                    )}
+                  </div>
+                </div>
+
+                {(baseMachineQty >= 2 || totalQty >= 2) && <div className="mb-8 mx-auto max-w-2xl text-left" data-testid="machine-delivery-date-editor">
+                  <button
+                    type="button"
+                    aria-expanded={machineDeliveryEditorOpen}
+                    onClick={() => setMachineDeliveryEditorOpen(open => !open)}
+                    disabled={!state.date}
+                    className="mx-auto flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {T(state.machineConfigs.some(machine => machine.type === LOOSE_TOOL_KEY || machine.type === 'Loader Line') ? 'customizeProductDeliveryDates' : 'customizeMachineDeliveryDates')}
+                  </button>
+                  {machineDeliveryEditorOpen && state.date && (
+                    <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 sm:p-4">
+                      <p className="mb-3 text-xs text-gray-500">{T('machineDeliveryDateHelp')}</p>
+                      <div className="space-y-3">
+                        {getGlobalMachineUnits().map(unit => {
+                          const overridden = hasMachineDeliveryOverride(state, unit.unitNumber);
+                          const effectiveDate = machineDeliveryDate(state, unit.unitNumber);
+                          const deliveryDiscount = machineDeliveryDiscountByUnit.get(unit.unitNumber);
+                          return (
+                            <div
+                              key={`${unit.modelId}-${unit.unitNumber}`}
+                              className="grid gap-2 border-b border-gray-200 pb-3 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-gray-800">
+                                  {T('machineLabel')} {unit.unitNumber} – {unit.modelType}
+                                </div>
+                                {!overridden && (
+                                  <div className="mt-0.5 text-xs text-gray-500">
+                                    {T('standardDeliveryDate')}: {format(new Date(`${effectiveDate}T12:00:00`), 'dd-MM-yyyy', { locale: dateLocale })}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-start gap-2 sm:items-end">
+                                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={overridden}
+                                    disabled={submittedOrderEditorLocked}
+                                    onChange={(event) => setMachineDeliveryOverride(unit.unitNumber, event.target.checked)}
+                                  />
+                                  <span>{T('useDifferentDeliveryDate')}</span>
+                                </label>
+                                {overridden && (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <ConfiguratorDeliveryDatePicker
+                                      value={effectiveDate}
+                                      onChange={(value) => setMachineDeliveryDate(unit.unitNumber, value)}
+                                      locale={dateLocale}
+                                      placeholder={T('datePlaceholder')}
+                                      ariaLabel={`${T('individualDeliveryDate')} – ${T('machineLabel')} ${unit.unitNumber}`}
+                                      discountLegend={deliveryDiscountLegend}
+                                      weekendError={T('weekendDateError')}
+                                      canSelectPastDate={canSelectPastDeliveryDate}
+                                      disabled={submittedOrderEditorLocked}
+                                      align="end"
+                                      triggerClassName="min-h-9 rounded-md bg-white px-2 py-1.5 text-sm sm:w-[220px]"
+                                    />
+                                    {deliveryDiscount && deliveryDiscount.percent > 0 && (
+                                      <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                                        {deliveryDiscount.percent.toLocaleString(uiLanguage)}% {T('deliveryDiscount')}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </PopoverContent>
-                  </Popover>
-                  {(() => {
-                    const hasDeliveryDiscount = state.date && (() => {
-                      const d = new Date(state.date);
-                      const threshold = new Date();
-                      threshold.setMonth(threshold.getMonth() + 3);
-                      return d > threshold;
-                    })();
-                    return (
-                      <div className="mt-2 text-center">
-                        {hasDeliveryDiscount ? (
-                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
-                            ✅ {T('deliveryDiscountActive')}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-500">
-                            {T('deliveryDiscountHint')}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
+                    </div>
+                  )}
+                </div>}
+
+                <ConfiguratorProductDeliveryDates state={state} T={T} locale={dateLocale}
+                  disabled={submittedOrderEditorLocked} canSelectPastDate={canSelectPastDeliveryDate}
+                  onChange={dates => setState(current => ({ ...current, machineDeliveryDates: dates }))} />
+
+                <div className="mb-8 mx-auto max-w-2xl">
+                  <ConfiguratorDeliveryAddress
+                    state={state}
+                    variant="step2"
+                    disabled={submittedOrderEditorLocked}
+                    T={T}
+                    onChange={(update) => setState(current => ({ ...current, ...update }))}
+                  />
                 </div>
 
                 <div className="mt-3 space-y-3 w-full flex flex-col items-center max-w-2xl mx-auto">
@@ -3006,7 +4043,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         }} />
                       <div className="w-full p-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 transition peer-checked:bg-emerald-50 peer-checked:border-emerald-500 peer-checked:shadow-sm">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="flex-1 min-w-0 text-[13px] md:text-sm whitespace-nowrap">{T(method)}</span>
+                          <span className="flex-1 min-w-0 break-words text-[13px] md:text-sm">{T(method)}</span>
                           <button type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeliveryInfoOpen(true); }}
                             className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-[11px] font-bold text-gray-600 hover:bg-gray-100 flex-shrink-0"
@@ -3017,32 +4054,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   ))}
                 </div>
 
-                {/* Delivery startup sub-options (Danish only, deliver method) */}
+                {/* Delivery startup sub-options are controlled by the canonical market country. */}
                 {needsStartup && (
-                  <div className="mt-6 max-w-2xl mx-auto text-left">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">{T('startupTitle')}</h3>
-                    <div className="space-y-2">
-                      {[
-                        { value: 'no_bridge', label: T('startupNoBridge') },
-                        { value: 'with_bridge', label: T('startupWithBridge') },
-                        { value: 'other', label: T('startupOther') },
-                      ].map(opt => (
-                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
-                          <input type="radio" name="deliver-startup" value={opt.value} className="accent-emerald-600"
-                            checked={state.deliveryDeliverStartup === opt.value}
-                            onChange={() => setState(s => ({ ...s, deliveryDeliverStartup: opt.value }))} />
-                          <span className="text-sm text-gray-700">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {!state.deliveryDeliverStartup && (
-                      <p className="text-red-500 text-xs mt-2">{T('startupRequired')}</p>
-                    )}
-                  </div>
+                  <ConfiguratorStartupOptions
+                    country={activeConfiguratorCountry}
+                    value={state.deliveryDeliverStartup}
+                    translate={T}
+                    onChange={option => setState(current => ({ ...current, deliveryDeliverStartup: option }))}
+                  />
                 )}
 
                 <div className="flex justify-between max-w-md mx-auto mt-8">
-                  <button onClick={() => setStep(1)} className="text-gray-600">{T('back')}</button>
+                  <button onClick={() => navigateToStep(1)} className="text-gray-600">{T('back')}</button>
                   <div className="flex flex-col items-end gap-1">
                     {!state.date && (
                       <p className="text-red-500 text-xs">{T('selectDeliveryDate')}</p>
@@ -3053,7 +4076,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <button onClick={() => {
                       if (!canProceedStep2) return;
                       setState(s => ({ ...s, currentMachineIndex: 0 }));
-                      setStep(3);
+                      navigateToStep(3);
                     }}
                       disabled={!canProceedStep2}
                       className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep2 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
@@ -3070,10 +4093,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               const currentUnit = allUnits[state.currentMachineIndex];
               if (!currentUnit) return <div>No machine selected</div>;
               const machineType = currentUnit.modelType;
+              const currentUnitDemo = !!state.demoMachines[`${PRODUCTS[machineType]?.varenr}_${currentUnit.unitNumber}`];
               const looseToolAccessories = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : [];
-              const accs = machineType === LOOSE_TOOL_KEY
-                ? looseToolAccessories.filter(item => looseToolMachineFilter === 'all' || item.looseToolMachine === looseToolMachineFilter)
-                : (ACCESSORIES[machineType] || []);
               const displayUnits = getDisplayMachineUnits();
 
               let selectedIds: string[] = [];
@@ -3083,6 +4104,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               } else {
                 selectedIds = state.individualUnitConfigs[currentUnit.configKey]?.acc || [];
               }
+
+              const accs = machineType === LOOSE_TOOL_KEY
+                ? filterLooseToolAccessories(looseToolAccessories, looseToolMachineFilter, [
+                  ...selectedIds,
+                  ...getAccessoriesFlat(machineType)
+                    .filter(item => item.isQtyInput && (state.accQty[`${currentUnit.configKey}_${item.id}`] ?? 0) > 0)
+                    .map(item => item.id),
+                ])
+                : (ACCESSORIES[machineType] || []);
 
               const currentDisplayIdx = displayUnits.findIndex(u => u.globalIndex === state.currentMachineIndex);
 
@@ -3154,7 +4184,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         : 'font-bold text-gray-800 mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10';
                     elements.push(
                       <h3 key={`header-${idx}`} className={headerCls}>
-                        {a.translationKey ? T(a.translationKey) : getLocalizedName(a.name, lang)}
+                        {a.translationKey ? T(a.translationKey) : getLocalizedName(a.name, uiLanguage)}
                       </h3>
                     );
                     return;
@@ -3170,6 +4200,48 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   const hasSubs = hasSubOptions(a, accs);
                   const marketingContent = marketingContentFor(machineType, a.id);
 
+                  if (a.isProductGroup) {
+                    const groupKey = `${currentUnit.configKey}:${a.id}`;
+                    const activeVariant = a.subItems?.find((variant) => selectedIds.includes(variant.id));
+                    const isOpen = openProductGroups[groupKey] ?? Boolean(activeVariant);
+                    elements.push(
+                      <div key={a.id} data-testid={`product-group-${a.varenr}`} className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        <button type="button" aria-expanded={isOpen}
+                          onClick={() => setOpenProductGroups((current) => ({ ...current, [groupKey]: !isOpen }))}
+                          className="flex w-full items-start justify-between gap-3 p-3 text-left transition hover:bg-gray-50">
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-gray-900">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
+                            <span className="block text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
+                            <span data-testid={`product-group-hierarchy-indicator-${a.varenr}`} aria-hidden="true" className="mt-1 block text-[10px] leading-none text-gray-400">↳</span>
+                          </span>
+                        </button>
+                        <div className="flex items-start justify-between gap-3 border-t border-gray-100 px-3 py-2">
+                          <div className="min-w-0">
+                            {marketingContent?.description && <p className="line-clamp-2 text-xs text-gray-600">{marketingContent.description}</p>}
+                            {renderActionLinks(a, machineType)}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {renderMarketingContentState(machineType, a.id)}
+                            {marketingEditButton(machineType, a.id)}
+                          </div>
+                        </div>
+                        {isOpen && (
+                          <div className="space-y-2 border-t border-gray-200 bg-gray-50 p-3">
+                            <div className="text-xs font-semibold text-gray-700">{T('chooseVariant')}</div>
+                            {a.subItems?.map((variant) => renderSubItem(variant, selectedIds, machineType, 1, false))}
+                            {activeVariant?.subItems && activeVariant.subItems.length > 0 && (
+                              <div data-testid={`product-group-shared-options-${a.varenr}`} className="mt-3 space-y-2 border-t border-emerald-200 pt-3">
+                                <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>
+                                {activeVariant.subItems.map((option) => renderSubItem(option as SubItem, selectedIds, machineType, 2))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>,
+                    );
+                    return;
+                  }
+
                   // Qty input items
                   if (a.isQtyInput) {
                     const qtyKey = `${currentUnit.configKey}_${a.id}`;
@@ -3177,9 +4249,20 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const card = (
                       <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
-                          <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</div>
+                          <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</div>
                           <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
+                          {planningAvailabilityEnabled && currentQtyVal > 0 && <PlanningAvailabilityBadge
+                            availability={attachmentAvailability[a.varenr]} language={uiLanguage} />}
+                          {planningEnabled && currentQtyVal > 0
+                            && ['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown')
+                            && <button type="button" disabled={!savedConfigurationId || orderLocked}
+                              title={!savedConfigurationId ? T('saveCase') : undefined}
+                              onClick={() => void requestPlanningDelivery(
+                                currentUnit.isSharedUnit ? `${currentUnit.modelId}_1` : currentUnit.configKey, a.varenr)}
+                              className="mt-1 block text-xs font-medium text-emerald-800 underline disabled:text-slate-400 disabled:no-underline">
+                              {tPortal('planningRequestDelivery', uiLanguage)}
+                            </button>}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <input type="number" min="0" max="99" value={currentQtyVal}
@@ -3188,9 +4271,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
-                          {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
+                          {renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo) || renderNewBadge(a.isNew)}
                           {renderMarketingContentState(machineType, a.id)}
-                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</div>{marketingEditButton(machineType, a.id)}
+                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(a, displayCurrency)) : ''}</div>{marketingEditButton(machineType, a.id)}
                         </div>
                       </div>
                     );
@@ -3233,15 +4316,26 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         <div className="flex-grow min-w-0">
                           <div className="flex justify-between items-start">
                             <div className="flex-grow min-w-0">
-                              <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</span>
+                              <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
                               {renderActionLinks(a, machineType)}
+                              {(planningAvailabilityEnabled || planningEnabled) && isSelected && <div onClick={(event) => event.stopPropagation()}>
+                                {planningAvailabilityEnabled && <PlanningAvailabilityBadge availability={attachmentAvailability[a.varenr]} language={uiLanguage} />}
+                                {planningEnabled && ['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown') &&
+                                  <button type="button" disabled={!savedConfigurationId || orderLocked}
+                                    title={!savedConfigurationId ? T('saveCase') : undefined}
+                                    onClick={() => void requestPlanningDelivery(
+                                      currentUnit.isSharedUnit ? `${currentUnit.modelId}_1` : currentUnit.configKey, a.varenr)}
+                                    className="mt-1 text-xs font-medium text-emerald-800 underline disabled:text-slate-400 disabled:no-underline">
+                                    {tPortal('planningRequestDelivery', uiLanguage)}
+                                  </button>}
+                              </div>}
                             </div>
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
-                              {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
+                              {renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo) || renderNewBadge(a.isNew)}
                               {renderMarketingContentState(machineType, a.id)}
-                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>{marketingEditButton(machineType, a.id)}
+                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(a, displayCurrency)) : ''}</span>{marketingEditButton(machineType, a.id)}
                             </div>
                           </div>
                           {ralInput}
@@ -3267,22 +4361,23 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               return (
                 <div className="bg-white rounded-2xl shadow p-6">
                   <h2 className="text-xl font-bold mb-4 text-center">{T('step3Title')}</h2>
+                  {planningAvailabilityEnabled && <p className="mb-4 text-center text-sm font-medium text-slate-700">
+                    {tPortal('planningAvailability', uiLanguage)}: {tPortal({
+                      green: 'planningGreen', yellow: 'planningYellow', red: 'planningRed', unknown: 'planningUnknown',
+                    }[planningConfigurationStatus], uiLanguage)}
+                  </p>}
                   {machineType === LOOSE_TOOL_KEY && (
                     <div className="mb-5 text-left">
                       <p className="text-sm font-semibold text-gray-800 mb-2">{T('looseToolsMachineFilterPrompt')}</p>
                       <div className="flex flex-wrap gap-2">
-                        {[
-                          { value: 'all', label: T('allMachines') },
-                          { value: 'RC-1000S', label: 'RC-1000s' },
-                          { value: 'Timan 3330', label: 'Timan 3330' },
-                          { value: 'Timan 2620', label: 'Timan 2620' },
-                        ].map(option => (
+                        {LOOSE_TOOL_MACHINE_FILTERS.map(value => (
                           <button
-                            key={option.value}
+                            key={value}
                             type="button"
-                            onClick={() => setLooseToolMachineFilter(option.value as typeof looseToolMachineFilter)}
-                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${looseToolMachineFilter === option.value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-500'}`}>
-                            {option.label}
+                            aria-pressed={looseToolMachineFilter === value}
+                            onClick={() => setLooseToolMachineFilter(value)}
+                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${looseToolMachineFilter === value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-500'}`}>
+                            {value === 'all' ? T('allMachines') : value === 'RC-1000S' ? 'RC-1000s' : value}
                           </button>
                         ))}
                       </div>
@@ -3292,14 +4387,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto mb-4">
                       {displayUnits.map(du => (
                         <button key={du.globalIndex}
-                          onClick={() => setState(s => ({ ...s, currentMachineIndex: du.globalIndex }))}
+                          onClick={() => navigateToMachine(du.globalIndex)}
                           className={`px-4 py-2 text-sm rounded-t-lg whitespace-nowrap ${du.globalIndex === state.currentMachineIndex ? 'tab-active bg-white border-x border-t' : 'tab-inactive hover:bg-gray-100'}`}>
-                          {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `${T('machineLabel')} ${du.unitNumber}`}
+                          {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', uiLanguage)}` : `${T('machineLabel')} ${du.unitNumber}`}
                         </button>
                       ))}
                     </div>
                   )}
-                  <div className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 text-left">
+                  <div ref={equipmentScrollRef} data-testid="configurator-equipment-scroll" className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 text-left">
                     {renderAccessories()}
                   </div>
                   {/* Step 3 validation: check all required groups across ALL units */}
@@ -3336,7 +4431,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
                     return (
                       <div className="flex justify-between pt-4 border-t">
-                        <button onClick={() => setStep(isExhibition ? 1 : 2)} className="text-gray-600">{T('back')}</button>
+                        <button onClick={() => navigateToStep(isExhibition ? 1 : 2)} className="text-gray-600">{T('back')}</button>
                         {!allMandatoryMet && (
                           <p className="text-red-500 text-xs self-center">{T('requiredGroupsHint')}</p>
                         )}
@@ -3344,9 +4439,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           if (!canProceedStep3) return;
                           const proceed = () => {
                             if (currentDisplayIdx < displayUnits.length - 1) {
-                              setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
+                              navigateToMachine(displayUnits[currentDisplayIdx + 1].globalIndex);
                             } else {
-                              setStep(4);
+                              navigateToStep(4);
                             }
                           };
                           // Timan 3330 reminder: warn if varenr 721122 is not selected on this unit
@@ -3392,11 +4487,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
             {/* Step 4: Customer info */}
             {state.step === 4 && (
-              <div className="bg-white rounded-2xl shadow p-6">
+              <div className="bg-white rounded-2xl shadow p-6" data-testid="configurator-step4">
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
+                {!isExhibition && <ConfiguratorProductDeliveryDates state={state} T={T} locale={dateLocale} />}
+                <div className="mx-auto max-w-3xl">
+                  <SalesStockPricingPanel state={state} setState={setState} canEdit={canEditSalesStockPricing && !submittedOrderEditorLocked} />
+                </div>
                 <div className="max-w-lg mx-auto mb-5">
-                  <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="full" hideDealer={isExhibition} />
+                  <OwnershipPicker value={ownership} onChange={handleOwnershipChange} language={uiLanguage} variant="full" hideDealer={isExhibition} />
                 </div>
                 {state.flowType === 'quote' && !isExhibition && (
                   <div className="max-w-lg mx-auto mb-5">
@@ -3415,27 +4514,92 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           setLinkedLeadId(val);
                         }
                       }}
-                      dealerNumber={ownership.dealerNumber || null}
+                      sellerEmail={ownership.sellerEmail}
+                      dealerAccountId={ownership.dealerAccountId}
                       language={lang}
                     />
                   </div>
                 )}
-                <div className="space-y-4 max-w-lg mx-auto">
+                {!isExhibition && (
+                  <div className="max-w-lg mx-auto mb-5 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-950">{customerModeCopy.title}</p>
+                        <p className="mt-0.5 text-xs text-emerald-800">
+                          {selectedCustomerDealer
+                            ? `${customerModeCopy.dealer}: ${selectedCustomerDealer.company_name}`
+                            : customerModeCopy.dealer}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => applyDealerCustomerMode()}
+                          disabled={!selectedCustomerDealer || dealerContactsLoading}
+                          aria-pressed={state.customerMode === 'dealer'}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${state.customerMode === 'dealer' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-100'}`}
+                        >
+                          {customerModeCopy.useDealer}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setState((current) => selectConfiguratorCustomerMode(current, 'manual'))}
+                          aria-pressed={state.customerMode === 'manual'}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${state.customerMode === 'manual' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-100'}`}
+                        >
+                          {customerModeCopy.enterManual}
+                        </button>
+                      </div>
+                    </div>
+
+                    {state.customerMode === 'dealer' && selectedCustomerDealer && (
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">{customerModeCopy.dealerContact}</label>
+                        <select
+                          value={state.dealerContactId}
+                          onChange={(event) => {
+                            const contactId = event.target.value;
+                            const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
+                            setState((current) => replaceConfiguratorDealerCustomerData(
+                              current,
+                              buildDealerCustomerSnapshot(selectedCustomerDealer, contact, Boolean(contactId)),
+                              contactId,
+                            ));
+                          }}
+                          disabled={dealerContactsLoading}
+                          className="w-full rounded-lg border bg-white p-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="">{dealerContactsLoading ? '…' : customerModeCopy.chooseContact}</option>
+                          {sortedDealerContacts.map((contact) => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.name}{contact.role_title ? ` · ${contact.role_title}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {!dealerContactsLoading && sortedDealerContacts.length === 0 && (
+                          <p className="mt-1 text-xs text-gray-500">{customerModeCopy.noContacts}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-4 max-w-lg mx-auto" data-testid="configurator-step4-customer-contact">
+                  <h3 className="border-b border-gray-200 pb-2 text-base font-bold text-gray-900">{T('customerDetailsSection')}</h3>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
-                    <input type="text" value={state.firmanavn} onChange={e => setCustomerField('firmanavn', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-firmanavn" aria-invalid={leadValidationErrors.includes('firmanavn')} type="text" value={state.firmanavn} onChange={e => updateActiveCustomerField('firmanavn', e.target.value)} className={leadFieldClass('firmanavn')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('contactPerson')}</label>
-                    <input type="text" value={state.kontaktperson} onChange={e => setCustomerField('kontaktperson', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-kontaktperson" aria-invalid={leadValidationErrors.includes('kontaktperson')} type="text" value={state.kontaktperson} onChange={e => updateActiveCustomerField('kontaktperson', e.target.value)} className={leadFieldClass('kontaktperson')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('phone')}</label>
-                    <input type="text" value={state.telefon} onChange={e => setCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-telefon" aria-invalid={leadValidationErrors.includes('telefon')} type="text" value={state.telefon} onChange={e => updateActiveCustomerField('telefon', e.target.value)} className={leadFieldClass('telefon')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')} {state.flowType === 'order' && <span className="text-red-500">*</span>}</label>
-                    <input type="email" value={state.email} onChange={e => setCustomerField('email', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailSenderPlaceholder')} />
+                    <input id="configurator-lead-email" aria-invalid={leadValidationErrors.includes('email')} type="email" value={state.email} onChange={e => { setCustomerField('email', e.target.value); setLeadValidationErrors((current) => current.filter((item) => item !== 'email')); }} className={leadFieldClass('email')} placeholder={T('emailSenderPlaceholder')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3446,12 +4610,41 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <input
                       type="email"
                       value={state.emailRecipient}
-                      onChange={e => setCustomerField('emailRecipient', e.target.value)}
-                      className={`w-full p-2 border rounded-lg ${state.flowType === 'order' ? 'bg-gray-100' : ''}`}
+                      onChange={e => updateActiveCustomerField('emailRecipient', e.target.value)}
+                      className="w-full p-2 border rounded-lg"
                       placeholder={T('emailRecipientPlaceholder')}
-                      readOnly={state.flowType === 'order'}
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.address}</label>
+                    <input type="text" value={state.address} onChange={e => updateActiveCustomerField('address', e.target.value)} className="w-full p-2 border rounded-lg" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.postalCode}</label>
+                      <input id="configurator-lead-postalCode" aria-invalid={leadValidationErrors.includes('postalCode')} type="text" value={state.postalCode} onChange={e => updateActiveCustomerField('postalCode', e.target.value)} className={leadFieldClass('postalCode')} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.city}</label>
+                      <input id="configurator-lead-city" aria-invalid={leadValidationErrors.includes('city')} type="text" value={state.city} onChange={e => updateActiveCustomerField('city', e.target.value)} className={leadFieldClass('city')} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.country}</label>
+                    <input id="configurator-lead-country" aria-invalid={leadValidationErrors.includes('country')} type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className={leadFieldClass('country')} />
+                  </div>
+                  <ConfiguratorDeliveryAddress
+                    state={state}
+                    variant="step4"
+                    disabled={submittedOrderEditorLocked}
+                    T={T}
+                    onChange={(update) => setState(current => ({ ...current, ...update }))}
+                  />
+                  <ConfiguratorPurchaseOrderField
+                    label={T('purchaseOrderReference')}
+                    value={state.purchaseOrderNumber}
+                    onChange={e => setCustomerField('purchaseOrderNumber', e.target.value)}
+                  />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={5} />
@@ -3460,7 +4653,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 </div>
                 <div className="flex justify-between items-center mt-8 pt-4 border-t">
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
+                    <button onClick={() => navigateToStep(3)} className="text-gray-600">{T('back')}</button>
                     <button
                       onClick={() => {
                         if (isSavedCurrent) {
@@ -3544,7 +4737,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   ? T('savingChangesBtn')
                   : savedConfigurationId
                     ? T('saveChangesBtn')
-                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang] || T('saveCase'))}
+                    : T('saveCase')}
                 {savedConfigurationId && (
                   <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
                     {savedQuoteNumber || savedOrderNumber || ''}
@@ -3556,14 +4749,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <div className="mb-3 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-900">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">
-                    {lang === 'da' ? 'Linked lead' : 'Linked lead'}: {linkedLeadId}
+                    {T('linkedLead')}: {linkedLeadId}
                   </span>
                   <button
                     type="button"
                     onClick={() => navigate(`/portal/crm/leads/${linkedLeadId}`)}
                     className="font-semibold text-emerald-700 hover:underline"
                   >
-                    {lang === 'da' ? 'Åbn' : 'Open'}
+                    {T('openAction')}
                   </button>
                 </div>
                 <button
@@ -3572,40 +4765,30 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   disabled={syncingLead}
                   className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {syncingLead
-                    ? (lang === 'da' ? 'Synkroniserer...' : 'Syncing...')
-                    : (lang === 'da' ? 'Opdater lead' : 'Sync lead')}
+                  {syncingLead ? T('syncing') : T('syncLead')}
                 </button>
               </div>
             )}
-            {state.step === 4 && state.flowType === 'quote' && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
-              const hasRequired = isAcademyMode || !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
+            {state.step === 4 && state.flowType === 'quote' && !isAcademySalesBonusCase2 && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
+              const hasRequired = validateConfiguratorLead(state).valid && !!((isAcademyMode || isExhibition || ownership.dealerNumber) && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
-                ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
+                ? T('saveLeadAndSendOrder')
                 : isAcademyMode
-                  ? 'Gem som Academy-lead'
-                  : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
+                  ? tPortal(isAcademyCase3 ? 'academyCase3Point5' : 'academyCase1SaveLead', uiLanguage)
+                  : T('saveAsLead');
               const isActionBlockedByExistingLead = !isAcademyMode && !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired
-                ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
-                    en: 'Fill in dealer, company, contact and email.',
-                    de: 'Händler, Firma, Kontakt und E-Mail ausfüllen.',
-                    it: 'Compila concessionario, azienda, contatto ed email.',
-                    hu: 'Töltsd ki a kereskedőt, céget, kapcsolattartót és e-mailt.' }[lang]
+                ? tPortal('configuratorLeadValidationMessage', uiLanguage)
                 : isTimanMesseUser && orderLocked
                   ? T('orderCannotResendTitle')
                 : isActionBlockedByExistingLead
-                  ? { da: 'Denne konfiguration er allerede knyttet til et lead.',
-                      en: 'This configuration is already linked to a lead.',
-                      de: 'Bereits mit einem Lead verknüpft.',
-                      it: 'Già collegata a un lead.',
-                      hu: 'Már leadhez van kapcsolva.' }[lang]
+                  ? T('alreadyLinkedLead')
                   : '';
               return (
                 <button
                   type="button"
                   onClick={() => void (isTimanMesseUser ? handleSaveLeadAndSendOrder() : handleSaveAsLead())}
-                  disabled={!hasRequired || savingAsLead || savingLeadAndOrder || submitting || isActionBlockedByExistingLead || (isTimanMesseUser && orderLocked)}
+                  disabled={savingAsLead || savingLeadAndOrder || submitting || isActionBlockedByExistingLead || (isTimanMesseUser && orderLocked)}
                   title={disabledTitle}
                   className="w-full mb-3 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
@@ -3618,7 +4801,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               );
             })()}
             <fieldset disabled={submittedOrderEditorLocked} className="contents">
-              <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
+              <OwnershipPicker value={ownership} onChange={handleOwnershipChange} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
             </fieldset>
             <AccountPanel
               appUser={effectiveUser ?? appUser}
@@ -3657,6 +4840,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 navigate('/portal', { replace: true });
               }}
               onRestoreState={(restored, configId, savedOwnership, options) => {
+                paymentTermsExplicitRef.current = Boolean(restored.paymentTerms?.trim());
+                paymentTermsDealerIdRef.current = savedOwnership?.dealer_account_id ?? null;
                 setState(restored);
                 if (options?.asNewDraft) {
                   setSavedConfigurationId(null);
@@ -3684,15 +4869,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     dealerCompanyName: savedOwnership.dealer_name ?? prev.dealerCompanyName,
                   }));
                 }
-                toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
-                  description: lang === 'da' ? 'Din gemte konfiguration er genindlæst.' : 'Your saved configuration has been restored.',
+                toast.success(T('caseLoaded'), {
+                  description: T('caseRestored'),
                 });
               }}
             />
 
-            <div className="flex items-center justify-between gap-3 mb-4 border-b border-emerald-200 pb-2">
-              <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
-              <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type">
+            <div className="mb-4 border-b border-emerald-200 pb-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
+                <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type" data-testid="configurator-flow-mode-control">
                 {(isExhibition ? (['quote'] as const) : (['quote', 'order'] as const)).map(ft => {
                   const active = state.flowType === ft;
                   return (
@@ -3711,15 +4897,40 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     </button>
                   );
                 })}
+                </div>
               </div>
+              {canUseDirectPricingMode && state.flowType === 'quote' && (
+                <div className="mt-3 flex items-center justify-between gap-3" data-testid="configurator-direct-control">
+                  <div className="min-w-0">
+                    <label htmlFor="configurator-direct-pricing" className="text-sm font-semibold text-gray-800">{T('directMode')}</label>
+                    <p className="text-xs text-gray-500">{T('directModeHint')}</p>
+                  </div>
+                  <Switch
+                    id="configurator-direct-pricing"
+                    checked={isDirectPricing}
+                    onCheckedChange={setDirectPricingMode}
+                    aria-label={T('directMode')}
+                  />
+                </div>
+              )}
+              <CampaignDisableControl
+                visible={campaignPricingRelevant && !isSalesStockMode}
+                checked={state.campaignDisabled === true}
+                onCheckedChange={setCampaignDisabled}
+                disabled={submittedOrderEditorLocked}
+                label={T('campaignDisable')}
+                hint={T('campaignDisableHint')}
+              />
             </div>
 
             {!calcResult ? (
-              <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
+              state.pricingSnapshot && state.machineConfigs.length > 0
+                ? <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Historiske linjepriser kunne ikke valideres. Brug det afsendte dokument. Ingen priser eller kampagner genberegnes automatisk.</p>
+                : <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
             ) : (
               <>
                 <div className="space-y-1 text-sm mb-6 max-h-[60vh] overflow-y-auto">
-                  {calcResult.lineItems.map((item, idx) => {
+                  {displayCalc!.lineItems.filter(item => !item.isNetto).map((item, idx) => {
                     if (item.subtotal) {
                       return (
                         <div key={idx} className="mt-2 mb-4 pb-3 border-b border-dashed border-emerald-400">
@@ -3742,61 +4953,104 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       else if (item.isPrimaryAccessory) indent = 'pl-6';
                       else indent = 'pl-4';
                     }
+                    const machineDeliveryDiscount = item.isMachine && item.index
+                      ? machineDeliveryDiscountByUnit.get(item.index)
+                      : undefined;
+                    const salesStockAsset = isSalesStockMode && item.index
+                      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === item.index && asset.catalogItemNumber === item.varenr)
+                      : undefined;
                     return (
                       <div key={idx}>
                         {item.isMachine && item.index && (
-                          <div className="mt-2 mb-3 pl-2">
-                            <input type="text" maxLength={20}
-                              value={state.reqNumbers[`machine_${item.index}`] || ''}
-                              onChange={e => setReqNumber(item.index!, e.target.value)}
-                              placeholder={T('reqNumberPlaceholder')}
-                              className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
-                          </div>
+                          <ConfiguratorMachineReferenceField
+                            machineNumber={item.index}
+                            value={state.reqNumbers[`machine_${item.index}`] || ''}
+                            onChange={e => setReqNumber(item.index!, e.target.value)}
+                            placeholder={T('reqNumberPlaceholder')}
+                          />
                         )}
-                        <div className={`flex justify-between items-start ${lineClasses} ${indent}`}>
+                        <div className={`flex items-start justify-between ${lineClasses} ${indent}`}>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <span>{item.txt}</span>
+                              <span className="break-words">{configuratorCartLineDescription(item)}</span>
                               {item.isAutoAdded && (
                                 <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">{T('autoAdded')}</span>
                               )}
                             </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
+                            {item.campaign?.applied && <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <MarketingConfiguratorBadge badge="Kampagne" language={uiLanguage} variant="compact" campaignLabel={item.campaign.campaignCode} />
+                              <span className="text-[11px] font-semibold text-emerald-800">{tPortal('campaignAppliedPrice', uiLanguage)}: {formatDisplayMoney(item.campaign.finalLineValue)}</span>
+                            </div>}
+                            {salesStockAsset && <div className="mt-2 border-l-2 border-amber-500 pl-2 text-[11px] leading-5 text-slate-600" data-testid={`sales-stock-asset-${salesStockAsset.sourceAssetId}`}>
+                              <span className="font-semibold text-amber-900">Salgslager / {salesStockAsset.warehouseLocationCode === '4' ? 'brugt' : 'demo'}</span>
+                              <span className="block">Serienr.: {salesStockAsset.serialNumber || '—'} · Brik nr.: {salesStockAsset.brikNumber ?? '—'}</span>
+                              <span className="block">Konto {salesStockAsset.accountNumber ?? '—'} · Lager {salesStockAsset.warehouseLocationCode} · Ordre {salesStockAsset.sourceOrderNumber ?? '—'}</span>
+                              <span className="block">Canonical list price: {formatDisplayMoney(salesStockAsset.originalListPrice)}</span>
+                              {salesStockAsset.pricingMethod === 'adjusted_base'
+                                ? <span className="block">Nedskrevet grundpris: {formatDisplayMoney(salesStockAsset.adjustedBasePrice ?? salesStockAsset.originalListPrice)}</span>
+                                : <span className="block">Salgslager-/demo-rabat: {(salesStockAsset.salesStockDiscountPct ?? state.baseDiscountPct! * 100).toLocaleString(uiLanguage)}%</span>}
+                            </div>}
                           </div>
-                          {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatDisplayMoney(item.price)}</span>}
+                          {permissions.canSeePrices && <span className="price-col ml-3 whitespace-nowrap text-right font-medium">{formatDisplayMoney(item.price)}</span>}
                         </div>
                         {item.isMachine && (
-                          <div className="text-[11px] text-gray-500 pl-4 mt-0.5">
+                          <div className="mt-0.5 pl-4 text-[11px] text-gray-500">
                             <span className="mr-2">{item.varenr}</span>
                           </div>
                         )}
-                        {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
-                          <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
-                            <label className="flex items-center gap-2 text-gray-700 cursor-pointer select-none">
-                              <input type="checkbox"
-                                checked={isDemoSelected(item.varenr, item.index)}
-                                onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)} />
-                              <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatDisplayMoney(getDemoFee())})</span></span>
-                            </label>
+                        {!isExhibition && state.date && item.isMachine && item.index && (
+                          <div className="ml-4 mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700" data-testid="configurator-delivery-summary">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1.5">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <strong>{T('deliveryDate')}:</strong>
+                                {machineDeliveryDate(state, item.index)
+                                  ? format(new Date(`${machineDeliveryDate(state, item.index)}T12:00:00`), 'dd-MM-yyyy', { locale: dateLocale })
+                                  : '—'}
+                              </span>
+                              <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                                <span className={`rounded px-1.5 py-0.5 ${hasMachineDeliveryOverride(state, item.index) ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                                  {T(hasMachineDeliveryOverride(state, item.index) ? 'individualDeliveryDate' : 'standardDeliveryDate')}
+                                </span>
+                                {machineDeliveryDiscount && machineDeliveryDiscount.percent > 0 && (
+                                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-700">
+                                    {machineDeliveryDiscount.percent.toLocaleString(uiLanguage)}% {T('deliveryDiscount')}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
                           </div>
+                        )}
+                        {!isSalesStockMode && !isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && canSelectDemo && (
+                          <ConfiguratorDemoMachineControl
+                            machineNumber={item.index}
+                            checked={isDemoSelected(item.varenr, item.index)}
+                            disabled={isDirectPricing}
+                            label={T('demoMachineLabel')}
+                            formattedFee={formatDisplayMoney(getDemoFee())}
+                            indentClassName={indent}
+                            onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)}
+                          />
                         )}
                       </div>
                     );
 
                   })}
+                  <ConfiguratorNettoLines lines={displayCalc!.lineItems} label={T('nettoProducts')} showPrices={permissions.canSeePrices} formatMoney={formatDisplayMoney} />
                 </div>
 
                 {permissions.canSeePrices && (
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
-                      <span>{T('subtotal')}</span>
-                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal)}</span>
+                      <span>{T(isDirectPricing ? 'directNetPrice' : 'subtotal')}</span>
+                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal - (displayCalc!.nettoTotal ?? 0))}</span>
                     </div>
                     {displayCalc!.totalDiscount > 0 && (
                       <div className="text-red-600 text-sm space-y-1">
                         {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
                           <div key={i} className="flex justify-between">
-                            <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
+                            <span className="text-red-500">{formatDiscountDetailLabel(d, state.flowType === 'order', uiLanguage)}</span>
                             <span className="text-red-500 price-col">-{formatDisplayMoney(d.amount)}</span>
                           </div>
                         ))}
@@ -3807,18 +5061,26 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       </div>
                     )}
                     {/* Dealer discount - only for permitted roles */}
+                    {!!displayCalc!.nettoTotal && <div className="flex justify-between text-gray-600">
+                      <span>{T('nettoProducts')}</span>
+                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.nettoTotal)}</span>
+                    </div>}
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {T('extraDealerDiscountPct')}
+                          {T(isDirectPricing ? 'directExtraDiscountPct' : 'extraDealerDiscountPct')}
                         </label>
                         <input type="number" min="0" max="100" step="0.1"
                           value={state.manualDealerDiscountPct || ''}
+                          disabled={campaignPricingActive}
                           onChange={e => {
                             const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
                             setState(s => ({ ...s, manualDealerDiscountPct: v }));
                           }}
-                          placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
+                          placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed" />
+                        {campaignPricingActive && (
+                          <p className="mt-1 text-xs text-gray-500">{T('campaignExclusivePricing')}</p>
+                        )}
                       </div>
                     )}
                     {/* Phase 27 — Payment terms (information only, never affects totals).
@@ -3826,12 +5088,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     {canManagePaymentTerms && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {getPaymentTermsLabel(lang)}
+                          {getPaymentTermsLabel(uiLanguage)}
                         </label>
                         <select
                           value={resolvePaymentTerms(state.paymentTerms)}
                           onChange={(e) => {
                             const v = e.target.value || DEFAULT_PAYMENT_TERMS;
+                            paymentTermsExplicitRef.current = true;
                             setState((s) => ({ ...s, paymentTerms: v }));
                           }}
                           className="w-full p-1.5 border rounded-lg text-sm bg-white"
@@ -3842,7 +5105,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         </select>
                       </div>
                     )}
-                    <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
+                    <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2" data-testid="configurator-pricing-summary">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
                       <span className="text-xl text-emerald-700 price-col ml-2">{formatDisplayMoney(displayCalc!.currentPrice)}</span>
                     </div>
@@ -3858,25 +5121,38 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       <Dialog open={backendCorrectionDialogOpen} onOpenChange={setBackendCorrectionDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Ret afgivet ordre</DialogTitle>
+            <DialogTitle>{submittedOrderCopy.editSubmittedOrder}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            Rettelsen gælder kun denne ordre og bliver logget med begrundelse. Ordren forbliver afgivet og låses igen, når ændringerne gemmes.
+            {submittedOrderCopy.correctionDescription}
           </p>
+          {requiresLegacyOrderReprice && (
+            <label className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              <input
+                type="checkbox"
+                checked={legacyOrderRepriceApproved}
+                onChange={(event) => setLegacyOrderRepriceApproved(event.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                {submittedOrderCopy.legacyRepriceWarning}
+              </span>
+            </label>
+          )}
           <div className="space-y-2">
-            <label htmlFor="submitted-order-correction-reason" className="text-sm font-medium text-gray-800">Begrundelse</label>
+            <label htmlFor="submitted-order-correction-reason" className="text-sm font-medium text-gray-800">{submittedOrderCopy.reason}</label>
             <textarea
               id="submitted-order-correction-reason"
               value={backendCorrectionReason}
               onChange={(event) => setBackendCorrectionReason(event.target.value)}
               className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              placeholder="Beskriv rettelsen..."
+              placeholder={submittedOrderCopy.reasonPlaceholder}
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setBackendCorrectionDialogOpen(false)} disabled={startingBackendCorrection}>Annuller</Button>
-            <Button type="button" onClick={() => void handleStartBackendCorrection()} disabled={!backendCorrectionReason.trim() || startingBackendCorrection}>
-              {startingBackendCorrection ? 'Åbner...' : 'Start rettelse'}
+            <Button type="button" variant="outline" onClick={() => setBackendCorrectionDialogOpen(false)} disabled={startingBackendCorrection}>{submittedOrderCopy.cancel}</Button>
+            <Button type="button" onClick={() => void handleStartBackendCorrection()} disabled={!backendCorrectionReason.trim() || startingBackendCorrection || (requiresLegacyOrderReprice && !legacyOrderRepriceApproved)}>
+              {startingBackendCorrection ? submittedOrderCopy.opening : submittedOrderCopy.startCorrection}
             </Button>
           </div>
         </DialogContent>
@@ -4297,6 +5573,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </Dialog>
       <MarketingConfiguratorContentEditor
         item={marketingEditorItem}
+        catalog={[...marketingCatalogByKey.values()]}
         records={marketingEditorRecords}
         uiLanguage={uiLanguage}
         priceSourceLanguage={lang}

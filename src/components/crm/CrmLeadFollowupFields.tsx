@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
+import { crmLeadText } from '@/lib/crmLeadI18n';
 
 type CrmLeadFollowupFieldsProps = {
   nextFollowup: string;
@@ -6,6 +8,8 @@ type CrmLeadFollowupFieldsProps = {
   onNextFollowupChange: (value: string) => void;
   onActivityChange: (value: string) => void;
   activityOptions: readonly string[];
+  disabledActivityOptions?: readonly string[];
+  activityLabel?: (activity: string) => string;
   renderFollowup?: () => ReactNode;
   required?: boolean;
 };
@@ -20,15 +24,18 @@ export function CrmLeadFollowupFields({
   onNextFollowupChange,
   onActivityChange,
   activityOptions,
+  disabledActivityOptions = [],
+  activityLabel = (value) => value,
   renderFollowup,
   required = false,
 }: CrmLeadFollowupFieldsProps) {
+  const { uiLanguage } = useLanguage();
   return (
     <>
       {renderFollowup ? renderFollowup() : (
         <label className="flex flex-col gap-1.5">
           <span className="text-[12px] font-medium text-gray-700">
-            Næste opfølgning {required && <span className="text-rose-500">*</span>}
+            {crmLeadText('nextFollowup', uiLanguage)} {required && <span className="text-rose-500">*</span>}
           </span>
           <input
             type="date"
@@ -40,15 +47,19 @@ export function CrmLeadFollowupFields({
       )}
       <label className="flex flex-col gap-1.5">
         <span className="text-[12px] font-medium text-gray-700">
-          Næste aktivitet {required && <span className="text-rose-500">*</span>}
+          {crmLeadText('nextActivity', uiLanguage)} {required && <span className="text-rose-500">*</span>}
         </span>
         <select
           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm"
           value={activity}
           onChange={(event) => onActivityChange(event.target.value)}
         >
-          <option value="">Vælg…</option>
-          {activityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          <option value="">{crmLeadText('select', uiLanguage)}</option>
+          {activityOptions.map((option) => (
+            <option key={option} value={option} disabled={disabledActivityOptions.includes(option)}>
+              {activityLabel(option)}
+            </option>
+          ))}
         </select>
       </label>
     </>

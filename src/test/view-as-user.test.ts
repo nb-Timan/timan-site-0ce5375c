@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vitest";
-import { mergeEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { mergeEffectivePortalUser, useEffectivePortalUserState, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { canManageMarketingVideos, canManageNewsContent, derivePortalRole, hasAreaAccess } from "@/lib/portalAccess";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
+
+const { maybeSingle } = vi.hoisted(() => ({ maybeSingle: vi.fn() }));
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle }) }) }),
+  },
+}));
+
+beforeEach(() => {
+  localStorage.clear();
+  maybeSingle.mockReset();
+});
 
 const baseUser: SessionUser = {
   email: "bp@timan.dk",
@@ -89,6 +102,33 @@ describe("mergeEffectivePortalUser", () => {
     expect(canManageNewsContent(effective)).toBe(false);
     expect(canManageMarketingVideos(effective)).toBe(false);
   });
+
+  it("does not inherit an internal stored role or account into the DVP dealer preview", () => {
+    const target: SessionUser = {
+      ...baseUser,
+      id: "dvp-user-id",
+      email: "dagvilpet@gmail.com",
+      display_name: "Dag Vilster Petersen",
+      portal_role: "timan_service",
+      dealer_number: "100",
+      company_dealer: "Timan",
+    };
+    const effective = mergeEffectivePortalUser(baseUser, target, {
+      key: "DVP",
+      initials: "DVP",
+      email: "dagvilpet@gmail.com",
+      portalRole: "timan_dealer",
+      viewRole: "dealer",
+      label: "DVP Forhandler",
+      dealerNumber: "10458",
+      companyDealer: "Tiefel Garten + Forstgeräte GmbH",
+    });
+
+    expect(derivePortalRole(effective)).toBe("timan_dealer");
+    expect(effective.dealer_number).toBe("10458");
+    expect(effective.company_dealer).toBe("Tiefel Garten + Forstgeräte GmbH");
+    expect(hasAreaAccess(effective, "timan_backend")).toBe(false);
+  });
 });
 
 describe("withSellerScopeIdentity", () => {
@@ -102,5 +142,19 @@ describe("withSellerScopeIdentity", () => {
 
   it("leaves direct logins and non-seller views unchanged", () => {
     expect(withSellerScopeIdentity(baseUser, null)).toBe(baseUser);
+  });
+});
+
+describe("useEffectivePortalUserState startup failure", () => {
+  it("stops resolving and returns an error without falling back to backend permissions", async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    localStorage.setItem('timan.activeMode.bp@timan.dk', 'JTN');
+    maybeSingle.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const { result } = renderHook(() => useEffectivePortalUserState(baseUser));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+
+    expect(result.current.resolving).toBe(false);
+    expect(result.current.effectiveUser).toBeNull();
   });
 });

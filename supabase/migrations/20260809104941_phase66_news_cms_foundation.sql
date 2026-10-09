@@ -28,7 +28,6 @@ create table if not exists public.news_posts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 alter table public.news_posts
   add column if not exists template_id text not null default 'legacy_card',
   add column if not exists status text not null default 'draft',
@@ -41,9 +40,7 @@ alter table public.news_posts
   add column if not exists published_by uuid references public.app_users(id) on delete set null,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
-
 alter table public.news_posts alter column published_at drop not null;
-
 do $$
 begin
   if not exists (
@@ -57,7 +54,6 @@ begin
       check (status in ('draft', 'published', 'archived'));
   end if;
 end $$;
-
 do $$
 begin
   if not exists (
@@ -81,25 +77,18 @@ begin
       );
   end if;
 end $$;
-
 create index if not exists news_posts_public_idx
   on public.news_posts (is_active, status, published_at desc);
-
 create index if not exists news_posts_template_idx
   on public.news_posts (template_id);
-
 create index if not exists news_posts_updated_idx
   on public.news_posts (updated_at desc);
-
 create index if not exists news_posts_localized_content_gin
   on public.news_posts using gin (localized_content);
-
 alter table public.news_posts enable row level security;
-
 revoke all on table public.news_posts from anon, authenticated;
 grant select on table public.news_posts to anon, authenticated;
 grant insert, update on table public.news_posts to authenticated;
-
 do $$
 begin
   if not exists (
@@ -116,7 +105,6 @@ begin
       using (is_active = true and status = 'published');
   end if;
 end $$;
-
 do $$
 begin
   if not exists (
@@ -133,7 +121,6 @@ begin
       using (true);
   end if;
 end $$;
-
 do $$
 begin
   if not exists (
@@ -150,7 +137,6 @@ begin
       with check (true);
   end if;
 end $$;
-
 do $$
 begin
   if not exists (

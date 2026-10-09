@@ -23,18 +23,13 @@ create table if not exists public.crm_2620_trials (
   constraint crm_2620_trials_phone_required check (length(trim(phone)) > 0),
   constraint crm_2620_trials_email_required check (length(trim(email)) > 0)
 );
-
 create index if not exists crm_2620_trials_created_at_idx
   on public.crm_2620_trials (created_at desc);
-
 create index if not exists crm_2620_trials_responsible_seller_email_idx
   on public.crm_2620_trials (lower(responsible_seller_email))
   where responsible_seller_email is not null;
-
 alter table public.crm_2620_trials enable row level security;
-
 grant select, insert on public.crm_2620_trials to authenticated;
-
 create or replace function public.crm_2620_trials_touch_updated_at()
 returns trigger
 language plpgsql
@@ -44,21 +39,18 @@ begin
   return new;
 end;
 $$;
-
 drop policy if exists "crm_2620_trials_authenticated_select" on public.crm_2620_trials;
 create policy "crm_2620_trials_authenticated_select"
   on public.crm_2620_trials
   for select
   to authenticated
   using (true);
-
 drop policy if exists "crm_2620_trials_authenticated_insert" on public.crm_2620_trials;
 create policy "crm_2620_trials_authenticated_insert"
   on public.crm_2620_trials
   for insert
   to authenticated
   with check (true);
-
 drop trigger if exists crm_2620_trials_touch_updated_at on public.crm_2620_trials;
 create trigger crm_2620_trials_touch_updated_at
   before update on public.crm_2620_trials

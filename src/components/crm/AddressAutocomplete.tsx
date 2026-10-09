@@ -25,14 +25,16 @@ import {
 
 export type { ResolvedAddress } from '@/lib/addressAutocomplete';
 
-const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
 const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
 const GOOGLE_PLACES_KEY = (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined) || '';
+// Retained only while Lovable is the pilot fallback. Vercel uses the standard
+// Google browser-key variables above.
+const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
 
-const API_KEY = LOVABLE_KEY || GOOGLE_MAPS_KEY || GOOGLE_PLACES_KEY || '';
-const KEY_SOURCE: string | null = LOVABLE_KEY ? 'VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'
-  : GOOGLE_MAPS_KEY ? 'VITE_GOOGLE_MAPS_API_KEY'
+const API_KEY = GOOGLE_MAPS_KEY || GOOGLE_PLACES_KEY || LOVABLE_KEY || '';
+const KEY_SOURCE: string | null = GOOGLE_MAPS_KEY ? 'VITE_GOOGLE_MAPS_API_KEY'
   : GOOGLE_PLACES_KEY ? 'VITE_GOOGLE_PLACES_API_KEY'
+  : LOVABLE_KEY ? 'VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'
   : null;
 
 let warnedMissingKey = false;
@@ -42,7 +44,7 @@ function loadPlaces(): Promise<boolean> {
   if (!API_KEY) {
     if (!warnedMissingKey && typeof console !== 'undefined') {
       warnedMissingKey = true;
-      console.warn('Google Places autocomplete disabled: missing VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY or VITE_GOOGLE_MAPS_API_KEY');
+      console.warn('Google Places autocomplete disabled: missing VITE_GOOGLE_MAPS_API_KEY or VITE_GOOGLE_PLACES_API_KEY');
     }
     return Promise.resolve(false);
   }

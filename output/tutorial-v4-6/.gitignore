@@ -1,0 +1,16 @@
+# Local archive and generated media; keep locally, never push customer-visible recordings.
+*.mp4
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.ttf
+hyperframes-mobile/assets/
+hyperframes-mobile/index.html
+hyperframes-mobile/v4-6-timeline.json
+replacement-audit.json
+tall-machine-probe.json
+profile/
+storage-state*.json
+*auth*.json
+*.local

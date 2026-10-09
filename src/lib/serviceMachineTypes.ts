@@ -1,6 +1,6 @@
 /**
- * Central list of supported machine types for the
- * "Service registrering og vedligehold" module.
+ * Central list of supported machine types for service registration and
+ * audited Machine Registry corrections.
  *
  * Keep this list as the single source of truth — do not hardcode
  * machine type strings elsewhere. The `basisKey` links a machine type
@@ -26,6 +26,7 @@ export interface ServiceMachineType {
 
 export const SERVICE_MACHINE_TYPES: ServiceMachineType[] = [
   { value: 'RC-1000',          label: 'RC-1000',          basisKey: 'rc1000' },
+  { value: 'RC-1000s',         label: 'RC-1000s',         basisKey: 'rc1000' },
   { value: 'RC-751',           label: 'RC-751',           basisKey: 'rc751' },
   { value: 'Timan 3330',       label: 'Timan 3330',       basisKey: 'timan3330' },
   { value: 'Timan 2620',       label: 'Timan 2620' },
@@ -37,6 +38,13 @@ export function findServiceMachineType(value: string | null | undefined): Servic
   if (!value) return undefined;
   const v = value.trim().toLowerCase();
   return SERVICE_MACHINE_TYPES.find((m) => m.value.toLowerCase() === v);
+}
+
+export function resolveMachineModelCorrectionValue(
+  correctedModel: string | null | undefined,
+  sourceModel: string | null | undefined,
+): string {
+  return correctedModel?.trim() || sourceModel?.trim() || '';
 }
 
 /**

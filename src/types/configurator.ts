@@ -1,10 +1,40 @@
 // Types for the Timan machine configurator
+import type { CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
+import type { Currency } from '@/lib/currency';
+import type { ConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 export type DocumentType = 'quote' | 'order';
 export type FlowType = 'quote' | 'order';
 export type DeliveryMethod = 'pickup' | 'send' | 'deliver';
 export type ConfigMode = 'shared' | 'individual';
 export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
+export type ConfiguratorLocale = Language | 'sv' | 'fr' | 'pl' | 'cs';
+export type ConfiguratorCustomerMode = 'dealer' | 'manual';
+export type ConfiguratorSalesChannel = 'standard' | 'sales_stock_demo';
+export type SalesStockPricingMethod = 'adjusted_base' | 'sales_stock_discount';
+
+export interface SalesStockAssetSnapshot {
+  sourceAssetId: string;
+  assetInstanceId: string;
+  itemNumber: string;
+  catalogItemNumber: string;
+  itemText: string;
+  itemType: 'machine' | 'equipment';
+  serialNumber: string | null;
+  brikNumber: number | null;
+  warehouseLocationCode: string;
+  warehouseLocationName: string | null;
+  accountNumber: string | null;
+  sourceOrderNumber: string | null;
+  classification: string;
+  configuratorUnitNumber: number;
+  originalListPrice: number;
+  pricingCurrency: Currency;
+  pricingMethod: SalesStockPricingMethod;
+  adjustedBasePrice: number | null;
+  salesStockDiscountPct: number | null;
+  pricingReason: string;
+}
 
 // Role system
 export type UserRole = 'slutkunde' | 'partner' | 'timan_saelger';
@@ -63,6 +93,8 @@ export interface MachineDetails {
   main: LocalizedString;
   bullets: Record<string, string[]>;
   dimensions: TechSpec[];
+  overviewImageUrls?: string[];
+  preferCanonicalDimensions?: boolean;
 }
 
 export interface MediaLink {
@@ -83,6 +115,10 @@ export interface SubItem {
   specs?: TechSpec[];
   subItems?: SubItem[];
   isNew?: boolean;
+  /** Canonical relation metadata used by the shared Configurator hierarchy. */
+  group?: string;
+  relationType?: 'variant' | 'option';
+  variantLabelKey?: string;
 }
 
 export interface Accessory {
@@ -106,8 +142,14 @@ export interface Accessory {
   images?: MediaLink[];
   specs?: TechSpec[];
   subItems?: SubItem[];
-  looseToolMachine?: 'RC-1000S' | 'Timan 3330' | 'Timan 2620';
+  looseToolMachine?: 'RC-751' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620' | 'Loader Line';
+  /** Original catalog identity for newly exposed loose-tool presentation aliases. */
+  sourceMachineType?: string;
   isNew?: boolean;
+  /** Non-commercial family node. It is never persisted or priced as a line. */
+  isProductGroup?: boolean;
+  relationType?: 'variant' | 'option';
+  variantLabelKey?: string;
 }
 
 export interface Machine {
@@ -134,15 +176,108 @@ export interface MachineConfig {
   acc: string[]; // selected accessory ids (for shared mode)
 }
 
+/** Transaction snapshot for one physical unit; never writes dealer masterdata. */
+export interface MachineDeliveryAddress {
+  mode: 'dealer' | 'manual' | 'customer';
+  company: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  contactPerson: string;
+  phone: string;
+  note: string;
+}
+
+/**
+ * Immutable unit-price baseline captured when an order is submitted. Keeping it
+ * with the saved Configurator state means a later catalogue change cannot alter
+ * a submitted order simply because Backend opens it again.
+ */
+export interface ConfiguratorPricingSnapshot {
+  version: 1;
+  capturedAt: string;
+  /** Currency identity for every monetary value in this snapshot. */
+  currency?: Currency;
+  /** Read-only legacy document: only persisted totals are known, not line prices. */
+  totalsOnly?: boolean;
+  /** Absent on legacy snapshots, which remain frozen. */
+  discountEngineVersion?: 2;
+  /** Netto exclusion applies only to new commercial snapshots. */
+  nettoPricingVersion?: 1;
+  discountDetails?: DiscountDetail[];
+  deliveryDiscounts?: MachineDeliveryDiscount[];
+  campaignLines?: CampaignLineSnapshot[];
+  prices: Record<string, number>;
+  /** Commercial identity captured with the price, not live Marketing copy. */
+  names?: Record<string, string>;
+  /** Frozen commercial lines; older snapshots are reconstructed from active units only. */
+  lines?: {
+    unitNumber?: number;
+    itemNo: string;
+    description: string;
+    note: string;
+    purchaseReferences?: string[];
+    unitPrice: number;
+    quantity: number;
+    total: number;
+    /** Exact line allocation captured by the canonical pricing engine. */
+    finalNetAmount?: number;
+    discountApplications?: ConfiguratorLineDiscountApplication[];
+  }[];
+  /** Price-relevant state only; customer/contact edits keep this unchanged. */
+  signature?: string;
+  totals?: {
+    subtotal: number;
+    totalDiscount: number;
+    finalPrice: number;
+  };
+}
+
+export interface ConfiguratorLineDiscountApplication {
+  kind: NonNullable<DiscountDetail['kind']>;
+  percent: number;
+  basis: number;
+  amount: number;
+}
+
+export interface ConfiguratorCommercialLine {
+  unitNumber?: number;
+  itemNo: string;
+  quantity: number;
+  unitPrice: number;
+  grossAmount: number;
+  finalNetAmount: number;
+  discountApplications: ConfiguratorLineDiscountApplication[];
+}
+
 export interface ConfiguratorState {
   step: number;
   flowType: FlowType;
+  /** Normal catalogue sale or a sale tied to immutable physical Fabric assets. */
+  salesChannel?: ConfiguratorSalesChannel;
+  /** Physical asset snapshots used only when salesChannel is sales_stock_demo. */
+  salesStockAssets?: SalesStockAssetSnapshot[];
+  /** Explicit document-wide commercial pricing mode. Legacy states default to partner pricing. */
+  pricingMode?: 'partner' | 'direct';
+  /** Canonical type of the commercial account used for pricing and campaign eligibility. */
+  partnerAccountType?: ConfiguratorPartnerAccountType;
+  /** Explicit configuration-wide opt-out from otherwise eligible campaign pricing. */
+  campaignDisabled?: boolean;
+  /** Presentation locale only. It must never select prices or capabilities. */
+  locale?: ConfiguratorLocale;
+  /** Canonical commercial currency, independent from the presentation locale. */
+  currency?: Currency;
   language: Language;
   machineConfigs: MachineConfig[];
   individualUnitConfigs: Record<string, { acc: string[] }>;
   ralCodes: Record<string, string>;
   accQty: Record<string, number>;
   date: string;
+  /** Stable unit date overrides; quantity items append _item_<accessory id>_<ordinal>. */
+  machineDeliveryDates?: Record<string, string>;
+  /** Existing configuration snapshot, keyed by stable machine id + unit ordinal. */
+  machineDeliveryAddresses?: Record<string, MachineDeliveryAddress>;
   deliveryMethod: DeliveryMethod | '';
   deliveryDeliverStartup: string | null;
   manualDealerDiscountPct: number;
@@ -163,10 +298,32 @@ export interface ConfiguratorState {
   telefon: string;
   email: string;
   emailRecipient: string;
+  /** The visible contact snapshot source. Dealer assignment remains separate. */
+  customerMode: ConfiguratorCustomerMode;
+  manualCustomerDraft: Pick<ConfiguratorState, 'firmanavn' | 'kontaktperson' | 'telefon' | 'emailRecipient' | 'address' | 'postalCode' | 'city' | 'country'>;
+  dealerCustomerData: Pick<ConfiguratorState, 'firmanavn' | 'kontaktperson' | 'telefon' | 'emailRecipient' | 'address' | 'postalCode' | 'city' | 'country'>;
+  dealerContactId: string;
+  // Administrative customer details share the persisted Configurator state
+  // with both quotes and submitted orders.
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  alternativeDeliveryAddress: string;
+  /** Transaction-specific delivery destination. Customer/dealer masterdata stays separate. */
+  useAlternativeDeliveryAddress?: boolean;
+  alternativeDeliveryPostalCode?: string;
+  alternativeDeliveryCity?: string;
+  alternativeDeliveryCountry?: string;
+  alternativeDeliveryContactPerson?: string;
+  alternativeDeliveryPhone?: string;
+  alternativeDeliveryNote?: string;
+  purchaseOrderNumber: string;
   comment: string;
   internalNote: string;
   // Phase 27 — Information only, never affects totals.
   paymentTerms?: string;
+  pricingSnapshot?: ConfiguratorPricingSnapshot;
   // Phase 5 — Optional customer needs answered before recommendations.
   // Imported as a structural shape to avoid a circular type import.
   customerNeeds?: {
@@ -178,7 +335,15 @@ export interface ConfiguratorState {
 }
 
 export interface LineItem {
+  isNetto?: boolean;
+  campaign?: CampaignLineSnapshot;
   txt: string;
+  /** Canonical localized product description without generated quantity text. */
+  description?: string;
+  /** Canonical line quantity. Subtotal/header rows intentionally omit it. */
+  quantity?: number;
+  /** Canonical price per unit. `price` remains the existing line total. */
+  unitPrice?: number;
   price: number;
   varenr: string;
   bold?: boolean;
@@ -195,12 +360,20 @@ export interface LineItem {
 }
 
 export interface DiscountDetail {
+  kind?: 'demo' | 'base' | 'sales_stock_base' | 'sales_stock' | 'delivery' | 'quantity' | 'dealer' | 'campaign' | 'direct';
+  percent?: number;
+  basis?: number;
+  campaignId?: string;
   txt: string;
   amount: number;
   varenr?: string;
 }
 
 export interface CalcResult {
+  /** Included in subtotal/currentPrice but never in any discount basis. */
+  nettoTotal?: number;
+  campaignLines?: CampaignLineSnapshot[];
+  deliveryDiscounts?: MachineDeliveryDiscount[];
   lineItems: LineItem[];
   subtotal: number;
   discountDetails: DiscountDetail[];
@@ -208,6 +381,16 @@ export interface CalcResult {
   currentPrice: number;
   totalPct: number;
   qtyPct: number;
+  commercialLines?: ConfiguratorCommercialLine[];
+}
+
+export interface MachineDeliveryDiscount {
+  unitNumber: number;
+  date: string;
+  overridden: boolean;
+  percent: number;
+  basis: number;
+  amount: number;
 }
 
 export interface MachineUnit {

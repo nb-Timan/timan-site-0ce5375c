@@ -1,0 +1,62 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "testRecipient": "test+timan@example.com",
+  "submitted": false,
+  "events": [
+    {
+      "name": "tutorial-start",
+      "seconds": 1.48
+    },
+    {
+      "name": "machine-selected",
+      "seconds": 5.763
+    },
+    {
+      "name": "delivery-discount",
+      "seconds": 10.909
+    },
+    {
+      "name": "quantity-discount",
+      "seconds": 17.05
+    },
+    {
+      "name": "equipment-start",
+      "seconds": 22.852
+    },
+    {
+      "name": "equipment-selected",
+      "seconds": 36.808
+    },
+    {
+      "name": "centerslange-open",
+      "seconds": 37.471
+    },
+    {
+      "name": "centerslange-added",
+      "seconds": 41.843
+    },
+    {
+      "name": "assignment-start",
+      "seconds": 43.931
+    },
+    {
+      "name": "customer-ready",
+      "seconds": 51.751
+    },
+    {
+      "name": "order-selected",
+      "seconds": 52.942
+    },
+    {
+      "name": "confirmation-open",
+      "seconds": 56.41
+    },
+    {
+      "name": "recording-end",
+      "seconds": 63.419
+    }
+  ]
+}

@@ -7,7 +7,6 @@ values ('crm-lead-attachments', 'crm-lead-attachments', false, 10485760)
 on conflict (id) do update
 set public = false,
     file_size_limit = excluded.file_size_limit;
-
 create or replace function public.can_access_crm_lead_attachment(object_name text)
 returns boolean
 language sql
@@ -41,16 +40,13 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_access_crm_lead_attachment(text) from public;
 revoke all on function public.can_access_crm_lead_attachment(text) from anon;
 grant execute on function public.can_access_crm_lead_attachment(text) to authenticated;
-
 drop policy if exists "crm_lead_attachments_select_authenticated" on storage.objects;
 drop policy if exists "crm_lead_attachments_insert_authenticated" on storage.objects;
 drop policy if exists "crm_lead_attachments_update_authenticated" on storage.objects;
 drop policy if exists "crm_lead_attachments_delete_authenticated" on storage.objects;
-
 create policy "crm_lead_attachments_select_authenticated"
 on storage.objects
 for select
@@ -59,7 +55,6 @@ using (
   bucket_id = 'crm-lead-attachments'
   and public.can_access_crm_lead_attachment(name)
 );
-
 create policy "crm_lead_attachments_insert_authenticated"
 on storage.objects
 for insert
@@ -68,7 +63,6 @@ with check (
   bucket_id = 'crm-lead-attachments'
   and public.can_access_crm_lead_attachment(name)
 );
-
 create policy "crm_lead_attachments_update_authenticated"
 on storage.objects
 for update
@@ -81,7 +75,6 @@ with check (
   bucket_id = 'crm-lead-attachments'
   and public.can_access_crm_lead_attachment(name)
 );
-
 create policy "crm_lead_attachments_delete_authenticated"
 on storage.objects
 for delete

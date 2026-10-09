@@ -6,6 +6,8 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDealerScope } from '@/lib/dealerScope';
 import MiscPageShell from './MiscPageShell';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { Language } from '@/types/configurator';
 import {
   PortalFormType,
@@ -36,6 +38,8 @@ interface Props {
   onReset?: () => void;
   /** Inputs / fields. */
   children: ReactNode;
+  /** Canonical dealer selected by a form. External users remain locked to their own account. */
+  dealerSelection?: { accountNumber: string | null; companyName: string | null };
 }
 
 export default function FormSubmitShell({
@@ -46,8 +50,11 @@ export default function FormSubmitShell({
   buildPayload,
   onReset,
   children,
+  dealerSelection,
 }: Props) {
-  const { appUser } = useAppUser();
+  const { appUser: sessionUser } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
   const scope = useDealerScope({ requireDealer });
@@ -57,12 +64,12 @@ export default function FormSubmitShell({
   // Eksterne brugere låses ALTID til egen dealer_number (uanset requireDealer).
   // Interne Timan-roller bruger evt. appUser.dealer_number som fallback,
   // men kan have egen dropdown længere oppe i deres egen form (ikke her).
-  const dealerNumber = scope.isExternalDealerUser
+  const dealerNumber = !academyMode && scope.isExternalDealerUser
     ? scope.lockedDealerNumber
-    : appUser?.dealer_number ?? null;
-  const dealerName = scope.isExternalDealerUser
+    : dealerSelection?.accountNumber ?? appUser?.dealer_number ?? null;
+  const dealerName = !academyMode && scope.isExternalDealerUser
     ? scope.lockedDealerName
-    : appUser?.company_dealer ?? null;
+    : dealerSelection?.companyName ?? appUser?.company_dealer ?? null;
   const missingDealer = requireDealer && !dealerNumber;
 
   async function handleSubmit(e: FormEvent) {
@@ -72,7 +79,8 @@ export default function FormSubmitShell({
     if (!payload) return; // validation handled by child fields
     setSubmitting(true);
     try {
-      const row = await submitPortalForm({
+      const submit = academyMode ? academyPartnerDataSandbox.submitInvoice : submitPortalForm;
+      const row = await submit({
         form_type: formType,
         dealer_account_number: dealerNumber,
         dealer_name: dealerName,
@@ -90,6 +98,7 @@ export default function FormSubmitShell({
 
   return (
     <MiscPageShell title={title} intro={intro} backTo="/portal/misc/forms">
+      <AcademyPartnerDataGuidance />
       <div className="max-w-3xl">
         {receipt ? (
           <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">

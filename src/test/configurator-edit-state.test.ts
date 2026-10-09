@@ -14,11 +14,21 @@ describe('configurator saved edit state', () => {
     expect(code).toContain('const flowType = deriveEditableFlowType(row)');
   });
 
+  it('does not apply the submitted-order totals-only lock to a sent offer', () => {
+    const pricing = readFileSync('src/lib/configuratorPricing.ts', 'utf8');
+    expect(pricing).toContain('const sentAt = row.order_sent_at || row.submitted_at;');
+    expect(pricing).not.toContain('row.order_sent_at || row.submitted_at || row.quote_sent_at');
+    expect(pricing).toContain('A sent quote is still an editable working case');
+  });
+
   it('saves edits back to the same canonical row using the current flow type', () => {
     const code = source();
-    expect(code).toContain('document_type: state.flowType');
-    expect(code).toContain('case_type: state.flowType');
-    expect(code).toContain('state_json: state');
+    expect(code).not.toContain('existingRowLoaded && !submittedOrder && !stateForPersistence.pricingSnapshot');
+    expect(code).toContain('existingQuote && !submittedOrder && !stateForPersistence.pricingSnapshot');
+    expect(code).toContain('quote snapshot refresh failed');
+    expect(code).toContain('document_type: stateForPersistence.flowType');
+    expect(code).toContain('case_type: stateForPersistence.flowType');
+    expect(code).toContain('state_json: stateForPersistence');
   });
 
   it('uses full state_json as the canonical selected-item source before stale item rows', () => {
@@ -42,5 +52,15 @@ describe('configurator saved edit state', () => {
     expect(code).toContain('loadConfigurationById(item.id, accountScopeEmail)');
     expect(code).toContain('resolveHideScopeForCurrentUser(accountScopeEmail)');
     expect(configuratorSource()).toContain('appUser={effectiveUser ?? appUser}');
+  });
+
+  it('allows only the effective Backend role to choose a historical delivery date', () => {
+    const code = configuratorSource();
+    const picker = readFileSync('src/components/configurator/ConfiguratorDeliveryDatePicker.tsx', 'utf8');
+    const delivery = readFileSync('src/lib/configuratorDelivery.ts', 'utf8');
+    expect(code).toContain("const canSelectPastDeliveryDate = activePortalRole === 'timan_backend';");
+    expect(code).toContain('canSelectPastDate={canSelectPastDeliveryDate}');
+    expect(picker).toContain('isDeliveryDateDisabled(date, canSelectPastDate)');
+    expect(delivery).toContain('if (canSelectPastDate) return false;');
   });
 });

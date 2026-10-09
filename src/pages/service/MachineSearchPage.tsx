@@ -4,13 +4,18 @@
  * Shows tabs; Overblik and Service tickets render real data — others are placeholders.
  */
 import React, { useEffect, useRef, useState } from "react";
+import { academySandbox } from '@/lib/academySandbox';
+import { getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { getAcademyMachinePage, scopedAcademyMachines } from '@/lib/academyMachineSandbox';
+import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
+import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
 import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
+import { useEffectivePortalUserState, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import type { RegistryMachineRow } from "@/lib/machineRegistryPageService";
@@ -22,6 +27,7 @@ import { LegacyMachineImportPanel } from "@/components/service/LegacyMachineImpo
 import { type MachineSortDirection, type MachineSortKey, type WarrantyTypeFilter } from "@/lib/machineOverviewFilters";
 import { fetchMachineRegistryPage } from "@/lib/machineRegistryPageService";
 import { warrantyMatchDetailCopy, warrantyMatchStatusCopy, type WarrantyMatchStatus } from "@/lib/warrantyMatchStatus";
+import { teknikScopeIdentityKey } from "@/lib/useTeknikScope";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -235,10 +241,19 @@ export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser: resolvedUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const academyMode = academySandbox.isActive() && academySandbox.getActiveCase() === 'service.case_1_machine_history';
+  const effectiveUser = resolvedUser ?? (academyMode && import.meta.env.DEV ? getLocalAcademyUser() : null);
 
   const portalRole = derivePortalRole(effectiveUser);
   const isInternal = portalRole === "timan_backend" || portalRole === "timan_seller" || portalRole === "timan_service";
+  const sellerView = getActiveSellerView(appUser?.email);
+  const scopeRole = sellerView ? "timan_seller" : portalRole;
+  const scopeIdentity = [
+    teknikScopeIdentityKey(effectiveUser),
+    scopeRole ?? "",
+    sellerView?.email ?? "",
+  ].join("|");
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -286,7 +301,7 @@ export default function MachineSearchPage() {
 
   // Restore persisted UI state (filters, page, scroll) so users returning
   // from Min Maskine land back exactly where they left off.
-  const initialSaved = React.useRef(readMachineSearchState()).current;
+  const initialSaved = React.useRef(academyMode ? null : readMachineSearchState()).current;
   const [overviewPage, setOverviewPage] = useState(initialSaved?.page ?? 1);
   const PAGE_SIZE_OPTIONS: Array<number | "all"> = [50, 100, 200, 300, 400, "all"];
   const [pageSize, setPageSize] = useState<number | "all">(initialSaved?.pageSize ?? 50);
@@ -310,29 +325,27 @@ export default function MachineSearchPage() {
   }, []);
 
   useEffect(() => {
-    if (!appUser) return;
+    if ((!appUser && !academyMode) || resolvingEffectiveUser || !effectiveUser) return;
     let cancelled = false;
     (async () => {
       setOverviewLoading(true);
       setOverviewError(null);
       try {
-        const sellerView = getActiveSellerView(appUser.email);
-        const scopeRole = sellerView ? "timan_seller" : portalRole;
         const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
-        const scope = await buildJournalScope(scopeUser, scopeRole);
+        const scope = academyMode ? null : await buildJournalScope(scopeUser, scopeRole);
         // The backend session remains authenticated as backend during View-as.
         // This list is therefore only a narrowing filter; the RPC still runs
         // under RLS and never accepts it as an authorization grant.
-        const allowedDealers = scope.unrestricted
+        const allowedDealers = scope?.unrestricted
           ? (sellerView ? Array.from(scope.dealerNumbers) : null)
-          : Array.from(scope.dealerNumbers);
-        const result = await fetchMachineRegistryPage({
+          : Array.from(scope?.dealerNumbers ?? []);
+        const input = {
           allowedDealers,
           query,
           dealer: dealerQuery,
           model: modelFilter,
           warrantyType: warrantyTypeFilter,
-          health: 'all',
+          health: 'all' as const,
           warrantyMatch: warrantyMatchFilter,
           dateFrom,
           dateTo,
@@ -340,7 +353,11 @@ export default function MachineSearchPage() {
           direction: sortDirection,
           page: overviewPage,
           pageSize: pageSize === "all" ? 2000 : pageSize,
-        });
+        };
+        const result = academyMode
+          ? await Promise.resolve(getAcademyMachinePage(effectiveUser, input))
+          : await fetchMachineRegistryPage(input);
+        if (academyMode && !cancelled) academySandbox.trackMachineAction('search-open');
         if (!cancelled) {
           setOverview(result.rows);
           setOverviewTotal(result.total);
@@ -359,7 +376,24 @@ export default function MachineSearchPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, portalRole, query, dealerQuery, modelFilter, warrantyTypeFilter, warrantyMatchFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
+    // `effectiveUser` is a new object on every View-as render. scopeIdentity
+    // contains every identity field used by buildJournalScope, so it prevents
+    // the refetch loop without keeping a stale dealer scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUser, resolvingEffectiveUser, scopeIdentity, academyMode, query, dealerQuery, modelFilter, warrantyTypeFilter, warrantyMatchFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
+
+  // Do not leave Backend rows on screen while a concrete View-as account is
+  // resolving or after the user changes preview scope.
+  useEffect(() => {
+    setOverview([]);
+    setOverviewTotal(0);
+    setOverviewScopeTotal(0);
+    setOverviewNormal(0);
+    setOverviewHistorical(0);
+    setOverviewApproved(0);
+    setOverviewNeedsClarification(0);
+    setOverviewMissingWarrantyAndDealer(0);
+  }, [scopeIdentity]);
 
   // After the overview has rendered the first time, restore scroll position.
   useEffect(() => {
@@ -372,6 +406,10 @@ export default function MachineSearchPage() {
   }, [overviewLoading]);
 
   const openMachine = React.useCallback((serial: string) => {
+    if (academyMode) {
+      navigate(`/portal/service/machines/${encodeURIComponent(serial)}?academy_mode=true`);
+      return;
+    }
     saveMachineSearchState({
       query,
       dealerQuery,
@@ -385,16 +423,16 @@ export default function MachineSearchPage() {
       lastOpenedSerial: serial,
     });
     navigate(`/portal/service/machines/${encodeURIComponent(serial)}`);
-  }, [query, dealerQuery, dateFrom, dateTo, modelFilter, overviewPage, pageSize, navigate]);
-
-  if (!appUser) {
-    navigate("/portal", { replace: true });
-    return null;
-  }
+  }, [query, dealerQuery, dateFrom, dateTo, modelFilter, overviewPage, pageSize, navigate, academyMode]);
 
   const handleSearch = async () => {
     const q = query.trim();
-    if (!q) return;
+    if (academyMode) {
+      academySandbox.trackMachineAction('search', q);
+      setOverviewPage(1);
+      return;
+    }
+    if (!q || resolvingEffectiveUser || !effectiveUser) return;
     setLoading(true);
     setError(null);
     setSearched(true);
@@ -404,7 +442,8 @@ export default function MachineSearchPage() {
     setTicketsError(null);
     setActiveTab("overview");
     try {
-      const scope = await buildJournalScope(appUser, portalRole);
+      const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
+      const scope = await buildJournalScope(scopeUser, scopeRole);
       const result = await findMachineByIdentifier(q);
       // Belt+suspenders: drop machine row that the dealer scope does not allow.
       const allowed = result && (scope.unrestricted
@@ -427,7 +466,6 @@ export default function MachineSearchPage() {
         const hits = await searchMachinesByIdentifier(q, scope, dbg);
         setCrossHits(hits);
         setSearchDebug(dbg);
-        // eslint-disable-next-line no-console
         console.info("[MachineSearch] debug", dbg);
       } catch (sErr) {
         console.warn("[MachineSearch] cross-source search failed", sErr);
@@ -600,16 +638,26 @@ export default function MachineSearchPage() {
   const dealerLabel = (m: MachineRecord) =>
     m.dealer_name || m.dealer_number || dash;
 
+  if (!appUser && !academyMode) {
+    navigate("/portal", { replace: true });
+    return null;
+  }
+
+  if (resolvingEffectiveUser || !effectiveUser) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="h-4 w-4 animate-spin text-slate-500" /></div>;
+  }
+
   return (
     <div className="tk-scale-up min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader
-        user={appUser}
+        user={appUser ?? effectiveUser}
         language={lang}
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
       />
 
       <main className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-6 py-10 flex-1 w-full">
+        {academyMode && <AcademyMachineGuidance />}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2d5a27]/10 text-[#2d5a27]">
@@ -620,7 +668,7 @@ export default function MachineSearchPage() {
             <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
           </div>
           </div>
-          {(portalRole === "timan_backend" || portalRole === "timan_service") && (
+          {!academyMode && (portalRole === "timan_backend" || portalRole === "timan_service") && (
             <LegacyMachineImportPanel onCompleted={() => window.location.reload()} />
           )}
         </div>
@@ -630,7 +678,7 @@ export default function MachineSearchPage() {
           {(() => {
             const modelOptions = Array.from(
               new Set(
-                overview
+                (academyMode ? scopedAcademyMachines(effectiveUser) : overview)
                   .map(r => (r.machineModel || "").trim())
                   .filter(m => m.length > 0)
               )
@@ -657,16 +705,19 @@ export default function MachineSearchPage() {
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Serienr. / Maskinnr.</label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <AcademyHintTarget targetKey="academy-machine-search" activeTargetKey={academyMode && !academySandbox.getServiceCase1().targetSearched ? 'academy-machine-search' : null}>
                       <input
                         type="text"
                         value={query}
                         onChange={(e) => {
                           setQuery(e.target.value);
+                          if (academyMode) academySandbox.trackMachineAction('search', e.target.value);
                           debouncedSetPage(queryDebounceRef);
                         }}
                         placeholder={T.placeholder[lang]}
                         className="w-full h-10 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]"
                       />
+                      </AcademyHintTarget>
                     </div>
                   </div>
                   <div className="lg:col-span-2">

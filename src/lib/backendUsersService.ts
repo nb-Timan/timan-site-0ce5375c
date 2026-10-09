@@ -33,6 +33,7 @@ import {
 import { defaultCanSubmitOrder, defaultCanViewPrices } from "@/lib/sessionPermissionDefaults";
 import { canonicalDisplayName, canonicalInitials } from "@/lib/canonicalUserIdentity";
 import { normalizeOrganizationAccessRole } from "@/lib/organizationAccess";
+import { canAssignSupportAccess } from "@/lib/supportAccess";
 
 export type BackendUsersSource = "supabase" | "fallback";
 
@@ -150,6 +151,9 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     backend_modules,
     organization_access_role: normalizeOrganizationAccessRole(row.organization_access_role as string | null),
     perms: {
+      ...(typeof perms.academy_track_sales === 'boolean' ? { academy_track_sales: perms.academy_track_sales } : {}),
+      ...(typeof perms.academy_track_service === 'boolean' ? { academy_track_service: perms.academy_track_service } : {}),
+      support_access: perms.support_access === true && isBackend,
       can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
       can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
       can_create_claims: perms.can_create_claims ?? !isBackend,
@@ -204,6 +208,30 @@ export async function fetchBackendUsers(): Promise<BackendUsersResult> {
   }
 }
 
+export async function fetchBackendUsersByDealerNumbers(
+  dealerNumbers: string[],
+): Promise<BackendUsersResult> {
+  const numbers = Array.from(new Set(dealerNumbers.map((value) => value.trim()).filter(Boolean)));
+  if (numbers.length === 0) return { source: "supabase", users: [] };
+
+  try {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("*")
+      .in("dealer_number", numbers)
+      .order("email", { ascending: true });
+    if (error) throw error;
+    return { source: "supabase", users: (data ?? []).map(rowToBackendUser) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      source: "fallback",
+      users: listFallbackUsers().filter((user) => numbers.includes(user.dealer_number ?? "")),
+      error: `Supabase ikke tilgængelig (${message}) — viser scoped preview-data.`,
+    };
+  }
+}
+
 export interface SaveResult {
   ok: boolean;
   source: BackendUsersSource;
@@ -244,8 +272,11 @@ export function isDealerSideRole(role: string | null | undefined): boolean {
   return !!role && (DEALER_SIDE_ROLES as string[]).includes(role);
 }
 
-function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): BackendUser["perms"] {
+export function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): BackendUser["perms"] {
   let next = perms;
+  if (!canAssignSupportAccess(role)) {
+    next = { ...next, support_access: false };
+  }
   if (isPaymentAndDiscountRestrictedRole(role)) {
     next = { ...next, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false };
   }
@@ -266,9 +297,19 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
  * via the Role dropdown in the editor.
  */
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
-  if (!isDealerSideRole(draft.role)) return { ...draft, organization_access_role: null };
+  if (!isDealerSideRole(draft.role)) {
+    const supportsLoans = ['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role);
+    return {
+      ...draft,
+      organization_access_role: null,
+      allowed_areas: supportsLoans
+        ? draft.allowed_areas
+        : draft.allowed_areas.filter((area) => area !== 'planning' && area !== 'loans'),
+    };
+  }
+  const supportsLoans = draft.role === 'timan_dealer' || draft.role === 'timan_service_partner';
   const allowed_areas = draft.allowed_areas.filter(
-    (a) => a !== "timan_backend",
+    (a) => a !== "timan_backend" && a !== "planning" && (supportsLoans || a !== "loans"),
   );
   const allowed_modules = draft.allowed_modules.filter(
     (m) => m !== "timan_backend",
@@ -471,7 +512,6 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   if (droppedColumns.length > 0) {
     // Developer-only warning — don't fail the save because optional
     // columns are missing from the live schema.
-    // eslint-disable-next-line no-console
     console.warn(
       `[backendUsersService] Skipped columns missing from public.app_users: ${droppedColumns.join(", ")}. ` +
       `Run the relevant phase2_backend_users.sql / phase3_crm_account_owner.sql migration to enable persistence.`,

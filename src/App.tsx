@@ -1,17 +1,30 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useRef, useState, type ComponentType } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { Component, Suspense, lazy as reactLazy, useEffect, useRef, useState, type ComponentType, type ErrorInfo, type ReactNode } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
+import { AcademyAccessProvider, useAcademyAccess } from "@/context/AcademyAccessContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import AcademyPortalBasicsStepSuccessModal from "@/components/academy/AcademyPortalBasicsStepSuccessModal";
+import AcademyCaseCompletionModalHost from "@/components/academy/AcademyCaseCompletionModalHost";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import VisitorTracker from "./components/portal/VisitorTracker";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getActiveSellerView, type SellerView } from "@/lib/activeMode";
 import { supabase } from "@/lib/supabase";
+import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
+import PublishedProductMasterBoundary from '@/components/PublishedProductMasterBoundary';
+import TimanSupportHost from '@/components/support/TimanSupportHost';
+import { PortalStartupFailure } from '@/components/PortalStartupBoundary';
+import {
+  attemptAutomaticChunkRecovery,
+  markFirstMeaningfulRender,
+  markPortalStartup,
+  setPortalStartupIdentity,
+} from '@/lib/portalStartupDiagnostics';
 
 function PreferredLanguageBootstrap() {
   const { appUser } = useAppUser();
@@ -88,9 +101,10 @@ function PreferredLanguageBootstrap() {
   return null;
 }
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
-import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
+import { DealerUserServiceGuard, PortalAreaAccessGuard } from "./components/guards/DealerUserServiceGuard";
 import AcademyCapabilityGuard from "./components/academy/AcademyCapabilityGuard";
 import AcademyAccessGuard from "./components/academy/AcademyAccessGuard";
+import AcademyTrackGuard from "./components/academy/AcademyTrackGuard";
 import PartnerDataRoute from "./pages/portal/PartnerDataRoute";
 import MarketingConfiguratorPage from "./pages/MarketingConfiguratorPage";
 
@@ -101,32 +115,31 @@ ensureAkrSeed();
 
 const queryClient = new QueryClient();
 
-const CRM_MY_DEALERS_CHUNK_RELOAD_KEY = "timan.crm-my-dealers.chunk-reload";
-
-function lazyWithDynamicImportRecovery<T extends ComponentType<any>>(
+function lazyWithDynamicImportRecovery<T extends ComponentType>(
   factory: () => Promise<{ default: T }>,
 ) {
-  return lazy(async () => {
+  return reactLazy(async () => {
     try {
-      const module = await factory();
-      sessionStorage.removeItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY);
-      return module;
+      return await factory();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const isStaleChunk = /failed to fetch dynamically imported module|importing a module script failed|loading chunk/i.test(message);
-
-      if (isStaleChunk && !sessionStorage.getItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY)) {
-        sessionStorage.setItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY, "1");
-        window.location.reload();
+      if (attemptAutomaticChunkRecovery(error)) {
         return new Promise<{ default: T }>(() => undefined);
       }
-
       throw error;
     }
   });
 }
 
+function lazy<T extends ComponentType>(factory: () => Promise<{ default: T }>) {
+  return lazyWithDynamicImportRecovery(factory);
+}
+
 const PortalPage = lazy(() => import("./pages/PortalPage"));
+const PlanningPage = lazy(() => import("./pages/PlanningPage"));
+const LoansPage = lazy(() => import("./pages/loans/LoansPage"));
+const LoanCasePage = lazy(() => import("./pages/loans/LoanCasePage"));
+const LoanAcceptancePage = lazy(() => import("./pages/loans/LoanAcceptancePage"));
+const LoanReturnPage = lazy(() => import("./pages/loans/LoanReturnPage"));
 const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
 const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
 const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
@@ -184,6 +197,7 @@ const BackendUsersPage = lazy(() => import("./pages/backend/BackendUsersPage"));
 const BackendRolesPage = lazy(() => import("./pages/backend/BackendRolesPage"));
 const BackendModuleAccessPage = lazy(() => import("./pages/backend/BackendModuleAccessPage"));
 const BackendAuditLogPage = lazy(() => import("./pages/backend/BackendAuditLogPage"));
+const BackendMailOverviewPage = lazy(() => import("./pages/backend/BackendMailOverviewPage"));
 const BackendPortalAnalyticsPage = lazy(() => import("./pages/backend/BackendPortalAnalyticsPage"));
 const BackendPersistenceAuditPage = lazy(() => import("./pages/backend/BackendPersistenceAuditPage"));
 const BackendDealerAccountsPage = lazy(() => import("./pages/backend/BackendDealerAccountsPage"));
@@ -200,6 +214,7 @@ const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesse
 const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
 const BackendVideoManagementPage = lazy(() => import("./pages/backend/BackendVideoManagementPage"));
 const BackendSystemMapPage = lazy(() => import("./pages/backend/BackendSystemMapPage"));
+const BackendAiSupportPage = lazy(() => import("./pages/backend/BackendAiSupportPage"));
 const BackendSectionPage = lazy(() => import("./pages/backend/BackendSectionPage"));
 
 const MiscPage = lazy(() => import("./pages/misc/MiscPage"));
@@ -224,10 +239,107 @@ const MessePartnerMapPage = lazy(() =>
 
 function RouteFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
-      Henter...
+    <div role="status" className="min-h-screen flex items-center justify-center bg-slate-50 px-6 text-sm text-slate-600">
+      Henter Timan Portal...
     </div>
   );
+}
+
+function PortalBootstrapGate({ children }: { children: ReactNode }) {
+  const { appUser, loading, startupError } = useAppUser();
+  const academyAccess = useAcademyAccess();
+  if (!loading && !appUser && startupError) return <PortalStartupFailure reference="AUTH" />;
+  if (academyAccess?.error) return <PortalStartupFailure reference="VIEW-AS" />;
+  return children;
+}
+
+function PortalStartupObserver() {
+  const { appUser, loading } = useAppUser();
+  const academyAccess = useAcademyAccess();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (loading || academyAccess?.resolving || academyAccess?.error) return;
+    const effectiveUser = academyAccess?.effectiveUser ?? appUser;
+    setPortalStartupIdentity({
+      userId: effectiveUser?.id ?? appUser?.id ?? null,
+      role: appUser?.portal_role ?? appUser?.role ?? null,
+      effectiveRole: effectiveUser?.portal_role ?? effectiveUser?.role ?? null,
+    });
+    markPortalStartup('permissions_resolved');
+    markPortalStartup('route_ready');
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      markPortalStartup('initial_data_ready');
+      secondFrame = window.requestAnimationFrame(markFirstMeaningfulRender);
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [academyAccess?.effectiveUser, academyAccess?.error, academyAccess?.resolving, appUser, loading, location.pathname]);
+
+  return null;
+}
+
+type ConfiguratorRouteErrorBoundaryProps = {
+  children: ReactNode;
+};
+
+type ConfiguratorRouteErrorBoundaryState = {
+  hasError: boolean;
+};
+
+/** Prevent incomplete historic snapshots from ever degrading into a blank route. */
+class ConfiguratorRouteErrorBoundary extends Component<
+  ConfiguratorRouteErrorBoundaryProps,
+  ConfiguratorRouteErrorBoundaryState
+> {
+  state: ConfiguratorRouteErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ConfiguratorRouteErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[ConfiguratorRoute] Failed to render reopened configuration", error, errorInfo);
+  }
+
+  retry = () => {
+    this.setState({ hasError: false });
+    window.location.reload();
+  };
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <section className="max-w-md space-y-3 text-center">
+          <h1 className="text-xl font-semibold">Konfigurationen kunne ikke åbnes</h1>
+          <p className="text-sm text-muted-foreground">
+            Den gemte konfiguration kunne ikke gendannes. Intet er blevet ændret.
+          </p>
+          <div className="flex justify-center gap-4">
+            <button
+              type="button"
+              className="text-sm font-medium underline"
+              onClick={this.retry}
+            >
+              Prøv igen
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium underline"
+              onClick={() => window.history.back()}
+            >
+              Tilbage
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 }
 
 const App = () => (
@@ -236,17 +348,22 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+      <PublishedProductMasterBoundary>
         <AppUserProvider>
+          <AcademyAccessProvider>
           <LanguageProvider>
+            <PortalBootstrapGate>
+            <AcademyCaseCompletionModalHost />
+            <AcademyPortalBasicsStepSuccessModal />
             <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <><AcademyTrackGuard><Routes>
               {/* Public Messe / exhibition routes (no auth required) */}
               <Route path="/messe" element={<MesseRouteGuard><MesseHomePage /></MesseRouteGuard>} />
               <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
               <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
-              <Route path="/messe/follow-up" element={<MesseRouteGuard blockDealerUser><MesseFollowUpPage /></MesseRouteGuard>} />
+              <Route path="/messe/follow-up" element={<MesseRouteGuard><MesseFollowUpPage /></MesseRouteGuard>} />
               <Route path="/messe/rc-751" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-751" productId="RC-751" title="Timan RC-751" pdfSrc="/brochures/rc-751-da.pdf" pageBase="/brochures/pages/rc-751" pageCount={13} /></MesseRouteGuard>} />
               <Route path="/messe/rc-1000s" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-1000s" productId="RC-1000S" title="Timan RC-1000s" pdfSrc="/brochures/rc-1000s-da.pdf" pageBase="/brochures/pages/rc-1000s" pageCount={13} /></MesseRouteGuard>} />
               <Route path="/messe/timan-2620" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="timan-2620" title="Timan 2620" pdfSrc="/brochures/timan-2620-da.pdf" pageBase="/brochures/pages/timan-2620" pageCount={4} /></MesseRouteGuard>} />
@@ -261,12 +378,18 @@ const App = () => (
               <Route path="/update-password" element={<UpdatePasswordPage />} />
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
+              <Route path="/portal/planning" element={<PortalAreaAccessGuard area="planning"><PlanningPage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans" element={<PortalAreaAccessGuard area="loans"><LoansPage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/new" element={<PortalAreaAccessGuard area="loans"><LoanCasePage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/:caseId" element={<PortalAreaAccessGuard area="loans"><LoanCasePage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/:caseId/accept" element={<PortalAreaAccessGuard area="loans"><LoanAcceptancePage /></PortalAreaAccessGuard>} />
+              <Route path="/portal/loans/:caseId/return" element={<PortalAreaAccessGuard area="loans"><LoanReturnPage /></PortalAreaAccessGuard>} />
               <Route path="/academy" element={<AcademyAccessGuard><AcademyPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads" element={<AcademyAccessGuard><AcademyCrmLeadsPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads/:id" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
               <Route path="/academy/crm/demo-leads/new" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewDemoLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
-              <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><PortalAreaPage areaId="teknik_service" /></DealerUserServiceGuard>} />
-              <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
+              <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><AcademyCapabilityGuard capability="technical_service"><PortalAreaPage areaId="teknik_service" /></AcademyCapabilityGuard></DealerUserServiceGuard>} />
+              <Route path="/portal/salg-marketing" element={<AcademyCapabilityGuard capability="sales_area"><PortalAreaPage areaId="salg_marketing" /></AcademyCapabilityGuard>} />
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />
               <Route path="/portal/marketing/news" element={<MesseNewsPage mode="marketing" />} />
               <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
@@ -279,46 +402,47 @@ const App = () => (
               <Route path="/portal/backend/data-integrationer" element={<BackendSectionPage sectionId="data-integrations" />} />
               <Route path="/portal/backend/analyse" element={<BackendSectionPage sectionId="analytics" />} />
               <Route path="/portal/backend/system" element={<BackendSectionPage sectionId="system" />} />
-              <Route path="/portal/dealer-data" element={<PartnerDataRoute />} />
-              <Route path="/portal/dealer-data/:accountNumber" element={<CrmDealerDetailPage presentation="partnerdata" />} />
-              <Route path="/portal/crm" element={<AcademyCapabilityGuard capability="crm"><PortalCrmPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/dashboard"  element={<AcademyCapabilityGuard capability="crm"><CrmDashboardPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/accounts"   element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/konti"      element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm"><CrmMyDealersPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/my-dealers/:accountNumber" element={<AcademyCapabilityGuard capability="crm"><CrmDealerDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/accounts/:id" element={<AcademyCapabilityGuard capability="crm"><CrmAccountDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/activities" element={<AcademyCapabilityGuard capability="crm"><CrmActivitiesPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads" element={<AcademyCapabilityGuard capability="crm"><CrmLeadsPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/import-preview" element={<AcademyCapabilityGuard capability="crm"><CrmLegacyLeadsImportPreviewPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/import-preview/:legacyId" element={<AcademyCapabilityGuard capability="crm"><CrmLegacyLeadImportPreviewDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/new" element={<AcademyCapabilityGuard capability="crm"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/:id" element={<AcademyCapabilityGuard capability="crm"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/demo-leads" element={<AcademyCapabilityGuard capability="crm"><CrmDemoLeadsPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/demo-leads/new" element={<AcademyCapabilityGuard capability="crm"><CrmNewDemoLeadPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/demo-leads/:id" element={<AcademyCapabilityGuard capability="crm"><CrmDemoLeadDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/budget" element={<AcademyCapabilityGuard capability="crm"><CrmBudgetPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/budget-dashboard" element={<AcademyCapabilityGuard capability="crm"><CrmBudgetDashboardPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/calendar" element={<AcademyCapabilityGuard capability="crm"><CrmCalendarPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/quotes" element={<AcademyCapabilityGuard capability="quote"><CrmQuotesOrdersPage mode="quote" /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/orders" element={<AcademyCapabilityGuard capability="order"><CrmQuotesOrdersPage mode="order" /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/reports" element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/dashboard" replace /></AcademyCapabilityGuard>} />
-              <Route path="/portal/videos" element={<VideoGalleryPage />} />
-              <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
-              <Route path="/portal/resources" element={<ResourcesPage />} />
-              <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
-              <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
-              <Route path="/portal/contracts" element={<ContractsPage />} />
-              <Route path="/portal/contracts/:contractId" element={<ContractsPage />} />
+              <Route path="/portal/dealer-data" element={<PortalAreaAccessGuard area="dealer_data"><AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
+              <Route path="/portal/dealer-data/:accountNumber" element={<PortalAreaAccessGuard area="dealer_data"><AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
+              <Route path="/portal/crm" element={<AcademyCapabilityGuard capability="crm_area"><PortalCrmPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/dashboard"  element={<AcademyCapabilityGuard capability="crm_complete"><CrmDashboardPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/accounts"   element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/konti"      element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm_complete"><CrmMyDealersPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/my-dealers/:accountNumber" element={<AcademyCapabilityGuard capability="crm_complete"><CrmDealerDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/accounts/:id" element={<AcademyCapabilityGuard capability="crm_complete"><CrmAccountDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/activities" element={<AcademyCapabilityGuard capability="crm_complete"><CrmActivitiesPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads" element={<AcademyCapabilityGuard capability="crm_leads"><CrmLeadsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/import-preview" element={<AcademyCapabilityGuard capability="crm_leads"><CrmLegacyLeadsImportPreviewPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/import-preview/:legacyId" element={<AcademyCapabilityGuard capability="crm_leads"><CrmLegacyLeadImportPreviewDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/new" element={<AcademyCapabilityGuard capability="crm_leads"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/:id" element={<AcademyCapabilityGuard capability="crm_leads"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/demo-leads" element={<AcademyCapabilityGuard capability="crm_demo"><CrmDemoLeadsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/demo-leads/new" element={<AcademyCapabilityGuard capability="crm_demo"><CrmNewDemoLeadPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/demo-leads/:id" element={<AcademyCapabilityGuard capability="crm_demo"><CrmDemoLeadDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/budget" element={<AcademyCapabilityGuard capability="crm_complete"><CrmBudgetPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/budget-dashboard" element={<AcademyCapabilityGuard capability="crm_complete"><CrmBudgetDashboardPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/calendar" element={<PortalAreaAccessGuard area="calendar"><AcademyCapabilityGuard capability="crm_complete"><CrmCalendarPage /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
+              <Route path="/portal/crm/quotes" element={<AcademyCapabilityGuard capability="crm_complete"><CrmQuotesOrdersPage mode="quote" /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/orders" element={<AcademyCapabilityGuard capability="crm_complete"><CrmQuotesOrdersPage mode="order" /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/reports" element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/dashboard" replace /></AcademyCapabilityGuard>} />
+              <Route path="/portal/videos" element={<AcademyCapabilityGuard capability="sales_video"><VideoGalleryPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/videos/:categoryId" element={<AcademyCapabilityGuard capability="sales_video"><VideoCategoryPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/resources" element={<AcademyCapabilityGuard capability="sales_complete"><ResourcesPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/resources/driftberegner" element={<AcademyCapabilityGuard capability="sales_complete"><DriftberegnerPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/resources/co2" element={<AcademyCapabilityGuard capability="sales_complete"><Co2CalculatorPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/contracts" element={<AcademyCapabilityGuard capability="sales_complete"><ContractsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/contracts/:contractId" element={<AcademyCapabilityGuard capability="sales_complete"><ContractsPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/timan-2620" element={<MesseTiman2620Page backTo="/portal" />} />
               {/* Salg & Marketing > Diverse > Formularer */}
-              <Route path="/portal/misc" element={<MiscPage />} />
-              <Route path="/portal/misc/forms" element={<MiscFormsPage />} />
-              <Route path="/portal/misc/forms/budget-feedback" element={<BudgetFeedbackFormPage />} />
-              <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
-              <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
-              <Route path="/portal/misc/partner-map" element={<PartnerMapPage />} />
+              <Route path="/portal/misc" element={<AcademyCapabilityGuard capability="sales_complete"><MiscPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms" element={<AcademyCapabilityGuard capability="sales_complete"><MiscFormsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms/budget-feedback" element={<AcademyCapabilityGuard capability="sales_complete"><BudgetFeedbackFormPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms/dealer-invoice-accept" element={<AcademyCapabilityGuard capability="sales_complete"><DealerInvoiceAcceptFormPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms/company-contact-info" element={<AcademyCapabilityGuard capability="sales_complete"><CompanyContactInfoFormPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/partner-map" element={<AcademyCapabilityGuard capability="partner_map"><PartnerMapPage /></AcademyCapabilityGuard>} />
               <Route element={<DealerUserServiceGuard />}>
+                <Route element={<AcademyCapabilityGuard capability="technical_service" />}>
                 <Route path="/portal/service/claims" element={<ClaimsPage />} />
                 <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
                 <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
@@ -335,7 +459,7 @@ const App = () => (
                 {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
                 <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
                 <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
-                <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
+                <Route path={WARRANTY_CREATE_ROUTE} element={<WarrantyPage page="new" />} />
                 <Route path="/portal/service/warranty/sync" element={<WarrantyPage page="sync" />} />
                 <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
                 <Route path="/portal/service/maintenance/registrations/:registrationId" element={<ServiceRegistrationDetailPage />} />
@@ -343,6 +467,7 @@ const App = () => (
                 <Route path="/portal/service/tickets/:ticketId" element={<ServiceTicketDetailPage />} />
                 <Route path="/portal/service/machines" element={<MachineSearchPage />} />
                 <Route path="/portal/service/machines/:serialNumber" element={<MachineJournalPage />} />
+                </Route>
               </Route>
 
               {/* Timan Backend → Users / Roles / Module access / Audit log */}
@@ -350,6 +475,7 @@ const App = () => (
               <Route path="/portal/backend/roles" element={<BackendRolesPage />} />
               <Route path="/portal/backend/module-access" element={<BackendModuleAccessPage />} />
               <Route path="/portal/backend/audit-log" element={<BackendAuditLogPage />} />
+              <Route path="/portal/backend/mailoversigt" element={<BackendMailOverviewPage />} />
               <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               <Route path="/portal/backend/dealer-accounts" element={<BackendDealerAccountsPage />} />
               <Route path="/portal/backend/contracts" element={<BackendContractApprovalsPage />} />
@@ -365,17 +491,22 @@ const App = () => (
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
               <Route path="/portal/backend/system-map" element={<BackendSystemMapPage />} />
+              <Route path="/portal/backend/ai-support" element={<BackendAiSupportPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
-              <Route path="/configurator" element={<PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard>} />
+              <Route path="/configurator" element={<ConfiguratorRouteErrorBoundary><PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard></ConfiguratorRouteErrorBoundary>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
+            </Routes></AcademyTrackGuard><PortalStartupObserver /></>
             </Suspense>
             <VisitorTracker />
             <PreferredLanguageBootstrap />
+            <TimanSupportHost />
+            </PortalBootstrapGate>
           </LanguageProvider>
+          </AcademyAccessProvider>
         </AppUserProvider>
+      </PublishedProductMasterBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

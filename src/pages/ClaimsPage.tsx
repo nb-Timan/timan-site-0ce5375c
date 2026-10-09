@@ -25,6 +25,7 @@ import {
   hasModuleAccess,
   getClaimsViewVariant,
 } from "@/lib/portalAccess";
+import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import AdminClaimsDashboardPage from "@/pages/claims/AdminClaimsDashboardPage";
 import AdminClaimsAllPage from "@/pages/claims/AdminClaimsAllPage";
 import DealerClaimsDashboardPage from "@/pages/claims/DealerClaimsDashboardPage";
@@ -32,33 +33,34 @@ import DealerClaimsMinePage from "@/pages/claims/DealerClaimsMinePage";
 
 export default function ClaimsPage() {
   const { appUser, loading } = useAppUser();
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const location = useLocation();
   const { uiLanguage } = useLanguage();
 
 
-  if (loading) {
+  if (loading || resolving) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-sm text-slate-500">…</div>
       </div>
     );
   }
-  if (!appUser) return <Navigate to="/portal" replace />;
+  if (!effectiveUser) return <Navigate to="/portal" replace />;
   // Legacy `role='slutkunde'` may coexist with a real portal_role (e.g. timan_dealer).
   // Only redirect true end-customers with no portal role to the configurator —
   // otherwise dealer-side users get bounced out of Claims.
   {
-    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
-    if (appUser.role === "slutkunde" && !portalRole) {
+    const portalRole = (effectiveUser as { portal_role?: string | null }).portal_role ?? null;
+    if (effectiveUser.role === "slutkunde" && !portalRole) {
       return <Navigate to="/configurator" replace />;
     }
   }
 
-  const role = derivePortalRole(appUser);
+  const role = derivePortalRole(effectiveUser);
   const allowed = hasModuleAccess(
     role,
     "claims",
-    getUserModuleAccessOverride(appUser),
+    getUserModuleAccessOverride(effectiveUser),
   );
   const variant = getClaimsViewVariant(role);
   const perms = role ? getPortalPermissions(role) : null;
@@ -85,7 +87,7 @@ export default function ClaimsPage() {
   }
 
   // Dealer-side
-  const dealerName = appUser.company_dealer || appUser.display_name || appUser.email;
+  const dealerName = effectiveUser.company_dealer || effectiveUser.display_name || effectiveUser.email;
   if (tab === "mine") {
     return <DealerClaimsMinePage readOnly={isReadOnly} dealerName={dealerName} />;
   }

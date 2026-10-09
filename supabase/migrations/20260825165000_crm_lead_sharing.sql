@@ -18,18 +18,14 @@ create table if not exists public.crm_lead_shares (
   revoked_at timestamptz,
   revoked_by_user_id uuid references public.app_users(id) on delete set null
 );
-
 create unique index if not exists crm_lead_shares_active_user_unique
   on public.crm_lead_shares (lead_id, shared_with_user_id)
   where revoked_at is null;
-
 create index if not exists crm_lead_shares_lead_idx
   on public.crm_lead_shares (lead_id, created_at desc);
-
 create index if not exists crm_lead_shares_shared_with_idx
   on public.crm_lead_shares (shared_with_user_id)
   where revoked_at is null;
-
 create table if not exists public.crm_lead_share_audit_log (
   id uuid primary key default gen_random_uuid(),
   lead_share_id uuid references public.crm_lead_shares(id) on delete set null,
@@ -46,13 +42,10 @@ create table if not exists public.crm_lead_share_audit_log (
   note text,
   created_at timestamptz not null default now()
 );
-
 create index if not exists crm_lead_share_audit_lead_idx
   on public.crm_lead_share_audit_log (lead_id, created_at desc);
-
 alter table public.crm_lead_shares enable row level security;
 alter table public.crm_lead_share_audit_log enable row level security;
-
 drop policy if exists crm_lead_shares_authenticated_all on public.crm_lead_shares;
 drop policy if exists crm_lead_shares_select_scoped on public.crm_lead_shares;
 create policy crm_lead_shares_select_scoped
@@ -73,7 +66,6 @@ create policy crm_lead_shares_select_scoped
         )
     )
   );
-
 drop policy if exists crm_lead_shares_insert_actor on public.crm_lead_shares;
 create policy crm_lead_shares_insert_actor
   on public.crm_lead_shares
@@ -127,7 +119,6 @@ create policy crm_lead_shares_insert_actor
         )
     )
   );
-
 drop policy if exists crm_lead_shares_revoke_actor on public.crm_lead_shares;
 create policy crm_lead_shares_revoke_actor
   on public.crm_lead_shares
@@ -159,7 +150,6 @@ create policy crm_lead_shares_revoke_actor
         )
     )
   );
-
 drop policy if exists crm_lead_share_audit_authenticated_all on public.crm_lead_share_audit_log;
 drop policy if exists crm_lead_share_audit_select_scoped on public.crm_lead_share_audit_log;
 create policy crm_lead_share_audit_select_scoped
@@ -180,7 +170,6 @@ create policy crm_lead_share_audit_select_scoped
         )
     )
   );
-
 drop policy if exists crm_lead_share_audit_insert_actor on public.crm_lead_share_audit_log;
 create policy crm_lead_share_audit_insert_actor
   on public.crm_lead_share_audit_log
@@ -195,6 +184,5 @@ create policy crm_lead_share_audit_insert_actor
         and au.id = crm_lead_share_audit_log.actor_user_id
     )
   );
-
 grant select, insert, update on public.crm_lead_shares to authenticated;
 grant select, insert on public.crm_lead_share_audit_log to authenticated;

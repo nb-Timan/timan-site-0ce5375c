@@ -12,14 +12,15 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import { Card, CardContent } from '@/components/ui/card';
 
 import { type DealerAccount } from '@/lib/dealerAccountsService';
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { canEditPartnerDataAccount, listPartnerDataDealers } from '@/lib/partnerDataScope';
-import { sellerInitialsMatch } from '@/lib/sellerInitials';
+import { canEditPartnerDataAccount } from '@/lib/partnerDataScope';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 import LastChangedLine from '@/components/portal/LastChangedLine';
-import PartnerAgreementHistory from '@/components/portal/PartnerAgreementHistory';
 
 
 import type { Language } from '@/types/configurator';
@@ -68,7 +69,9 @@ function toErrorText(error: unknown): string {
 // Phase 52 — full profile editing has moved to DealerProfileEditor.
 
 export default function DealerDataPage() {
-  const { appUser, loading, logout } = useAppUser();
+  const { appUser: sessionUser, loading, logout } = useAppUser();
+  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
+  const { listPartnerDataDealers } = getPartnerDataRepository();
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -84,6 +87,12 @@ export default function DealerDataPage() {
 
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (academyPartnerDataSandbox.isActive() && dealerNumber) {
+      academyPartnerDataSandbox.trackCompanyDataOpened(dealerNumber);
+    }
+  }, [dealerNumber]);
 
 
   useEffect(() => {
@@ -132,16 +141,13 @@ export default function DealerDataPage() {
 
   // Internal staff can edit their scoped partner accounts. An external partner
   // may view linked accounts, but can edit only its own canonical account.
-  const canEditProfile = canEditPartnerDataAccount(effectiveUser, portalRole, dealerNumber);
-  const isAssignedSeller = Boolean(
-    dealer && effectiveUser && (
-      (dealer.assigned_seller_id && effectiveUser.id && dealer.assigned_seller_id === effectiveUser.id)
-      || (dealer.assigned_seller_email && dealer.assigned_seller_email.trim().toLowerCase() === effectiveUser.email.trim().toLowerCase())
-      || sellerInitialsMatch(dealer.assigned_seller_initials, effectiveUser.initials)
-    ),
+  const canEditProfile = canEditPartnerDataAccount(
+    effectiveUser,
+    portalRole,
+    dealerNumber,
+    dealer != null,
   );
-  const canManageFinancialTerms = portalRole === 'timan_backend'
-    || (portalRole === 'timan_seller' && isAssignedSeller);
+  const canManageFinancialTerms = portalRole === 'timan_backend';
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
@@ -158,6 +164,7 @@ export default function DealerDataPage() {
       />
 
       <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 flex-grow space-y-6">
+        <AcademyPartnerDataGuidance />
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
             <Building2 className="h-7 w-7 text-blue-600" />
@@ -209,9 +216,9 @@ export default function DealerDataPage() {
               language={lang}
               canEdit={canEditProfile}
               canManageFinancialTerms={canManageFinancialTerms}
+              effectiveUserId={effectiveUser?.id ?? null}
               onUpdated={(next) => setDealer(next)}
             />
-            <PartnerAgreementHistory dealerAccountNumber={dealer.account_number} language={lang} />
           </>
         )}
       </main>

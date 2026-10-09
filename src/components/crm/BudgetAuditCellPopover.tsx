@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
+import { readWorkingBudgetMoveAudit } from "@/lib/workingBudgetMoveAudit";
 
 interface Props {
   cellKey: string;
@@ -107,6 +108,7 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
                 const oldV = valueOf(r.old_value);
                 const newV = valueOf(r.new_value);
                 const diff = (typeof oldV === "number" && typeof newV === "number") ? (newV - oldV) : null;
+                const movement = readWorkingBudgetMoveAudit(r.new_value);
                 return (
                   <li key={r.id} className="px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-2">
@@ -128,6 +130,18 @@ export default function BudgetAuditCellPopover({ cellKey, latest, className }: P
                     <div className="text-[11px] text-slate-400 mt-0.5">
                       {r.active_mode ? `${r.active_mode} · ` : ""}{r.seller_context || "—"} · {r.status}
                     </div>
+                    {movement && (
+                      <div className="mt-1 rounded bg-emerald-50 px-2 py-1 text-[11px] text-emerald-900">
+                        <div className="font-semibold">Flyttet {movement.quantity} stk. · {movement.sourceMonth} → {movement.destinationMonth}</div>
+                        {movement.allocations.map((allocation, index) => (
+                          <div key={`${allocation.dealer_account_number || allocation.dealer_name || allocation.kind}-${index}`} className="break-words">
+                            {allocation.kind === "unallocated"
+                              ? `Ikke fordelt · ${allocation.quantity} stk.`
+                              : `${allocation.dealer_name || "Forhandler"}${allocation.dealer_account_number ? ` · #${allocation.dealer_account_number}` : ""} · ${allocation.quantity} stk.`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </li>
                 );
               })}

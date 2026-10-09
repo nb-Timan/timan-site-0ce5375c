@@ -24,11 +24,9 @@ create table if not exists public.audit_log (
   ip_address text,
   user_agent text
 );
-
 alter table public.audit_log
   add column if not exists actor_user_id uuid,
   add column if not exists changed_fields text[] not null default '{}';
-
 alter table public.audit_log
   alter column old_value type jsonb using
     case
@@ -42,28 +40,23 @@ alter table public.audit_log
       when jsonb_typeof(to_jsonb(new_value)) = 'object' then to_jsonb(new_value)
       else to_jsonb(new_value)
     end;
-
 create index if not exists audit_log_created_at_idx on public.audit_log (created_at desc);
 create index if not exists audit_log_module_idx on public.audit_log (module);
 create index if not exists audit_log_action_idx on public.audit_log (action);
 create index if not exists audit_log_actor_email_idx on public.audit_log (actor_email);
 create index if not exists audit_log_record_type_idx on public.audit_log (record_type);
 create index if not exists audit_log_record_lookup_idx on public.audit_log (record_type, record_id, created_at desc);
-
 alter table public.audit_log enable row level security;
-
 drop policy if exists "audit_log insert by authenticated" on public.audit_log;
 drop policy if exists "audit_log read by timan backend" on public.audit_log;
 drop policy if exists "audit_log insert by anon" on public.audit_log;
 drop policy if exists "audit_log read budget for seller" on public.audit_log;
-
 drop policy if exists audit_log_insert_authenticated on public.audit_log;
 create policy audit_log_insert_authenticated
 on public.audit_log
 for insert
 to authenticated
 with check (true);
-
 drop policy if exists audit_log_read_timan_backend on public.audit_log;
 create policy audit_log_read_timan_backend
 on public.audit_log
@@ -79,9 +72,7 @@ using (
       and au.is_active is true
   )
 );
-
 grant select, insert on public.audit_log to authenticated;
-
 create or replace function public.audit_current_actor()
 returns table (
   actor_user_id uuid,
@@ -102,12 +93,10 @@ as $$
   where au.auth_user_id = (select auth.uid())
   limit 1
 $$;
-
 create or replace function public.audit_filter_payload(payload jsonb)
 returns jsonb
 language sql
 immutable
-set search_path = public
 as $$
   select coalesce(jsonb_object_agg(key, value), '{}'::jsonb)
   from jsonb_each(coalesce(payload, '{}'::jsonb))
@@ -124,12 +113,10 @@ as $$
     'updated_at'
   )
 $$;
-
 create or replace function public.audit_changed_fields(old_payload jsonb, new_payload jsonb)
 returns text[]
 language sql
 immutable
-set search_path = public
 as $$
   select coalesce(array_agg(key order by key), '{}'::text[])
   from (
@@ -138,7 +125,6 @@ as $$
     where coalesce(old_payload -> key, 'null'::jsonb) is distinct from coalesce(new_payload -> key, 'null'::jsonb)
   ) changed
 $$;
-
 create or replace function public.audit_crm_lead_change()
 returns trigger
 language plpgsql
@@ -223,7 +209,6 @@ begin
   return new;
 end;
 $$;
-
 do $$
 begin
   if to_regclass('public.crm_leads') is not null then
@@ -240,7 +225,6 @@ begin
       for each row execute function public.audit_crm_lead_change();
   end if;
 end $$;
-
 grant execute on function public.audit_current_actor() to authenticated;
 grant execute on function public.audit_filter_payload(jsonb) to authenticated;
 grant execute on function public.audit_changed_fields(jsonb, jsonb) to authenticated;

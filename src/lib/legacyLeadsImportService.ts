@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { LegacyPreviewLead } from "@/lib/legacyLeadsPreview";
+import { splitCrmLeadCompanyAndCvr } from '@/lib/crmLeadValidation';
 
 export type LegacyLeadImportResult = {
   ok?: boolean;
@@ -105,6 +106,7 @@ async function executeLegacyLeadImportViaClient(leads: LegacyPreviewLead[]): Pro
         const owner = lead.owner_email ? userByEmail.get(norm(lead.owner_email)) : null;
         const dealer = lead.dealer_name ? dealerByName.get(norm(lead.dealer_name)) : null;
         const contact = (lead.contact_fields ?? {}) as Record<string, string | undefined>;
+        const company = splitCrmLeadCompanyAndCvr(contact.company || '');
         const contactInformation = compactLines([
           contact.company ? `Firma/CVR: ${contact.company}` : null,
           contact.contact ? `Kontaktperson: ${contact.contact}` : null,
@@ -117,11 +119,13 @@ async function executeLegacyLeadImportViaClient(leads: LegacyPreviewLead[]): Pro
         return {
           id: lead.import_id,
           lead_no: lead.lead_no,
+          lead_reference_type: 'G',
           title: lead.title || `Historisk lead ${lead.display_no}`,
           owner_user_id: owner?.id ?? null,
           owner_name: lead.owner_name || owner?.full_name || owner?.display_name || null,
           owner_email: lead.owner_email || owner?.email || null,
           linked_dealer_id: dealer?.id ?? null,
+          linked_dealer_contact_id: null,
           first_contact_date: lead.first_contact_date ?? null,
           expected_close_date: lead.expected_close_date ?? null,
           next_followup_date: lead.next_followup_date ?? null,
@@ -131,6 +135,14 @@ async function executeLegacyLeadImportViaClient(leads: LegacyPreviewLead[]): Pro
           contact_type: lead.contact_type ?? null,
           customer_type: lead.customer_type ?? null,
           contact_information: contactInformation || lead.contact_information || null,
+          company_name: company.companyName || null,
+          company_cvr: company.companyCvr || null,
+          contact_person_name: contact.contact || null,
+          phone: contact.phone || null,
+          email: contact.email || null,
+          address: contact.address || null,
+          postal_code: contact.postalCode || null,
+          city: contact.city || null,
           trade_fair: lead.trade_fair ?? null,
           country: lead.country ?? null,
           notes: compactLines([

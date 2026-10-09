@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { PORTAL_MODULES } from '@/lib/portalModules';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, deriveStoredPortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
+import { derivePortalRole, hasTopLevelPortalAreaAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -10,19 +12,23 @@ import AreaCard from '@/components/portal/AreaCard';
 import LatestFromTiman from '@/components/portal/LatestFromTiman';
 import LatestChanges from '@/components/portal/LatestChanges';
 import QuickActions from '@/components/portal/QuickActions';
+import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import DealerUserHome from '@/components/portal/DealerUserHome';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { sortPortalHomeCards } from '@/lib/portalHomeOrder';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
-import { academySandbox } from '@/lib/academySandbox';
-import { canAccessAcademy, getAcademyCapabilityProgress, getAcademyProgress, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_TITLE, type AcademyPortalBasicsState } from '@/lib/academySandbox';
+import { getAcademyCapabilityProgress, getAcademyProgress, getAcademyTracks, getLocalAcademyUser, hasEffectiveAcademyCapabilityAccess, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
-import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
+import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap, ClipboardList } from 'lucide-react';
+import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 import { t } from '@/lib/i18n/translations';
+import { findPortalAreaCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 const AREA_TITLE_KEY: Record<string, string> = {
+  planning: 'area_planning_title',
   teknik_service: 'area_teknik_service_title',
   salg_marketing: 'area_salg_marketing_title',
   calendar:       'area_calendar_title',
@@ -32,6 +38,7 @@ const AREA_TITLE_KEY: Record<string, string> = {
   dealer_data:    'area_dealer_data_title',
 };
 const AREA_DESC_KEY: Record<string, string> = {
+  planning: 'area_planning_desc',
   teknik_service: 'area_teknik_service_desc',
   salg_marketing: 'area_salg_marketing_desc',
   calendar:       'area_calendar_desc',
@@ -42,13 +49,14 @@ const AREA_DESC_KEY: Record<string, string> = {
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
-  teknik_service: { to: '/portal/teknik-service', icon: Wrench,      accent: 'primary' },
-  salg_marketing: { to: '/portal/salg-marketing', icon: ShoppingBag, accent: 'sky' },
-  calendar:       { to: '/portal/crm/calendar',   icon: CalendarDays, accent: 'primary' },
-  marketing:      { to: '/portal/marketing',      icon: Newspaper,   accent: 'primary' },
-  timan_crm:      { to: '/portal/crm',            icon: Users,       accent: 'primary' },
-  timan_backend:  { to: '/portal/backend',        icon: Settings,    accent: 'violet' },
-  dealer_data:    { to: '/portal/dealer-data',    icon: Building2,   accent: 'sky' },
+  planning: { to: PORTAL_AREA_ROUTES.planning, icon: ClipboardList, accent: 'sky' },
+  teknik_service: { to: PORTAL_AREA_ROUTES.teknik_service, icon: Wrench, accent: 'primary' },
+  salg_marketing: { to: PORTAL_AREA_ROUTES.salg_marketing, icon: ShoppingBag, accent: 'sky' },
+  calendar:       { to: PORTAL_AREA_ROUTES.calendar, icon: CalendarDays, accent: 'primary' },
+  marketing:      { to: PORTAL_AREA_ROUTES.marketing, icon: Newspaper, accent: 'primary' },
+  timan_crm:      { to: PORTAL_AREA_ROUTES.timan_crm, icon: Users, accent: 'primary' },
+  timan_backend:  { to: PORTAL_AREA_ROUTES.timan_backend, icon: Settings, accent: 'violet' },
+  dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data, icon: Building2, accent: 'sky' },
 };
 
 const MESSE_TITLE: Record<Language, string> = {
@@ -67,30 +75,64 @@ const MESSE_DESC: Record<Language, string> = {
   hu: 'Nyissa meg a kiállítási portált konfigurátorral, Timan 2620-al, kereskedőtérképpel és videó akadémiával.',
 };
 
+function getPortalBasicsNext(state: AcademyPortalBasicsState, uiLanguage: string): string {
+  if (!state.frenchSelected) return 'Skift portalsproget til fransk.';
+  if (!state.languageRestored) return 'Skift tilbage til dit oprindelige portalsprog.';
+  if (!state.partnerDataOpened) return 'Tryk på Partnerdata og se dine forhandlere.';
+  if (!state.returnedHomeFromPartnerData) return 'Klik på Timan-logoet øverst til venstre for at gå tilbage til forsiden.';
+  if (!state.fullscreenUsed) return t('academyPortalBasicsFullscreenNext', uiLanguage);
+  if (!state.mapAreaChanged) return 'Åbn Partnerkort og skift område.';
+  if (!state.targetNewsOpened) return `Tryk på Messe → Nyheder → åbn nyheden ${PORTAL_BASICS_NEWS_TITLE}.`;
+  return 'Alle Portal Basics-opgaver er gennemført.';
+}
+
+function getPortalBasicsActiveTask(state: AcademyPortalBasicsState, uiLanguage: string): string | undefined {
+  if (!state.frenchSelected || !state.languageRestored) return 'Skift til fransk og tilbage';
+  if (!state.partnerDataOpened || !state.returnedHomeFromPartnerData) return 'Tryk på Partnerdata og derefter Timan-logoet øverst på siden';
+  if (!state.fullscreenUsed) return t('academyPortalBasicsFullscreenTask', uiLanguage);
+  if (!state.mapAreaChanged) return 'Skift område på Partnerkortet';
+  if (!state.targetNewsOpened) return `Messe → Nyheder → ${PORTAL_BASICS_NEWS_TITLE}`;
+  return undefined;
+}
+
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
+  // Academy runs only on localhost and only from its explicit sandbox mode.
+  // The local persona is rendering context, never an authenticated portal user.
+  const portalUser = appUser ?? (academySandbox.isActive() ? getLocalAcademyUser() : null);
+  const [, refreshAcademy] = useState(0);
+  const academyGuidanceRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const changed = () => refreshAcademy((n) => n + 1);
+    window.addEventListener('timan:academy-progress-changed', changed);
+    return () => window.removeEventListener('timan:academy-progress-changed', changed);
+  }, []);
 
-  // Phase 59 — Messe-variant users are locked to /messe. If we land on
-  // /portal with a Messe user already in session, immediately bounce.
-  if (appUser && isMesseVariantUser(appUser)) {
-    return <Navigate to="/messe" replace />;
-  }
+  useEffect(() => {
+    if (location.hash !== '#academy-guidance' || academySandbox.getActiveCase() !== 'portal.basics_5') return;
+    requestAnimationFrame(() => {
+      academyGuidanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      academyGuidanceRef.current?.focus({ preventScroll: true });
+    });
+  }, [location.hash]);
 
   const prefLangApplied = useRef(false);
   useEffect(() => {
     if (prefLangApplied.current) return;
-    const pref = appUser?.preferred_language;
+    const pref = portalUser?.preferred_language;
     if (pref && ['da','en','de','it','hu'].includes(pref)) {
       prefLangApplied.current = true;
       if (pref !== lang) setLanguage(pref as typeof lang);
     }
-  }, [appUser, lang, setLanguage]);
+  }, [portalUser, lang, setLanguage]);
 
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const effectiveUser = useEffectivePortalUser(portalUser);
+  const academyAccess = useAcademyAccess();
   const portalRoleForBadge = derivePortalRole(effectiveUser);
   const dealerProfileBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
   const dealerPortfolioBadge = useDealerPortfolioProfileBadge(effectiveUser);
@@ -99,9 +141,15 @@ export default function PortalPage() {
     portalRoleForBadge === 'timan_seller' ||
     portalRoleForBadge === 'timan_service'
   ) ? dealerPortfolioBadge : dealerProfileBadge;
-  const changelog = useChangelog(appUser, uiLanguage);
+  const changelog = useChangelog(portalUser, uiLanguage);
 
-  if (loading) {
+  // Phase 59 — Messe-variant users are locked to /messe. Keep this after
+  // hook initialization so login/session transitions preserve hook order.
+  if (portalUser && isMesseVariantUser(portalUser)) {
+    return <Navigate to="/messe" replace />;
+  }
+
+  if (loading || academyAccess?.resolving) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">…</div>
@@ -109,7 +157,7 @@ export default function PortalPage() {
     );
   }
 
-  if (!appUser) {
+  if (!portalUser) {
     const LOGIN_LANGS: { code: Language; flag: string }[] = [
       { code: 'da', flag: '🇩🇰' },
       { code: 'en', flag: '🇬🇧' },
@@ -166,13 +214,13 @@ export default function PortalPage() {
   // timan_service_partner, dealer_customer, dealer_user) must land on /portal even if their
   // legacy `role` column still says 'slutkunde'.
   {
-    const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
+    const portalRole = (portalUser as { portal_role?: string | null }).portal_role ?? null;
     const dealerSideRoles = new Set([
       'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_customer', 'dealer_user',
       'timan_backend', 'timan_seller', 'timan_service',
     ]);
     const hasPortalAccess = portalRole ? dealerSideRoles.has(portalRole) : false;
-    if (appUser.role === 'slutkunde' && !hasPortalAccess) {
+    if (portalUser.role === 'slutkunde' && !hasPortalAccess) {
       return <Navigate to="/configurator" replace />;
     }
   }
@@ -182,7 +230,7 @@ export default function PortalPage() {
     const isDeleted = dealerStatus.isDeleted;
     return (
       <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-        <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage}
+        <PortalHeader user={portalUser} language={lang} onLanguageChange={setLanguage}
           onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
         <main className="max-w-xl mx-auto px-4 py-16 flex-grow w-full">
           <div className="bg-white border border-rose-200 rounded-2xl shadow-sm p-8 text-center">
@@ -215,31 +263,35 @@ export default function PortalPage() {
   }
 
   const portalRole = derivePortalRole(effectiveUser);
-  const academyEnabled = canAccessAcademy(effectiveUser);
-  const academyCompletedCaseIds = academySandbox.getCompletedCaseIds();
+  const academyEnabled = hasTopLevelPortalAreaAccess(effectiveUser, 'academy');
+  const academyCompletedCaseIds = academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds();
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
+  const portalBasics = academySandbox.getPortalBasics();
+  const isPortalBasicsAcademy = academySandbox.isActive()
+    && academySandbox.getActiveCase() === 'portal.basics_5';
   const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);
   const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
   const configuratorProgress = getAcademyCapabilityProgress('configurator', academyCompletedCaseIds);
-  const realPortalRole = deriveStoredPortalRole(appUser);
   const isEffectiveBackend = portalRole === 'timan_backend';
-  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
-  const showMesseCard = (
-    realPortalRole === 'timan_backend' ||
-    realPortalRole === 'timan_seller' ||
-    hasModuleAccess(portalRole, 'messe_portal', moduleOverride)
-  );
+  const showMesseCard = hasTopLevelPortalAreaAccess(effectiveUser, 'messe');
+  const academyAllowedHomeCards = academySandbox.getAllowedPortalHomeCardIds();
   const visibleHomeCards = sortPortalHomeCards([
     ...PORTAL_AREAS
-      .filter(area => isAreaVisible(area, effectiveUser))
+      .filter((area): area is typeof area & { id: Exclude<typeof area.id, 'loans'> } => area.id !== 'loans')
+      .filter((area) => hasEffectiveAcademyCapabilityAccess(
+        effectiveUser,
+        isAreaVisible(area, effectiveUser),
+        findPortalAreaCapabilityContract(area.id)?.academyGate,
+        academyCompletedCaseIds,
+      ))
       .map((area) => ({ kind: 'area' as const, id: area.id, area })),
     ...(showMesseCard ? [{ kind: 'messe' as const, id: 'messe' as const }] : []),
-  ]);
+  ].filter((card) => !academyAllowedHomeCards || academyAllowedHomeCards.includes(card.id)));
 
   if (portalRole === 'dealer_user') {
     return (
       <DealerUserHome
-        user={appUser}
+        user={portalUser}
         language={lang}
         onLanguageChange={setLanguage}
         onLogout={logout}
@@ -250,7 +302,7 @@ export default function PortalPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
-        user={appUser}
+        user={portalUser}
         language={lang}
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
@@ -272,6 +324,34 @@ export default function PortalPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
+        {isPortalBasicsAcademy && (
+          <>
+          <div id="academy-guidance" ref={academyGuidanceRef} tabIndex={-1} className="scroll-mt-6 outline-none">
+            <AcademyGuidancePanel
+              title="Portal Basics - 5 hurtige"
+              description="Gennemfør de fem handlinger i den almindelige portal. Din fremdrift gemmes kun lokalt i Academy."
+              tasks={[
+                { label: 'Skift til fransk og tilbage', complete: portalBasics.frenchSelected && portalBasics.languageRestored },
+                { label: 'Tryk på Partnerdata og derefter Timan-logoet øverst på siden', complete: portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData },
+                {
+                  label: t('academyPortalBasicsFullscreenTask', uiLanguage),
+                  description: t('academyPortalBasicsFullscreenDescription', uiLanguage),
+                  complete: portalBasics.fullscreenUsed,
+                },
+                { label: 'Skift område på Partnerkortet', complete: portalBasics.mapAreaChanged },
+                { label: `Messe → Nyheder → ${PORTAL_BASICS_NEWS_TITLE}`, complete: portalBasics.targetNewsOpened },
+              ]}
+              taskColumns={3}
+              compactTasks
+              activeTaskLabel={getPortalBasicsActiveTask(portalBasics, uiLanguage)}
+              next={getPortalBasicsNext(portalBasics, uiLanguage)}
+              completion
+              caseId={ACADEMY_PORTAL_BASICS}
+            />
+          </div>
+          <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to={PORTAL_MODULES.find((module) => module.id === 'partner_map')!.href}>Åbn Partnerkort</Link>
+          </>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {academyEnabled && (
             <AreaCard
@@ -320,15 +400,13 @@ export default function PortalPage() {
             }
             const titleKey = AREA_TITLE_KEY[area.id];
             const descKey = AREA_DESC_KEY[area.id];
-            const academyLockedCrm = academyCapabilityGated && (area.id === 'timan_crm' || area.id === 'calendar')
-              && !isAcademyCapabilityUnlocked(effectiveUser, 'crm', academyCompletedCaseIds);
             return (
               <AreaCard
                 key={area.id}
                 title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
-                description={academyLockedCrm ? 'Kræver Academy. Gennemfør Academy-forløbet for at åbne CRM.' : (descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en))}
-                cta={academyLockedCrm ? 'Kræver Academy' : t('openArea', uiLanguage)}
-                to={academyLockedCrm ? '/academy?locked=crm' : meta.to}
+                description={descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en)}
+                cta={t('openArea', uiLanguage)}
+                to={meta.to}
                 icon={meta.icon}
                 accent={meta.accent}
                 badge={area.id === 'dealer_data' && dealerBadge
@@ -340,10 +418,10 @@ export default function PortalPage() {
           })}
         </div>
 
-        {academyEnabled && academyCapabilityGated && !configuratorUnlocked && (
+        {academyEnabled && getAcademyTracks(effectiveUser).includes('sales') && academyCapabilityGated && !configuratorUnlocked && !isPortalBasicsAcademy && (
           <section className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-semibold">Næste oplåsning: Konfigurator</p>
-            <p className="mt-1">Gennemfør Sales Case 1 og Case 2 for at få adgang til den rigtige konfigurator.</p>
+            <p className="mt-1">Gennemfør Sales Case 1 for at få adgang til den rigtige konfigurator.</p>
             <div className="mt-3 h-2 overflow-hidden rounded bg-amber-100"><div className="h-full bg-amber-500" style={{ width: `${(configuratorProgress.completedCount / configuratorProgress.total) * 100}%` }} /></div>
             <p className="mt-2 text-xs font-semibold">{configuratorProgress.completedCount} / {configuratorProgress.total} gennemført</p>
           </section>
@@ -351,8 +429,8 @@ export default function PortalPage() {
 
         <QuickActions
           language={uiLanguage}
-          showAllActions={isEffectiveBackend}
-          showRoleOverview={isEffectiveBackend}
+          showAllActions={isEffectiveBackend && !academySandbox.isActive()}
+          showRoleOverview={isEffectiveBackend && !academySandbox.isActive()}
         />
 
         <LatestChanges language={uiLanguage} />
