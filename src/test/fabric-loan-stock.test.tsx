@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { canSelectFabricLoanAsset, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset, type FabricLoanStock } from '@/lib/fabricLoanStock';
-import { resolveSalesStockCatalogItem, salesStockAssetSelectionIssue } from '@/lib/salesStockConfigurator';
+import { canSelectFabricLoanAsset, fabricLoanPhysicalGroupKey, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset, type FabricLoanStock } from '@/lib/fabricLoanStock';
+import { resolveSalesStockCatalogItem, salesStockAssetSelectionIssue, salesStockSelectedGroupIssue } from '@/lib/salesStockConfigurator';
 import { FABRIC_LOAN_FIELDS, runFabricLoanSync, validateFabricLoanSnapshot } from '../../supabase/functions/_shared/fabricLoanSnapshot';
+import { validateFabricPush } from '../../supabase/functions/fabric-loan-sync/fabricIngest';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoansPage from '@/pages/loans/LoansPage';
 
@@ -28,7 +29,7 @@ const asset: FabricLoanAsset = {
 };
 const fresh = () => ({ configured: true, running: false, failed: false, stale: false,
   source_as_of: new Date().toISOString(), last_success_at: new Date().toISOString(), stale_after_seconds: 900 });
-const stock = (): FabricLoanStock => ({ assets: [asset, { ...asset, asset_id: 'qa-other', asset_instance_id: 'SERIAL|QA|QA-EXTERNAL', serial_number: 'QA-EXTERNAL', serial_number_normalized: 'QA-EXTERNAL', account_number: '1020', order_number: 'QA-ORDER', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' }], sync: fresh() });
+const stock = (): FabricLoanStock => ({ assets: [asset, { ...asset, asset_id: 'qa-other', asset_instance_id: 'SERIAL|QA|QA-EXTERNAL', serial_number: 'QA-EXTERNAL', serial_number_normalized: 'QA-EXTERNAL', brik_number: 83, account_number: '1020', order_number: 'QA-ORDER', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' }], sync: fresh() });
 const hook = (data = stock()) => ({ query: { data, isPending: false, isError: false },
   refresh: { mutate: mocks.refresh, isPending: false, isError: false },
   setBrik: { mutate: mocks.setBrik, isPending: false, isError: false },
@@ -38,6 +39,22 @@ beforeEach(() => { vi.clearAllMocks(); mocks.state = hook(); mocks.listCases.moc
 afterEach(cleanup);
 
 describe('single Fabric stock dataset', () => {
+  it('shows bulk item 65101002 as one row with quantity 18 under item and order search', () => {
+    const bulk = { ...asset, asset_id: 'bulk-line', asset_instance_id: 'LINE|DAT|420093276|65101002|4|133226|8|1',
+      company: 'DAT', item_number: '65101002', line_text: 'Nr. Hammerslagle', item_name: 'Hammerslagle',
+      order_number: '133226', serial_number: null, serial_number_normalized: null, brik_number: null,
+      inventory_qty: 18, warehouse_location_code: '4', item_type: null };
+    mocks.state = hook({ assets: [bulk], sync: fresh() });
+    render(<LoanStockPanel onSelect={vi.fn()} />);
+    expect(screen.getAllByText('Nr. Hammerslagle')).toHaveLength(1);
+    expect(screen.getByText('18')).toBeInTheDocument();
+    const search = screen.getByRole('textbox', { name: 'Søg i salgslager' });
+    for (const query of ['65101002', '133226']) {
+      fireEvent.change(search, { target: { value: query } });
+      expect(screen.getAllByText('Nr. Hammerslagle')).toHaveLength(1);
+    }
+    expect(screen.getByRole('button', { name: /Vælg aktiv/ })).toBeDisabled();
+  });
   it('renders separate Loans and Sales stock views', async () => {
     render(<MemoryRouter><LoansPage /></MemoryRouter>);
     expect(await screen.findByText('Ingen lånesager endnu.')).toBeInTheDocument();
@@ -64,7 +81,7 @@ describe('single Fabric stock dataset', () => {
       serial_number_normalized: '410040-A' };
     const rc1000 = { ...asset, asset_id: 'rc1000-a', asset_instance_id: 'SERIAL|DAT|411000-A',
       item_number: '411000-04', item_name: 'RC-1000s', line_text: 'RC-1000s salgslager', serial_number: '411000-A',
-      serial_number_normalized: '411000-A', warehouse_location_code: '4', warehouse_location_name: 'Lager 4' };
+      serial_number_normalized: '411000-A', brik_number: 83, warehouse_location_code: '4', warehouse_location_name: 'Lager 4' };
     mocks.state = hook({ assets: [rc751, rc1000], sync: fresh() });
     render(<MemoryRouter><LoansPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('tab', { name: 'Sælg salgslagermaskine' }));
@@ -135,6 +152,37 @@ describe('single Fabric stock dataset', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'qa-external' } });
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
     expect(screen.getByText('Ekstern placering')).toBeInTheDocument();
+  });
+  it('keeps shared Brik component rows distinct, searchable and informational instead of invalid', () => {
+    const componentA = { ...asset, asset_id: 'component-a', asset_instance_id: 'LINE|DAT|A', company: 'DAT',
+      item_number: '210100-01', line_text: 'Nr.96 Skovl', serial_number: null, serial_number_normalized: null,
+      brik_number: 96, brik_group_size: 2, physical_asset_group_key: 'DAT:BRIK:96', item_type: 'equipment' as const };
+    const componentB = { ...componentA, asset_id: 'component-b', asset_instance_id: 'LINE|DAT|B',
+      item_number: '210123-00', line_text: 'Nr.96 Overfald' };
+    mocks.state = hook({ assets: [componentA, componentB], sync: fresh() });
+    render(<LoanStockPanel onSelect={vi.fn()} />);
+    expect(screen.getAllByText(/Brik nr. 96 bruges på 2 varelinjer/)).toHaveLength(2);
+    expect(screen.queryByText('Brik nr. er allerede i brug.')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: '96' } });
+    expect(screen.getByText('Nr.96 Skovl')).toBeInTheDocument();
+    expect(screen.getByText('Nr.96 Overfald')).toBeInTheDocument();
+    expect(fabricLoanPhysicalGroupKey(componentA)).toBe(fabricLoanPhysicalGroupKey(componentB));
+  });
+  it('allows assigning and clearing a shared Brik without client-side duplicate rejection', () => {
+    render(<LoanStockPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Redigér Brik nr.: QA-SERIAL' }));
+    const input = screen.getByRole('spinbutton', { name: 'Brik nr.: QA-SERIAL' });
+    fireEvent.change(input, { target: { value: '96' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    expect(mocks.setBrik).toHaveBeenLastCalledWith({ assetId: 'qa-asset', brikNumber: 96 }, expect.any(Object));
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    expect(mocks.setBrik).toHaveBeenLastCalledWith({ assetId: 'qa-asset', brikNumber: null }, expect.any(Object));
+  });
+  it('blocks a shared Brik group with conflicting serialized identities', () => {
+    expect(canSelectFabricLoanAsset({ ...asset, brik_group_serial_conflict: true }, fresh())).toBe(false);
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410040-01', brik_group_serial_conflict: true }, fresh(), 'DKK'))
+      .toBe('Identitetskonflikt');
   });
   it('returns both serialized and non-serialized physical rows for order 138063', () => {
     const serialized = { ...asset, asset_id: 'serial', asset_instance_id: 'SERIAL|DAT|730600-00-2044',
@@ -217,7 +265,7 @@ describe('single Fabric stock dataset', () => {
   it.each([
     { classification: 'REVIEW_REQUIRED' }, { classification: 'IDENTITY_CONFLICT' }, { classification: 'SOLD' },
     { classification: 'EXCLUDED' }, { review_required: true }, { identity_conflict: true },
-    { allocated: true }, { source_present: false }, { item_type: null }, { warehouse_location_code: '7' },
+    { allocated: true }, { brik_group_serial_conflict: true }, { source_present: false }, { item_type: null }, { warehouse_location_code: '7' },
   ])('blocks unsafe candidate %j', (patch) => {
     expect(canSelectFabricLoanAsset({ ...asset, ...patch }, fresh())).toBe(false);
   });
@@ -289,13 +337,26 @@ describe('atomic server sync contract', () => {
   it('rejects duplicate normalized serial identities instead of silently losing rows', () => {
     expect(() => validateFabricLoanSnapshot([row(), { ...row(), asset_instance_id: 'SERIAL|QA|OTHER', serial_number: ' qa-serial ' }], [...FABRIC_LOAN_FIELDS])).toThrow();
   });
-  it('accepts distinct non-serialized physical instances and rejects duplicate instance identities', () => {
+  it('keeps one non-serialized source row regardless of quantity and rejects synthetic expansion', () => {
     const nonSerialized = { ...row(), asset_instance_id: 'LINE|QA|123|1', serial_number: null };
-    expect(validateFabricLoanSnapshot([nonSerialized], [...FABRIC_LOAN_FIELDS])).toHaveLength(1);
+    expect(validateFabricLoanSnapshot([{ ...nonSerialized, inventory_qty: 18 }], [...FABRIC_LOAN_FIELDS])).toEqual([{ ...nonSerialized, inventory_qty: 18 }]);
     expect(() => validateFabricLoanSnapshot([nonSerialized, { ...nonSerialized }], [...FABRIC_LOAN_FIELDS])).toThrow();
+    expect(() => validateFabricLoanSnapshot([nonSerialized, { ...nonSerialized, asset_instance_id: 'LINE|QA|123|2', instance_ordinal: 2 }], [...FABRIC_LOAN_FIELDS])).toThrow();
+    expect(() => validateFabricLoanSnapshot([nonSerialized, { ...nonSerialized, asset_instance_id: 'LINE|QA|123|OTHER' }], [...FABRIC_LOAN_FIELDS])).toThrow();
   });
   it('allows a complete empty source snapshot with valid metadata', () => {
     expect(validateFabricLoanSnapshot([], [...FABRIC_LOAN_FIELDS])).toEqual([]);
+  });
+  it('enforces the same bulk-source rule at the signed ingest payload boundary', () => {
+    const now = Date.now();
+    const sourceAsOf = new Date(now).toISOString();
+    const bulk = { ...row(), serial_number: null, serial_number_normalized: null,
+      source_as_of: sourceAsOf, asset_instance_id: 'LINE|QA|1|1', inventory_qty: '18' };
+    const snapshot = { snapshot_id: '11111111-1111-4111-8111-111111111111', source_as_of: sourceAsOf,
+      expected_row_count: 1, rows: [bulk] };
+    expect(validateFabricPush(snapshot, now).rows[0].inventory_qty).toBe('18');
+    expect(() => validateFabricPush({ ...snapshot, expected_row_count: 2,
+      rows: [bulk, { ...bulk, asset_instance_id: 'LINE|QA|1|2', instance_ordinal: 2 }] }, now)).toThrow('INVALID_SNAPSHOT');
   });
   it('never starts a second source read when an existing sync owns the lease', async () => {
     const deps = { begin: vi.fn().mockResolvedValue(null), read: vi.fn(), publish: vi.fn(), fail: vi.fn() };
@@ -331,7 +392,10 @@ describe('atomic server sync contract', () => {
     expect(nonSerialMigration).toContain('Brik number is already assigned');
     expect(fabricView).toContain("NULLIF(TRIM(REPLACE(l.SERIALNUMBER, CHAR(2), '')), '') IS NULL");
     expect(fabricView).toContain("CONCAT('LINE|', company");
-    expect(fabricView).toContain('<= CEILING(l.QTY)');
+    expect(fabricView).not.toContain('CEILING(l.QTY)');
+    expect(fabricView).not.toContain('CROSS JOIN digits');
+    expect(fabricView).toContain('QTY AS inventory_qty');
+    expect(fabricView).toContain('FROM nonserialized_lines');
     expect(fabricView).not.toContain('TRANSACTION_ =');
     expect(edge).toContain("caller.rpc('can_administer_loans')"); expect(edge).toContain('caller.auth.getUser()');
     expect(edge).toContain('verifyFabricSignature'); expect(edge).toContain('validateFabricPush');

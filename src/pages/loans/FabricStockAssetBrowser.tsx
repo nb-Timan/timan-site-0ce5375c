@@ -3,6 +3,7 @@ import { Check, Search } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import {
   fabricLoanAssetDisplayIdentity,
+  fabricLoanSharedBrikRows,
   filterFabricLoanStock,
   type FabricLoanAsset,
 } from '@/lib/fabricLoanStock';
@@ -95,6 +96,10 @@ export default function FabricStockAssetBrowser({
         {rows.length === 0 ? <p className="py-4 text-sm text-slate-600">{label('loansStockNoMatch')}</p> : <div className="divide-y divide-slate-200">
           {rows.map((asset) => {
             const match = canonicalMatch(asset);
+            const sharedBrikRows = fabricLoanSharedBrikRows(assets, asset);
+            const sharedBrikCount = Math.max(asset.brik_group_size ?? 0, sharedBrikRows.length);
+            const sharedSerialConflict = Boolean(asset.brik_group_serial_conflict)
+              || new Set(sharedBrikRows.map((row) => row.serial_number_normalized).filter(Boolean)).size > 1;
             const selected = selection?.selectedIds.has(asset.asset_id) ?? false;
             const issue = selection?.issueFor(asset) ?? null;
             const title = asset.line_text?.trim() || asset.item_name || asset.item_number;
@@ -132,6 +137,13 @@ export default function FabricStockAssetBrowser({
                 {!issue && asset.account_number === '1020' && <span className="text-slate-600">{label('loansStockExternal')}</span>}
                 {asset.review_reason && <span className="break-words text-slate-600">{asset.review_reason}</span>}
               </div>
+              {asset.brik_number && sharedBrikCount > 1 && <div role="status"
+                className="mt-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                {sharedSerialConflict
+                  ? label('loansStockBrikSerialConflict').replace('{number}', String(asset.brik_number))
+                  : <>{label('loansStockBrikShared').replace('{number}', String(asset.brik_number)).replace('{count}', String(sharedBrikCount))}
+                    <span className="ml-1">{label('loansStockBrikGroupHint')}</span></>}
+              </div>}
             </article>;
           })}
         </div>}

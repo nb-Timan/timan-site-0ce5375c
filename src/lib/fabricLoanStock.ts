@@ -25,6 +25,9 @@ export interface FabricLoanAsset {
   allocated: boolean;
   sales_committed?: boolean;
   brik_number: number | null;
+  physical_asset_group_key?: string | null;
+  brik_group_size?: number;
+  brik_group_serial_conflict?: boolean;
 }
 
 export interface FabricLoanSyncStatus {
@@ -46,7 +49,8 @@ export function isFabricStockFresh(sync: FabricLoanSyncStatus, now = Date.now())
 
 export function canSelectFabricLoanAsset(asset: FabricLoanAsset, sync: FabricLoanSyncStatus, now = Date.now()): boolean {
   return isFabricStockFresh(sync, now) && asset.source_present && asset.classification === 'LOAN_CANDIDATE'
-    && !asset.review_required && !asset.identity_conflict && !asset.allocated && asset.item_type !== null
+    && !asset.review_required && !asset.identity_conflict && !asset.brik_group_serial_conflict
+    && !asset.allocated && asset.item_type !== null
     && Boolean(asset.serial_number?.trim() || asset.brik_number)
     && ['2', '4'].includes(asset.warehouse_location_code);
 }
@@ -74,4 +78,18 @@ export function filterFabricLoanStock(
       asset.asset_instance_id,
       asset.order_number, asset.brik_number?.toString(), ...(additionalSearchValues?.(asset) ?? [])]
       .some((value) => value?.toLocaleLowerCase().includes(needle))));
+}
+
+export function fabricLoanPhysicalGroupKey(asset: FabricLoanAsset): string {
+  if (asset.brik_number) return asset.physical_asset_group_key
+    ?? `${asset.company}:BRIK:${asset.brik_number}`;
+  if (asset.serial_number_normalized) return `${asset.company}:SERIAL:${asset.serial_number_normalized}`;
+  return `${asset.company}:ASSET:${asset.asset_instance_id}`;
+}
+
+export function fabricLoanSharedBrikRows(assets: FabricLoanAsset[], asset: FabricLoanAsset): FabricLoanAsset[] {
+  if (!asset.brik_number) return [];
+  return assets.filter((candidate) => candidate.source_present
+    && candidate.company === asset.company
+    && candidate.brik_number === asset.brik_number);
 }

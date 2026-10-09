@@ -1,7 +1,7 @@
 import { ACCESSORIES, getAccessoriesFlat, getPriceForCurrency, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { Currency } from '@/lib/currency';
-import { isFabricStockFresh, type FabricLoanAsset, type FabricLoanSyncStatus } from '@/lib/fabricLoanStock';
+import { fabricLoanPhysicalGroupKey, isFabricStockFresh, type FabricLoanAsset, type FabricLoanSyncStatus } from '@/lib/fabricLoanStock';
 import type { ConfiguratorState, MachineConfig, SalesStockAssetSnapshot } from '@/types/configurator';
 
 export const SALES_STOCK_HANDOFF_KEY = 'timan.configurator.sales-stock-handoff.v1';
@@ -74,7 +74,8 @@ export function salesStockAssetSelectionIssue(
   currency: Currency,
 ): string | null {
   if (!isFabricStockFresh(sync)) return 'Salgslagerdata er ikke opdateret';
-  if (asset.identity_conflict || asset.classification === 'IDENTITY_CONFLICT') return 'Identitetskonflikt';
+  if (asset.identity_conflict || asset.brik_group_serial_conflict
+    || asset.classification === 'IDENTITY_CONFLICT') return 'Identitetskonflikt';
   if (asset.review_required || asset.classification === 'REVIEW_REQUIRED') return 'Kræver kontrol';
   if (asset.sales_committed) return 'Allerede reserveret til salg';
   if (asset.allocated) return 'Allerede reserveret til lån';
@@ -87,6 +88,17 @@ export function salesStockAssetSelectionIssue(
   }
   if (!resolveSalesStockCatalogItem(asset.item_number, currency)) return 'Mangler Product Master-match';
   return null;
+}
+
+export function salesStockSelectedGroupIssue(
+  asset: FabricLoanAsset,
+  selected: FabricLoanAsset[],
+): string | null {
+  const groupKey = fabricLoanPhysicalGroupKey(asset);
+  return selected.some((candidate) => candidate.asset_id !== asset.asset_id
+    && fabricLoanPhysicalGroupKey(candidate) === groupKey)
+    ? 'Samme fysiske redskab er allerede valgt'
+    : null;
 }
 
 export function buildSalesStockConfiguratorState(

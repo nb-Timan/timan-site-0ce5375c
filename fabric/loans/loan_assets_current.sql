@@ -162,8 +162,6 @@ WITH stock_all AS (
         CONCAT('SERIAL|', company, '|', UPPER(serial_number)) AS asset_instance_id,
         CAST(1 AS int) AS instance_ordinal
     FROM classified
-), digits AS (
-    SELECT n FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) d(n)
 ), nonserialized_lines AS (
     SELECT NULLIF(TRIM(REPLACE(l.DATASET, CHAR(2), '')), '') AS company,
         NULLIF(TRIM(REPLACE(h.ACCOUNT, CHAR(2), '')), '') AS account_number,
@@ -184,17 +182,12 @@ WITH stock_all AS (
       AND NULLIF(TRIM(REPLACE(l.INVENLOCATION, CHAR(2), '')), '') IN ('2', '4')
       AND NULLIF(TRIM(REPLACE(h.ACCOUNT, CHAR(2), '')), '') IN ('1010', '1020')
       AND l.OPEN_ = 1 AND l.QTY > 0
-), nonserialized_instances AS (
-    SELECT l.*, (d4.n * 1000 + d3.n * 100 + d2.n * 10 + d1.n + 1) AS instance_ordinal
-    FROM nonserialized_lines l
-    CROSS JOIN digits d1 CROSS JOIN digits d2 CROSS JOIN digits d3 CROSS JOIN digits d4
-    WHERE (d4.n * 1000 + d3.n * 100 + d2.n * 10 + d1.n + 1) <= CEILING(l.QTY)
 ), nonserialized_assets AS (
     SELECT company, account_number, order_number, line_number, item_number, item_name, line_text,
         CAST(NULL AS nvarchar(255)) AS serial_number, location_code AS warehouse_location_code,
         CASE location_code WHEN '2' THEN N'Lager 2 - Nye ubrugte salgslagermaskiner'
           WHEN '4' THEN N'Lager 4 - Brugte salgslagermaskiner' END AS warehouse_location_name,
-        source_location_name AS warehouse_source_name, CAST(1 AS numeric(32,12)) AS inventory_qty,
+        source_location_name AS warehouse_source_name, QTY AS inventory_qty,
         CAST(NULL AS numeric(32,12)) AS reserved_qty, CAST(NULL AS numeric(32,12)) AS delivered_qty,
         CAST(NULL AS numeric(32,12)) AS received_qty, CAST(NULL AS numeric(32,12)) AS pulled_qty,
         CAST(NULL AS numeric(32,12)) AS ordered_qty, CAST(NULL AS numeric(32,12)) AS marked_physical_qty,
@@ -217,10 +210,10 @@ WITH stock_all AS (
         CASE WHEN item_match_count <> 1 OR location_match_count <> 1 OR QTY <> FLOOR(QTY)
           THEN 'REVIEW_REQUIRED' ELSE 'LOAN_CANDIDATE' END AS classification,
         CONCAT('LINE|', company, '|', ROWNUMBER, '|', item_number, '|', location_code, '|',
-          COALESCE(order_number, ''), '|', COALESCE(CONVERT(varchar(64), line_number), ''), '|', instance_ordinal)
+          COALESCE(order_number, ''), '|', COALESCE(CONVERT(varchar(64), line_number), ''), '|1')
           AS asset_instance_id,
-        instance_ordinal
-    FROM nonserialized_instances
+        CAST(1 AS int) AS instance_ordinal
+    FROM nonserialized_lines
 )
 SELECT * FROM serialized_assets
 UNION ALL

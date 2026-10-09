@@ -16,6 +16,7 @@ export function validateFabricLoanSnapshot(rows: unknown, columns: string[]): Fa
     || FABRIC_LOAN_FIELDS.some((key) => !columns.includes(key))) throw new Error('INVALID_SNAPSHOT');
   const identities = new Set<string>();
   const serializedIdentities = new Set<string>();
+  const nonserializedSourceIdentities = new Set<string>();
   return rows.map((input) => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('INVALID_SNAPSHOT');
     const row = input as Record<string, unknown>;
@@ -46,6 +47,12 @@ export function validateFabricLoanSnapshot(rows: unknown, columns: string[]): Fa
       const serializedIdentity = JSON.stringify([String(row.company).trim(), row.serial_number.trim().toUpperCase()]);
       if (serializedIdentities.has(serializedIdentity)) throw new Error('INVALID_SNAPSHOT');
       serializedIdentities.add(serializedIdentity);
+    } else {
+      // Source quantity is stock, not proof of individual physical units.
+      if (Number(row.instance_ordinal) !== 1 || row.source_row_number === null) throw new Error('INVALID_SNAPSHOT');
+      const sourceIdentity = JSON.stringify([String(row.company).trim(), String(row.source_row_number)]);
+      if (nonserializedSourceIdentities.has(sourceIdentity)) throw new Error('INVALID_SNAPSHOT');
+      nonserializedSourceIdentities.add(sourceIdentity);
     }
     return Object.fromEntries(FABRIC_LOAN_FIELDS.map((key) => [key, row[key]])) as FabricLoanRow;
   });

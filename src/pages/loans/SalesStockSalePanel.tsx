@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFabricLoanStock } from '@/hooks/useFabricLoanStock';
 import { useLanguage } from '@/context/LanguageContext';
 import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
-import { salesStockAssetSelectionIssue, storeSalesStockHandoff } from '@/lib/salesStockConfigurator';
+import { salesStockAssetSelectionIssue, salesStockSelectedGroupIssue, storeSalesStockHandoff } from '@/lib/salesStockConfigurator';
 import { t } from '@/lib/i18n/translations';
 import FabricStockAssetBrowser, { type FabricStockBrowserFilters } from './FabricStockAssetBrowser';
 
@@ -20,13 +20,15 @@ export default function SalesStockSalePanel() {
   if (!enabled) return null;
 
   const issueFor = (asset: FabricLoanAsset) => stock
-    ? salesStockAssetSelectionIssue(asset, stock.sync, 'DKK')
+    ? salesStockAssetSelectionIssue(asset, stock.sync, 'DKK') ?? salesStockSelectedGroupIssue(asset, selected)
     : 'Salgslagerdata er ikke klar';
   const toggle = (asset: FabricLoanAsset) => {
+    if (selected.some((item) => item.asset_id === asset.asset_id)) {
+      setSelected((current) => current.filter((item) => item.asset_id !== asset.asset_id));
+      return;
+    }
     if (issueFor(asset)) return;
-    setSelected((current) => current.some((item) => item.asset_id === asset.asset_id)
-      ? current.filter((item) => item.asset_id !== asset.asset_id)
-      : [...current, asset]);
+    setSelected((current) => [...current, asset]);
   };
   const openConfigurator = () => {
     if (!selected.length) return;

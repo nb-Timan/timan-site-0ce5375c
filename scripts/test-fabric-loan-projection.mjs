@@ -51,6 +51,7 @@ try {
   await db.exec(readFileSync('supabase/migrations/20261008070522_resolve_fabric_loan_item_type.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261008075941_fabric_loan_line_text_and_brik_metadata.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261008094909_support_nonserialized_fabric_loan_assets.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261009061313_nonserialized_stock_source_rows.sql', 'utf8'));
   assert.equal(await scalar("select public.loan_resolve_fabric_item_type('410040-01') as value"),'machine');
   assert.equal(await scalar("select public.loan_resolve_fabric_item_type('725142-00') as value"),'equipment');
   assert.equal(await scalar("select public.loan_resolve_fabric_item_type('UNKNOWN-00') as value"),null);
@@ -166,6 +167,46 @@ try {
   await db.exec('reset role; set role anon');
   await assert.rejects(scalar('select public.loan_stock_snapshot() as value'),/permission denied/);
   await assert.rejects(scalar('select count(*) as value from public.fabric_loan_assets_current'),/permission denied/);
-  console.log('PASS: migration, serialized and non-serialized identities, unique persistent Brik metadata, same-case multi-asset allocation, blank-serial collision protection, push/refresh queue, lease fencing, failure retention, stale block, Backend/Seller/Partner/anonymous RLS, read-only grants. Local in-memory PostgreSQL only.');
+  await db.exec(`reset role;
+    update public.app_users set portal_role='timan_backend';
+    create table public.sales_stock_configuration_assets(id uuid primary key default gen_random_uuid(),source_asset_id uuid,reservation_status text);
+  `);
+  await db.exec(readFileSync('supabase/migrations/20261009054436_shared_brik_physical_groups.sql', 'utf8'));
+  const bulk = row(null,{asset_instance_id:'LINE|DAT|420093276|65101002|4|133226|8|1',company:'DAT',
+    source_row_number:420093276,item_number:'65101002',line_text:'Nr. Hammerslagle',order_number:'133226',
+    line_number:8,warehouse_location_code:'4',inventory_qty:'18'});
+  const componentA = row(null,{asset_instance_id:'LINE|DAT|394069546|210100-01|2|133225|9|1',company:'DAT',
+    source_row_number:394069546,item_number:'210100-01',order_number:'133225',line_number:9});
+  const componentB = row(null,{asset_instance_id:'LINE|DAT|394069547|210123-00|2|133225|10|1',company:'DAT',
+    source_row_number:394069547,item_number:'210123-00',order_number:'133225',line_number:10});
+  await publish(await begin(),[bulk,componentA,componentB,row('QA-1'),row('QA-2'),row('QA-3')]);
+  const bulkId=await scalar("select asset_id as value from public.fabric_loan_assets_current where asset_instance_id=$1",[bulk.asset_instance_id]);
+  assert.equal(await scalar("select count(*)::int as value from public.fabric_loan_assets_current where source_present and item_number='65101002'"),1);
+  assert.equal(Number(await scalar('select inventory_qty as value from public.fabric_loan_assets_current where asset_id=$1',[bulkId])),18);
+  const syntheticRun=await begin();
+  await assert.rejects(publish(syntheticRun,[bulk,{...bulk,asset_instance_id:bulk.asset_instance_id.replace(/1$/,'2'),instance_ordinal:2}]),/INVALID_SNAPSHOT/);
+  await db.query("select public.fabric_loan_sync_fail($1,'INVALID_SNAPSHOT')",[syntheticRun]);
+  const groupA=await scalar('select asset_id as value from public.fabric_loan_assets_current where asset_instance_id=$1',[componentA.asset_instance_id]);
+  const groupB=await scalar('select asset_id as value from public.fabric_loan_assets_current where asset_instance_id=$1',[componentB.asset_instance_id]);
+  await scalar('select public.loan_set_asset_brik_number($1,96) as value',[groupA]);
+  assert.equal((await scalar('select public.loan_set_asset_brik_number($1,96) as value',[groupB])).shared_row_count,2);
+  await publish(await begin(),[bulk,componentA,componentB,row('QA-1'),row('QA-2'),row('QA-3')]);
+  assert.equal(await scalar('select count(*)::int as value from public.loan_asset_portal_metadata where brik_number=96'),2);
+  assert.equal(await scalar('select count(*)::int as value from public.fabric_loan_assets_current where source_present and serial_number_normalized is not null'),3);
+  const groupItem=await db.query(`insert into public.loan_case_items(case_id,item_type,product_sku,fabric_asset_id,created_by)
+    values($1,'equipment','210100-01',$2,$3) returning id`,[caseId,groupA,actor]);
+  await db.query('insert into public.loan_asset_allocations(case_item_id,fabric_asset_id,allocated_by) values($1,$2,$3)',[groupItem.rows[0].id,groupA,actor]);
+  const otherItem=await db.query(`insert into public.loan_case_items(case_id,item_type,product_sku,fabric_asset_id,created_by)
+    values($1,'equipment','210123-00',$2,$3) returning id`,[caseId,groupB,actor]);
+  await assert.rejects(db.query('insert into public.loan_asset_allocations(case_item_id,fabric_asset_id,allocated_by) values($1,$2,$3)',[otherItem.rows[0].id,groupB,actor]),/already allocated/);
+  await assert.rejects(db.query("insert into public.sales_stock_configuration_assets(source_asset_id,reservation_status) values($1,'ACTIVE')",[groupB]),/already reserved or sold/);
+  await db.query("update public.loan_asset_allocations set allocation_status='released' where case_item_id=$1",[groupItem.rows[0].id]);
+  await db.query("insert into public.sales_stock_configuration_assets(source_asset_id,reservation_status) values($1,'ACTIVE')",[groupA]);
+  await assert.rejects(db.query("insert into public.sales_stock_configuration_assets(source_asset_id,reservation_status) values($1,'ACTIVE')",[groupB]),/already reserved or sold/);
+  await assert.rejects(db.query('insert into public.loan_asset_allocations(case_item_id,fabric_asset_id,allocated_by) values($1,$2,$3)',[otherItem.rows[0].id,groupB,actor]),/already allocated/);
+  await db.exec('set role authenticated');
+  await assert.rejects(scalar('select count(*) as value from public.loan_asset_brik_audit'),/permission denied/);
+  assert.equal((await scalar('select public.loan_stock_snapshot() as value')).assets.find(a=>a.asset_id===groupB).allocated,true);
+  console.log('PASS: atomic ingest, bulk quantity 18 as one source row, synthetic expansion rejected, three serial identities, persistent shared Brik, group double-loan/double-sale/cross-flow protection, RLS, stale/failure retention. Local in-memory PostgreSQL only.');
 } catch (error) { console.error(error.message); process.exitCode=1; }
 finally { await db.close(); }

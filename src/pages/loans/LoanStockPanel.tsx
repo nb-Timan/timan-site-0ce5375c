@@ -21,7 +21,8 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
   const failed = query.isError || refresh.isError || stock?.sync.failed;
   const date = (value: string | null) => value ? new Date(value).toLocaleString(uiLanguage) : '—';
   const status = (asset: FabricLoanAsset) => {
-    if (asset.identity_conflict || asset.classification === 'IDENTITY_CONFLICT') return 'loansStockConflict';
+    if (asset.identity_conflict || asset.brik_group_serial_conflict
+      || asset.classification === 'IDENTITY_CONFLICT') return 'loansStockConflict';
     if (asset.review_required || asset.classification === 'REVIEW_REQUIRED') return 'loansStockReview';
     if (asset.classification !== 'LOAN_CANDIDATE') return 'loansStockExcluded';
     if (asset.allocated) return 'loansStockAllocated';
@@ -33,8 +34,9 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
     setBrikDraft(asset.brik_number?.toString() ?? '');
   };
   const saveBrik = (asset: FabricLoanAsset) => {
-    if (!/^[1-9]\d{0,5}$/.test(brikDraft)) return;
-    setBrik.mutate({ assetId: asset.asset_id, brikNumber: Number(brikDraft) }, {
+    const normalized = brikDraft.trim();
+    if (normalized && !/^[1-9]\d{0,5}$/.test(normalized)) return;
+    setBrik.mutate({ assetId: asset.asset_id, brikNumber: normalized ? Number(normalized) : null }, {
       onSuccess: () => setEditingBrikAssetId(null),
     });
   };
@@ -73,11 +75,11 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
         <input type="number" min="1" max="999999" inputMode="numeric" value={brikDraft}
           aria-label={`${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
           onChange={(event) => setBrikDraft(event.target.value)} className="h-8 w-24 rounded border border-slate-300 px-2 text-sm" />
-        <button type="button" disabled={setBrik.isPending || !/^[1-9]\d{0,5}$/.test(brikDraft)} onClick={() => saveBrik(asset)}
+        <button type="button" disabled={setBrik.isPending || Boolean(brikDraft.trim()) && !/^[1-9]\d{0,5}$/.test(brikDraft.trim())} onClick={() => saveBrik(asset)}
           className="h-8 rounded border border-emerald-700 px-2 font-medium text-emerald-800 disabled:opacity-50">{label('save')}</button>
         <button type="button" disabled={setBrik.isPending} onClick={() => setEditingBrikAssetId(null)}
           className="h-8 rounded border border-slate-300 px-2">{label('cancel')}</button>
-        {setBrik.isError && <span role="alert" className="block text-xs text-red-700">{label('loansStockBrikDuplicate')}</span>}
+        {setBrik.isError && <span role="alert" className="block text-xs text-red-700">{label('loansStockBrikSaveFailed')}</span>}
       </div> : <span className="inline-flex items-center gap-1">{asset.brik_number ?? '—'}
         {canEditBrik && <button type="button" onClick={() => startBrikEdit(asset)} title={label('edit')}
           aria-label={`${label('edit')} ${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}

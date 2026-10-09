@@ -21,12 +21,15 @@ Deno.test('push accepts exactly the approved operational fields, nullable order,
   assertEquals(validateFabricPush({ ...snapshot(), rows: [], expected_row_count: 0 }, now).rows, []);
 });
 
-Deno.test('push accepts a non-serialized physical instance with stable source identity', () => {
+Deno.test('push preserves one non-serialized bulk source row and its full quantity', () => {
   const nonSerialized = { ...row, asset_instance_id: 'LINE|TEST|123|1', serial_number: null,
-    serial_number_normalized: null, instance_ordinal: 1 };
+    serial_number_normalized: null, instance_ordinal: 1, inventory_qty: '18' };
   const parsed = validateFabricPush({ ...snapshot(), rows: [nonSerialized] }, now);
   assertEquals(parsed.rows[0].serial_number, null);
   assertEquals(parsed.rows[0].asset_instance_id, 'LINE|TEST|123|1');
+  assertEquals(parsed.rows[0].inventory_qty, '18');
+  assertThrows(() => validateFabricPush({ ...snapshot(), expected_row_count: 2,
+    rows: [nonSerialized, { ...nonSerialized, asset_instance_id: 'LINE|TEST|123|2', instance_ordinal: 2 }] }, now));
 });
 
 for (const [name, patch] of Object.entries({ unknown: { sql: 'SELECT 1' }, id: { snapshot_id: 'bad' },

@@ -8,6 +8,7 @@ import {
   consumeSalesStockHandoff,
   resolveSalesStockCatalogItem,
   salesStockAssetContextLines,
+  salesStockSelectedGroupIssue,
   storeSalesStockHandoff,
   updateSalesStockAssetPricing,
 } from '@/lib/salesStockConfigurator';
@@ -72,6 +73,16 @@ describe('sales-stock Configurator domain', () => {
     expect(restored.salesStockAssets?.map((row) => row.serialNumber)).toEqual(['410040-01', '411000-02']);
     expect(consumeSalesStockHandoff()).toEqual([]);
     expect(configuratorSalesSourceType(restored)).toBe('SALES_STOCK_DEMO');
+  });
+
+  it('treats a shared Brik as one physical sales group without merging source rows', () => {
+    const componentA = { ...asset('asset-a', '410040-01', '410040-01'), serial_number: null,
+      serial_number_normalized: null, brik_number: 96, physical_asset_group_key: 'DAT:BRIK:96' };
+    const componentB = { ...asset('asset-b', '411000-04', '411000-02'), serial_number: null,
+      serial_number_normalized: null, brik_number: 96, physical_asset_group_key: 'DAT:BRIK:96' };
+    expect(salesStockSelectedGroupIssue(componentB, [componentA])).toBe('Samme fysiske redskab er allerede valgt');
+    expect(salesStockSelectedGroupIssue(componentA, [componentA])).toBeNull();
+    expect(componentA.asset_instance_id).not.toBe(componentB.asset_instance_id);
   });
 
   it('keeps adjusted base price transaction-only and leaves Product Master unchanged', () => {
