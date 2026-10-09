@@ -101,6 +101,13 @@ describe('single Fabric stock dataset', () => {
     expect(canSelectFabricLoanAsset(untyped, fresh())).toBe(false);
     expect(resolveSalesStockCatalogItem(untyped.item_number, 'DKK')?.catalogItemNumber).toBe('410040');
     expect(salesStockAssetSelectionIssue(untyped, fresh(), 'DKK')).toBeNull();
+    const loaderLineEquipment = { ...asset, item_number: '312010-00', item_type: null };
+    expect(resolveSalesStockCatalogItem(loaderLineEquipment.item_number, 'DKK')).toMatchObject({
+      catalogItemNumber: '312010',
+      itemType: 'equipment',
+      machineType: 'Loader Line',
+    });
+    expect(salesStockAssetSelectionIssue(loaderLineEquipment, fresh(), 'DKK')).toBeNull();
   });
   it('shows deterministic reasons for every unsafe sales-stock selection', () => {
     expect(salesStockAssetSelectionIssue({ ...asset, item_number: 'UNKNOWN-01' }, fresh(), 'DKK')).toBe('Mangler Product Master-match');

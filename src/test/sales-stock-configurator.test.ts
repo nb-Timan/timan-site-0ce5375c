@@ -49,6 +49,15 @@ describe('sales-stock Configurator domain', () => {
     expect(resolveSalesStockCatalogItem('410040-01', 'DKK')?.machineType).toBe('RC-751');
     expect(resolveSalesStockCatalogItem('411000-04', 'DKK')?.machineType).toBe('RC-1000S');
     expect(resolveSalesStockCatalogItem('410910-00', 'DKK')?.itemType).toBe('equipment');
+    expect(resolveSalesStockCatalogItem('411666-00', 'DKK')?.itemType).toBe('equipment');
+    expect(resolveSalesStockCatalogItem('312010-00', 'DKK')).toMatchObject({
+      itemType: 'equipment',
+      machineType: 'Loader Line',
+      catalogItemNumber: '312010',
+    });
+    expect(resolveSalesStockCatalogItem('210100-01', 'DKK')).toBeNull();
+    expect(resolveSalesStockCatalogItem('210112-02', 'DKK')).toBeNull();
+    expect(resolveSalesStockCatalogItem('210123-00', 'DKK')).toBeNull();
     expect(resolveSalesStockCatalogItem('410040-01-extra', 'DKK')).toBeNull();
   });
 

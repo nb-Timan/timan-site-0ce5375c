@@ -1,4 +1,4 @@
-import { getAccessoriesFlat, getPriceForCurrency, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
+import { ACCESSORIES, getAccessoriesFlat, getPriceForCurrency, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { Currency } from '@/lib/currency';
 import { isFabricStockFresh, type FabricLoanAsset, type FabricLoanSyncStatus } from '@/lib/fabricLoanStock';
@@ -30,16 +30,30 @@ export function resolveSalesStockCatalogItem(itemNumber: string, currency: Curre
     catalogItemNumber: machine[1].varenr,
     listPrice: getPriceForCurrency(machine[1], currency),
   };
-  const equipment = getAccessoriesFlat(LOOSE_TOOL_KEY).find((item) =>
+  const looseEquipment = getAccessoriesFlat(LOOSE_TOOL_KEY).find((item) =>
     !item.isHeader && !item.isProductGroup && candidates.includes(item.varenr.trim().toUpperCase()));
-  if (!equipment) return null;
-  return {
+  if (looseEquipment) return {
     itemType: 'equipment',
     machineType: LOOSE_TOOL_KEY,
-    catalogId: equipment.id,
-    catalogItemNumber: equipment.varenr,
-    listPrice: getPriceForCurrency(equipment, currency),
+    catalogId: looseEquipment.id,
+    catalogItemNumber: looseEquipment.varenr,
+    listPrice: getPriceForCurrency(looseEquipment, currency),
   };
+
+  for (const machineType of Object.keys(ACCESSORIES)) {
+    const equipment = getAccessoriesFlat(machineType).find((item) =>
+      !item.isHeader && !item.isProductGroup && candidates.includes(item.varenr.trim().toUpperCase()));
+    if (!equipment) continue;
+    return {
+      itemType: 'equipment',
+      machineType,
+      catalogId: equipment.id,
+      catalogItemNumber: equipment.varenr,
+      listPrice: getPriceForCurrency(equipment, currency),
+    };
+  }
+
+  return null;
 }
 
 export function canLaunchSalesStockAsset(asset: FabricLoanAsset, currency: Currency): boolean {
