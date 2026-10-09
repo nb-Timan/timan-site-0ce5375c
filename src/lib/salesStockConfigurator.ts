@@ -31,7 +31,8 @@ export function resolveSalesStockCatalogItem(itemNumber: string, currency: Curre
     listPrice: getPriceForCurrency(machine[1], currency),
   };
   const looseEquipment = getAccessoriesFlat(LOOSE_TOOL_KEY).find((item) =>
-    !item.isHeader && !item.isProductGroup && candidates.includes(item.varenr.trim().toUpperCase()));
+    !item.sourceMachineType && !item.isHeader && !item.isProductGroup
+    && candidates.includes(item.varenr.trim().toUpperCase()));
   if (looseEquipment) return {
     itemType: 'equipment',
     machineType: LOOSE_TOOL_KEY,

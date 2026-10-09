@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ACCESSORIES, getAccessoriesFlat, getLooseToolAccessories, LOOSE_TOOL_KEY } from '@/data/machines';
+import { ACCESSORIES, getAccessoriesFlat, getLooseToolAccessories, getPriceForCurrency, LOOSE_TOOL_KEY } from '@/data/machines';
 import { filterLooseToolAccessories, LOOSE_TOOL_MACHINE_FILTERS } from '@/lib/looseToolPresentation';
+import { resolveSalesStockCatalogItem } from '@/lib/salesStockConfigurator';
 import type { Accessory, SubItem } from '@/types/configurator';
 
 const rc751 = ['411687', '410106', '411571', '411866', '411867', '795015'];
@@ -28,6 +29,21 @@ describe('canonical loose-tool filter presentation', () => {
 
   it('reuses the existing translated RC-751 section', () => {
     expect(filterLooseToolAccessories(getLooseToolAccessories(), 'RC-751', [])[0].sectionStart).toBe('rc751EquipmentSection');
+  });
+
+  it.each(['DKK', 'EUR', 'SEK'] as const)('preserves original sales-stock identities and prices in %s', currency => {
+    for (const sku of ['312010', '411687', '795015']) {
+      const machineType = sku === '312010' ? 'Loader Line' : 'RC-751';
+      const source = ACCESSORIES[machineType].find(item => item.varenr === sku)!;
+      expect(resolveSalesStockCatalogItem(`${sku}-00`, currency)).toMatchObject({
+        machineType,
+        catalogId: source.id,
+        catalogItemNumber: sku,
+        listPrice: getPriceForCurrency(source, currency),
+      });
+    }
+    expect(resolveSalesStockCatalogItem('410910-00', currency)?.machineType).toBe(LOOSE_TOOL_KEY);
+    expect(resolveSalesStockCatalogItem('411666-00', currency)?.machineType).toBe(LOOSE_TOOL_KEY);
   });
 
   it.each(spreader)('retains canonical Loader-Line/CS-200 relations for %s, never RC-751', sku => {
