@@ -1,6 +1,7 @@
 import { Machine, Accessory, Language, type ConfiguratorLocale } from '@/types/configurator';
 import { getCurrentProductPrice, notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
 import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
+import { CONSUMABLE_ASSORTMENT, CONSUMABLE_GROUPS } from '@/data/looseToolAssortment';
 import { convertCurrency, currencyFromLanguage, type Currency } from '@/lib/currency';
 import {
   buildConfiguratorProductHierarchy,
@@ -1150,6 +1151,25 @@ export function getLooseToolAccessories(): Accessory[] {
     ...loaderEquipment,
     ...extras,
   ];
+
+  // Expose existing small catalog products omitted by the attachment-only slices.
+  const existingIds = new Set<string>();
+  const collectIds = (item: Accessory) => {
+    existingIds.add(item.id);
+    item.subItems?.forEach(sub => collectIds(sub as Accessory));
+  };
+  merged.forEach(collectIds);
+  for (const group of CONSUMABLE_GROUPS) {
+    const visit = (item: Accessory) => {
+      if (!existingIds.has(item.id) && !item.isHeader && !item.isProductGroup
+        && CONSUMABLE_ASSORTMENT[group].includes(item.varenr)) {
+        merged.push({ ...item, looseToolMachine: group, sourceMachineType: group });
+        existingIds.add(item.id);
+      }
+      item.subItems?.forEach(sub => visit(sub as Accessory));
+    };
+    (ACCESSORIES[group] || []).forEach(visit);
+  }
 
   // Add packaging cost item (hidden)
   merged.push({

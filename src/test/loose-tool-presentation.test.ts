@@ -15,8 +15,8 @@ function products(items: Accessory[]) {
 }
 
 describe('canonical loose-tool filter presentation', () => {
-  it('places RC-751 before RC-1000s in the existing machine filters', () => {
-    expect(LOOSE_TOOL_MACHINE_FILTERS).toEqual(['all', 'RC-751', 'RC-1000S', 'Timan 3330', 'Timan 2620']);
+  it('keeps the established machine filters without a separate RC-751 button', () => {
+    expect(LOOSE_TOOL_MACHINE_FILTERS).toEqual(['all', 'RC-1000S', 'Timan 3330', 'Timan 2620']);
   });
 
   it.each(rc751)('exposes canonical RC-751 equipment %s with unchanged identity, price and content', sku => {

@@ -109,7 +109,9 @@ import { ACADEMY_SALES_BONUS_CUSTOMER, isAcademySalesBonusCustomer, withAcademyS
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
-import { filterLooseToolAccessories, LOOSE_TOOL_MACHINE_FILTERS, type LooseToolMachineFilter } from '@/lib/looseToolPresentation';
+import { resolveLooseToolPresentation, type LooseToolMachineFilter } from '@/lib/looseToolPresentation';
+import { isLooseConsumable, type LooseToolCategory } from '@/data/looseToolAssortment';
+import { LooseToolFilters } from '@/components/configurator/LooseToolFilters';
 import { validateConfiguratorLead, type ConfiguratorLeadField } from '@/lib/configuratorLeadValidation';
 import { buildStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 
@@ -288,6 +290,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
   const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<LooseToolMachineFilter>('all');
+  const [looseToolCategory, setLooseToolCategory] = useState<LooseToolCategory>('all');
+  const [looseToolSearch, setLooseToolSearch] = useState('');
   const { appUser: sessionAppUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const renderNewBadge = (isNew?: boolean) => isNew ? (
@@ -4106,12 +4110,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               }
 
               const accs = machineType === LOOSE_TOOL_KEY
-                ? filterLooseToolAccessories(looseToolAccessories, looseToolMachineFilter, [
+                ? resolveLooseToolPresentation(looseToolAccessories, looseToolMachineFilter, looseToolCategory, [
                   ...selectedIds,
                   ...getAccessoriesFlat(machineType)
                     .filter(item => item.isQtyInput && (state.accQty[`${currentUnit.configKey}_${item.id}`] ?? 0) > 0)
                     .map(item => item.id),
-                ])
+                ], looseToolSearch, uiLanguage)
                 : (ACCESSORIES[machineType] || []);
 
               const currentDisplayIdx = displayUnits.findIndex(u => u.globalIndex === state.currentMachineIndex);
@@ -4196,8 +4200,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   }
 
                   const isSelected = selectedIds.includes(a.id);
-                  const indentClass = a.requires ? 'ml-4 bg-gray-50' : '';
-                  const hasSubs = hasSubOptions(a, accs);
+                  const flatConsumable = machineType === LOOSE_TOOL_KEY && isLooseConsumable(a.varenr);
+                  const indentClass = a.requires && !flatConsumable ? 'ml-4 bg-gray-50' : '';
+                  const hasSubs = !flatConsumable && hasSubOptions(a, accs);
                   const marketingContent = marketingContentFor(machineType, a.id);
 
                   if (a.isProductGroup) {
@@ -4247,7 +4252,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const qtyKey = `${currentUnit.configKey}_${a.id}`;
                     const currentQtyVal = state.accQty[qtyKey] ?? 0;
                     const card = (
-                      <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
+                      <div key={a.id} className={`p-2 border rounded-lg bg-white flex ${flatConsumable ? 'flex-wrap' : ''} items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
                           <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</div>
                           <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
@@ -4314,7 +4319,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           {hasSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>}
                         </div>
                         <div className="flex-grow min-w-0">
-                          <div className="flex justify-between items-start">
+                          <div className={`flex justify-between items-start ${flatConsumable ? 'flex-col gap-2 sm:flex-row' : ''}`}>
                             <div className="flex-grow min-w-0">
                               <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
@@ -4367,21 +4372,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     }[planningConfigurationStatus], uiLanguage)}
                   </p>}
                   {machineType === LOOSE_TOOL_KEY && (
-                    <div className="mb-5 text-left">
-                      <p className="text-sm font-semibold text-gray-800 mb-2">{T('looseToolsMachineFilterPrompt')}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {LOOSE_TOOL_MACHINE_FILTERS.map(value => (
-                          <button
-                            key={value}
-                            type="button"
-                            aria-pressed={looseToolMachineFilter === value}
-                            onClick={() => setLooseToolMachineFilter(value)}
-                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${looseToolMachineFilter === value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-500'}`}>
-                            {value === 'all' ? T('allMachines') : value === 'RC-1000S' ? 'RC-1000s' : value}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <LooseToolFilters category={looseToolCategory} machine={looseToolMachineFilter} search={looseToolSearch}
+                      onCategory={setLooseToolCategory} onMachine={setLooseToolMachineFilter}
+                      onSearch={setLooseToolSearch} translate={T} />
                   )}
                   {displayUnits.length > 1 && (
                     <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto mb-4">
