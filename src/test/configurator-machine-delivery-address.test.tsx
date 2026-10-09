@@ -14,6 +14,7 @@ import { configuratorPricingSignature } from '@/lib/configuratorPricing';
 import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
 import { buildConfiguratorPdf } from '@/lib/configuratorPdf';
 import type { SavedConfiguration } from '@/lib/configurationsService';
+import type { ConfiguratorState } from '@/types/configurator';
 import { t } from '@/data/translations';
 
 function fixture(qty = 2) {
@@ -48,8 +49,8 @@ function frozenAddresses() {
   return state;
 }
 
-function Editor({ qty = 2 }: { qty?: number }) {
-  const [state, setState] = useState(() => fixture(qty));
+function Editor({ qty = 2, initialState }: { qty?: number; initialState?: ConfiguratorState }) {
+  const [state, setState] = useState(() => initialState ?? fixture(qty));
   const [variant, setVariant] = useState<'step2' | 'step4'>('step2');
   return <>
     <button onClick={() => setVariant('step4')}>Step 4</button>
@@ -63,8 +64,62 @@ describe('per-machine delivery destination snapshots', () => {
     expect(fixture(1).machineDeliveryAddresses?.m0_1.mode).toBe('manual');
     render(<Editor qty={1} />);
     expect(screen.getAllByTestId(/^machine-delivery-/)).toHaveLength(1);
-    expect(screen.getByTestId('machine-delivery-m0_1')).toHaveAttribute('open');
+    expect(screen.getByTestId('machine-delivery-m0_1')).not.toHaveAttribute('open');
     expect(screen.queryByText('Tilpas leveringsadresse pr. maskine')).toBeNull();
+  });
+
+  it('opens and closes a new single-machine section without changing address data', () => {
+    render(<Editor qty={1} />);
+    const details = screen.getByTestId('machine-delivery-m0_1');
+    const header = within(details).getByText('Leveringsadresse – Maskine 1 – Timan 3330');
+    fireEvent.click(header);
+    expect(details).toHaveAttribute('open');
+    const values = { Adresse: 'QA Warehouse', 'Postnr.': '7000', By: 'Fredericia', Land: 'DK', Kontaktperson: 'QA Contact', Telefon: '12345678', Bemærkning: 'QA Gate 2' };
+    for (const [field, value] of Object.entries(values)) {
+      fireEvent.change(within(details).getByLabelText(field), { target: { value } });
+    }
+    fireEvent.click(header);
+    expect(details).not.toHaveAttribute('open');
+    fireEvent.click(header);
+    expect(details).toHaveAttribute('open');
+    for (const [field, value] of Object.entries(values)) expect(within(details).getByLabelText(field)).toHaveValue(value);
+    expect(within(details).getByLabelText('Indtast anden adresse')).toBeChecked();
+  });
+
+  it('reopens an empty saved configuration collapsed and preserves a saved custom address behind its header', () => {
+    const empty = normalizeConfiguratorState(JSON.parse(JSON.stringify(fixture(1))));
+    const mounted = render(<Editor initialState={empty} />);
+    expect(screen.getByTestId('machine-delivery-m0_1')).not.toHaveAttribute('open');
+    mounted.unmount();
+    const saved = fixture(1);
+    saved.machineDeliveryAddresses = updateMachineDeliveryAddress(saved, 'm0_1', {
+      mode: 'manual', address: 'Saved Warehouse', postalCode: '7000', city: 'Fredericia', country: 'DK',
+      contactPerson: 'QA Contact', phone: '123', note: 'Saved note',
+    });
+    render(<Editor initialState={normalizeConfiguratorState(JSON.parse(JSON.stringify(saved)))} />);
+    const details = screen.getByTestId('machine-delivery-m0_1');
+    fireEvent.click(within(details).getByText('Leveringsadresse – Maskine 1 – Timan 3330'));
+    expect(details).toHaveAttribute('open');
+    expect(within(details).getByLabelText('Adresse')).toHaveValue('Saved Warehouse');
+    expect(within(details).getByLabelText('Bemærkning')).toHaveValue('Saved note');
+    expect(within(details).getByLabelText('Indtast anden adresse')).toBeChecked();
+  });
+
+  it('keeps native disclosure state independent per machine across edits', () => {
+    render(<Editor />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tilpas leveringsadresse pr. maskine' }));
+    const first = screen.getByTestId('machine-delivery-m0_1');
+    const second = screen.getByTestId('machine-delivery-m0_2');
+    fireEvent.click(within(first).getByText('Leveringsadresse – Maskine 1 – Timan 3330'));
+    expect(first).toHaveAttribute('open');
+    expect(second).not.toHaveAttribute('open');
+    fireEvent.change(within(first).getByLabelText('Adresse'), { target: { value: 'QA Warehouse' } });
+    expect(first).toHaveAttribute('open');
+    expect(second).not.toHaveAttribute('open');
+    fireEvent.click(within(second).getByText('Leveringsadresse – Maskine 2 – Timan 3330'));
+    fireEvent.click(within(first).getByText('Leveringsadresse – Maskine 1 – Timan 3330'));
+    expect(first).not.toHaveAttribute('open');
+    expect(second).toHaveAttribute('open');
   });
 
   it('has two compact sections for two identical machines and no old helper', () => {

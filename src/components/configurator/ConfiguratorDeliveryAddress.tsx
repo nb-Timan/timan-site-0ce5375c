@@ -46,7 +46,7 @@ export function ConfiguratorDeliveryAddress({ state, variant, disabled = false, 
         const update = (patch: Partial<MachineDeliveryAddress>) => onChange({ machineDeliveryAddresses: updateMachineDeliveryAddress(state, unit.key, patch) });
         const title = `${T('deliveryAddressSection')} – ${T('machineLabel')} ${unit.unitNumber} – ${getLocalizedName(PRODUCTS[unit.machineType]?.name ?? unit.machineType, state.locale ?? state.language)}`;
         return (
-          <details key={unit.key} open={variant === 'step2' && units.length === 1} className="group min-w-0 rounded-lg border border-gray-200 bg-gray-50" data-testid={`machine-delivery-${unit.key}`}>
+          <details key={unit.key} className="group min-w-0 rounded-lg border border-gray-200 bg-gray-50" data-testid={`machine-delivery-${unit.key}`}>
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 p-3 text-sm font-semibold text-gray-900">
               <span className="min-w-0 break-words">{title}</span>
               <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 group-open:rotate-180" />
