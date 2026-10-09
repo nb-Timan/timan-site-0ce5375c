@@ -1,7 +1,7 @@
 import { getAccessoriesFlat, getPriceForCurrency, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { Currency } from '@/lib/currency';
-import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
+import { isFabricStockFresh, type FabricLoanAsset, type FabricLoanSyncStatus } from '@/lib/fabricLoanStock';
 import type { ConfiguratorState, MachineConfig, SalesStockAssetSnapshot } from '@/types/configurator';
 
 export const SALES_STOCK_HANDOFF_KEY = 'timan.configurator.sales-stock-handoff.v1';
@@ -49,8 +49,30 @@ export function canLaunchSalesStockAsset(asset: FabricLoanAsset, currency: Curre
     && !asset.allocated
     && !asset.sales_committed
     && asset.source_present
+    && Boolean(asset.serial_number?.trim() || (asset.asset_instance_id?.trim() && asset.brik_number))
     && ['2', '4'].includes(asset.warehouse_location_code)
     && Boolean(resolveSalesStockCatalogItem(asset.item_number, currency));
+}
+
+export function salesStockAssetSelectionIssue(
+  asset: FabricLoanAsset,
+  sync: FabricLoanSyncStatus,
+  currency: Currency,
+): string | null {
+  if (!isFabricStockFresh(sync)) return 'Salgslagerdata er ikke opdateret';
+  if (asset.identity_conflict || asset.classification === 'IDENTITY_CONFLICT') return 'Identitetskonflikt';
+  if (asset.review_required || asset.classification === 'REVIEW_REQUIRED') return 'Kræver kontrol';
+  if (asset.sales_committed) return 'Allerede reserveret til salg';
+  if (asset.allocated) return 'Allerede reserveret til lån';
+  if (!asset.source_present || asset.classification !== 'LOAN_CANDIDATE'
+    || !['2', '4'].includes(asset.warehouse_location_code)
+    || !['1010', '1020'].includes(asset.account_number ?? '')) return 'Ikke salgbar';
+  if (!asset.serial_number?.trim()) {
+    if (!asset.asset_instance_id?.trim()) return 'Identitetskonflikt';
+    if (!asset.brik_number) return 'Mangler Brik nr.';
+  }
+  if (!resolveSalesStockCatalogItem(asset.item_number, currency)) return 'Mangler Product Master-match';
+  return null;
 }
 
 export function buildSalesStockConfiguratorState(

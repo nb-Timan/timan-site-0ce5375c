@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Pencil, Plus, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Pencil, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useFabricLoanStock } from '@/hooks/useFabricLoanStock';
-import { canSelectFabricLoanAsset, fabricLoanAssetDisplayIdentity, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset } from '@/lib/fabricLoanStock';
+import { canSelectFabricLoanAsset, fabricLoanAssetDisplayIdentity, isFabricStockFresh, type FabricLoanAsset } from '@/lib/fabricLoanStock';
 import { t } from '@/lib/i18n/translations';
+import FabricStockAssetBrowser, { type FabricStockBrowserFilters } from './FabricStockAssetBrowser';
 
 export default function LoanStockPanel({ onSelect, busy = false, selectionReady = true }: {
   onSelect?: (asset: FabricLoanAsset) => void; busy?: boolean; selectionReady?: boolean;
@@ -11,19 +12,13 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
   const { uiLanguage } = useLanguage();
   const label = (key: string) => t(key, uiLanguage);
   const { query, refresh, verify, setBrik, enabled, canRefresh, canEditBrik } = useFabricLoanStock();
-  const [warehouse, setWarehouse] = useState('all');
-  const [search, setSearch] = useState('');
-  const [account, setAccount] = useState('all');
+  const [filters, setFilters] = useState<FabricStockBrowserFilters>({ warehouse: 'all', account: 'all', search: '' });
   const [editingBrikAssetId, setEditingBrikAssetId] = useState<string | null>(null);
   const [brikDraft, setBrikDraft] = useState('');
   if (!enabled) return null;
   const stock = query.data;
   const running = refresh.isPending || stock?.sync.running;
   const failed = query.isError || refresh.isError || stock?.sync.failed;
-  const visible = filterFabricLoanStock(stock?.assets ?? [], warehouse, search, account);
-  const warehouseCount = (value: 'all' | '2' | '4') => stock?.sync.last_success_at
-    ? filterFabricLoanStock(stock.assets, value, '', 'all').length
-    : '—';
   const date = (value: string | null) => value ? new Date(value).toLocaleString(uiLanguage) : '—';
   const status = (asset: FabricLoanAsset) => {
     if (asset.identity_conflict || asset.classification === 'IDENTITY_CONFLICT') return 'loansStockConflict';
@@ -63,83 +58,31 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
     </div>}
     {failed && <p role="alert" className="flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4 shrink-0" />{label(stock?.sync.last_success_at ? 'loansStockFailed' : 'loansStockNotReady')}</p>}
     {stock && (!stock.sync.configured || !isFabricStockFresh(stock.sync)) && <p role="status" className="text-sm text-amber-900">{label(!stock.sync.configured ? 'loansStockNotReady' : 'loansStockStale')}</p>}
-    <div className="grid min-w-0 gap-4 md:grid-cols-2">
-      <fieldset className="min-w-0">
-        <legend className="mb-1.5 text-xs font-semibold text-slate-700">{label('loansWarehouse')}</legend>
-        <div className="grid min-w-0 grid-cols-3 gap-1.5">
-          {(['all', '2', '4'] as const).map((code) => {
-            const optionLabel = code === 'all' ? label('loansAllWarehouses') : label(`loansWarehouse${code}`);
-            return <button type="button" key={code} aria-pressed={warehouse === code} onClick={() => setWarehouse(code)}
-              className={`flex min-h-10 min-w-0 items-center justify-between gap-1 rounded-md border px-2 py-1.5 text-left text-sm font-medium ${warehouse === code ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
-              <span className="min-w-0 break-words">{optionLabel}</span>
-              {code !== 'all' && <span className="sr-only">{label(code === '2' ? 'loansStockNew' : 'loansStockUsed')}</span>}
-              <span className="shrink-0 text-xs tabular-nums text-slate-500" aria-hidden="true">{warehouseCount(code)}</span>
-            </button>;
-          })}
-        </div>
-      </fieldset>
-      <fieldset className="min-w-0">
-        <legend className="mb-1.5 text-xs font-semibold text-slate-700">{label('loansStockAccount')}</legend>
-        <div className="grid min-w-0 grid-cols-3 gap-1.5">
-          {(['all', '1010', '1020'] as const).map((value) => <button type="button" key={value} aria-pressed={account === value}
-            onClick={() => setAccount(value)}
-            className={`min-h-10 min-w-0 rounded-md border px-2 py-1.5 text-sm font-medium ${account === value ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
-            <span className="break-words">{value === 'all' ? label('loansAllAccounts') : value}</span>
-          </button>)}
-        </div>
-      </fieldset>
-    </div>
-    <div className="min-w-0">
-      <label className="flex min-w-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3">
-        <Search className="h-4 w-4 shrink-0 text-slate-500" /><span className="sr-only">{label('loansStockSearch')}</span>
-        <input className="h-10 min-w-0 w-full bg-transparent text-sm outline-none" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={label('loansStockSearch')} />
-      </label>
-    </div>
     {onSelect && !selectionReady && <p className="text-sm text-slate-600">{label('loansStockHeaderRequired')}</p>}
-    {query.isPending && <p role="status" className="text-sm text-slate-600">{label('loansLoading')}</p>}
-    {stock && visible.length === 0 && <p className="py-4 text-sm text-slate-600">{label('loansStockNoMatch')}</p>}
-    <div className="divide-y divide-slate-200 border-y border-slate-200">
-      {visible.map((asset) => <article key={asset.asset_id} className="min-w-0 bg-white py-3" data-asset-id={asset.asset_id}>
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0"><p className="break-words text-sm font-semibold text-slate-900">{asset.line_text?.trim() || asset.item_name || asset.item_number}</p>
-            <p className="mt-1 break-all text-sm text-slate-700"><span className="text-slate-500">{label('loansSerialNumber')}:</span> <span className="font-mono">{asset.serial_number ?? '—'}</span></p></div>
-          {onSelect && <button type="button" title={label('loansStockChoose')} aria-label={`${label('loansStockChoose')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
-            disabled={busy || !selectionReady || query.isError || !canSelectFabricLoanAsset(asset, stock!.sync)} onClick={() => onSelect(asset)}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-emerald-700 text-emerald-800 disabled:border-slate-200 disabled:text-slate-400"><Plus className="h-5 w-5" /></button>}
-        </div>
-        <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 xl:grid-cols-7">
-          {[[label('loansItemNumber'),asset.item_number], [label('loansWarehouse'),label(`loansWarehouse${asset.warehouse_location_code}`)],
-            [label('loansStockAccount'),asset.account_number ?? '—'], [label('loansStockQuantity'),asset.inventory_qty ?? '—'],
-            [label('loansStockOrder'),asset.order_number ?? '—'], [label('loansStockDate'),date(asset.stock_last_changed)]].map(([key,value]) =>
-            <div key={key} className="min-w-0"><dt className="text-slate-500">{key}</dt><dd className="mt-0.5 break-words text-slate-900">{value}</dd></div>)}
-          <div className="min-w-0">
-            <dt className="text-slate-500">{label('loansStockBrikNumber')}</dt>
-            <dd className="mt-0.5 min-h-6 text-slate-900">
-              {editingBrikAssetId === asset.asset_id ? <div className="flex min-w-0 flex-wrap items-center gap-1">
-                <input type="number" min="1" max="999999" inputMode="numeric" value={brikDraft}
-                  aria-label={`${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
-                  onChange={(event) => setBrikDraft(event.target.value)} className="h-8 w-24 rounded border border-slate-300 px-2 text-sm" />
-                <button type="button" disabled={setBrik.isPending || !/^[1-9]\d{0,5}$/.test(brikDraft)} onClick={() => saveBrik(asset)}
-                  className="h-8 rounded border border-emerald-700 px-2 font-medium text-emerald-800 disabled:opacity-50">{label('save')}</button>
-                <button type="button" disabled={setBrik.isPending} onClick={() => setEditingBrikAssetId(null)}
-                  className="h-8 rounded border border-slate-300 px-2">{label('cancel')}</button>
-              </div> : <span className="inline-flex items-center gap-1">
-                {asset.brik_number ?? '—'}
-                {canEditBrik && <button type="button" onClick={() => startBrikEdit(asset)} title={label('edit')}
-                  aria-label={`${label('edit')} ${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><Pencil className="h-3.5 w-3.5" /></button>}
-              </span>}
-              {editingBrikAssetId === asset.asset_id && setBrik.isError && <span role="alert" className="mt-1 block text-xs text-red-700">{label('loansStockBrikDuplicate')}</span>}
-            </dd>
-          </div>
-        </dl>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-          <span>{label(status(asset))}</span>{asset.account_number === '1020' && <span>{label('loansStockExternal')}</span>}
-          {asset.review_reason && <span className="break-words">{asset.review_reason}</span>}
-          {!asset.item_type && <span>{label('loansStockUnclassified')}</span>}
-          {asset.item_type === 'equipment' && <span>{label('loansEquipment')}</span>}
-        </div>
-      </article>)}
-    </div>
+    <FabricStockAssetBrowser assets={stock?.assets ?? []} filters={filters} onFiltersChange={setFilters} loading={query.isPending}
+      countsReady={Boolean(stock?.sync.last_success_at)}
+      selection={onSelect && stock ? {
+        selectedIds: new Set<string>(),
+        onToggle: onSelect,
+        issueFor: (asset) => busy || !selectionReady || query.isError || !canSelectFabricLoanAsset(asset, stock.sync)
+          ? label(status(asset))
+          : null,
+      } : undefined}
+      statusFor={(asset) => label(status(asset))}
+      renderBrik={(asset) => editingBrikAssetId === asset.asset_id ? <div className="flex min-w-0 flex-wrap items-center gap-1">
+        <input type="number" min="1" max="999999" inputMode="numeric" value={brikDraft}
+          aria-label={`${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
+          onChange={(event) => setBrikDraft(event.target.value)} className="h-8 w-24 rounded border border-slate-300 px-2 text-sm" />
+        <button type="button" disabled={setBrik.isPending || !/^[1-9]\d{0,5}$/.test(brikDraft)} onClick={() => saveBrik(asset)}
+          className="h-8 rounded border border-emerald-700 px-2 font-medium text-emerald-800 disabled:opacity-50">{label('save')}</button>
+        <button type="button" disabled={setBrik.isPending} onClick={() => setEditingBrikAssetId(null)}
+          className="h-8 rounded border border-slate-300 px-2">{label('cancel')}</button>
+        {setBrik.isError && <span role="alert" className="block text-xs text-red-700">{label('loansStockBrikDuplicate')}</span>}
+      </div> : <span className="inline-flex items-center gap-1">{asset.brik_number ?? '—'}
+        {canEditBrik && <button type="button" onClick={() => startBrikEdit(asset)} title={label('edit')}
+          aria-label={`${label('edit')} ${label('loansStockBrikNumber')}: ${fabricLoanAssetDisplayIdentity(asset)}`}
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><Pencil className="h-3.5 w-3.5" /></button>}
+      </span>}
+    />
   </section>;
 }

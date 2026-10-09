@@ -57,7 +57,13 @@ export function fabricLoanAssetDisplayIdentity(asset: FabricLoanAsset): string {
   return `${asset.item_number} #${asset.instance_ordinal}`;
 }
 
-export function filterFabricLoanStock(assets: FabricLoanAsset[], warehouse: string, search: string, account: string) {
+export function filterFabricLoanStock(
+  assets: FabricLoanAsset[],
+  warehouse: string,
+  search: string,
+  account: string,
+  additionalSearchValues?: (asset: FabricLoanAsset) => Array<string | null | undefined>,
+) {
   const needle = search.trim().toLocaleLowerCase();
   return assets.filter((asset) => asset.source_present
     && ['2', '4'].includes(asset.warehouse_location_code)
@@ -66,6 +72,6 @@ export function filterFabricLoanStock(assets: FabricLoanAsset[], warehouse: stri
     && (account === 'all' || asset.account_number === account)
     && (!needle || [asset.item_number, asset.item_name, asset.line_text, asset.serial_number, asset.account_number,
       asset.asset_instance_id,
-      asset.order_number, asset.brik_number?.toString()]
+      asset.order_number, asset.brik_number?.toString(), ...(additionalSearchValues?.(asset) ?? [])]
       .some((value) => value?.toLocaleLowerCase().includes(needle))));
 }

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { canSelectFabricLoanAsset, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset, type FabricLoanStock } from '@/lib/fabricLoanStock';
+import { resolveSalesStockCatalogItem, salesStockAssetSelectionIssue } from '@/lib/salesStockConfigurator';
 import { FABRIC_LOAN_FIELDS, runFabricLoanSync, validateFabricLoanSnapshot } from '../../supabase/functions/_shared/fabricLoanSnapshot';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoansPage from '@/pages/loans/LoansPage';
@@ -67,11 +68,46 @@ describe('single Fabric stock dataset', () => {
     mocks.state = hook({ assets: [rc751, rc1000], sync: fresh() });
     render(<MemoryRouter><LoansPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('tab', { name: 'Sælg salgslagermaskine' }));
-    fireEvent.click(screen.getByRole('button', { name: /RC-751 salgslager/ }));
-    fireEvent.click(screen.getByRole('button', { name: /RC-1000s salgslager/ }));
-    expect(screen.getByText('2 valgt')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Vælg aktiv: 410040-A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vælg aktiv: 411000-A' }));
+    expect(screen.getByText('Valgte aktiver: 2')).toBeInTheDocument();
     expect(screen.getAllByText(/Serienr\./).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('button', { name: /Åbn i konfigurator/ })).toBeEnabled();
+  });
+  it('uses the shared warehouse/account/search browser in the sales tab', async () => {
+    const rc751 = { ...asset, asset_id: 'rc751-a', asset_instance_id: 'SERIAL|DAT|410040-A',
+      item_number: '410040-01', item_name: 'RC-751', line_text: 'RC-751 salgslager', serial_number: '410040-A',
+      serial_number_normalized: '410040-A', item_type: null };
+    const flail = { ...asset, asset_id: 'flail-a', asset_instance_id: 'SERIAL|DAT|410910-A',
+      item_number: '410910-00', item_name: 'Slagleklipper', line_text: 'RC-1000 slagleklipper', serial_number: '410910-A',
+      serial_number_normalized: '410910-A', item_type: 'equipment' as const, account_number: '1020',
+      warehouse_location_code: '4', warehouse_location_name: 'Lager 4' };
+    mocks.state = hook({ assets: [rc751, flail], sync: fresh() });
+    render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Sælg salgslagermaskine' }));
+    expect(screen.getByRole('group', { name: 'Lager' })).toContainElement(screen.getByRole('button', { name: 'Alle lagre' }));
+    expect(screen.getByRole('group', { name: 'Konto' })).toContainElement(screen.getByRole('button', { name: 'Alle konti' }));
+    expect(screen.queryByRole('combobox', { name: 'Konto' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Lager 4/ }));
+    fireEvent.click(screen.getByRole('button', { name: '1020' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: '410910' } });
+    expect(screen.getByText('RC-1000 slagleklipper')).toBeInTheDocument();
+    expect(screen.queryByText('RC-751 salgslager')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1020' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Lager 4/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+  it('lets the sales resolver safely classify a canonical match even when Fabric type is missing', () => {
+    const untyped = { ...asset, item_number: '410040-01', item_type: null };
+    expect(canSelectFabricLoanAsset(untyped, fresh())).toBe(false);
+    expect(resolveSalesStockCatalogItem(untyped.item_number, 'DKK')?.catalogItemNumber).toBe('410040');
+    expect(salesStockAssetSelectionIssue(untyped, fresh(), 'DKK')).toBeNull();
+  });
+  it('shows deterministic reasons for every unsafe sales-stock selection', () => {
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: 'UNKNOWN-01' }, fresh(), 'DKK')).toBe('Mangler Product Master-match');
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410910-00', serial_number: null, brik_number: null }, fresh(), 'DKK')).toBe('Mangler Brik nr.');
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410040-01', review_required: true }, fresh(), 'DKK')).toBe('Kræver kontrol');
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410040-01', identity_conflict: true }, fresh(), 'DKK')).toBe('Identitetskonflikt');
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410040-01', sales_committed: true }, fresh(), 'DKK')).toBe('Allerede reserveret til salg');
   });
   it('filters Lager 2 and Lager 4 without resetting the account selection', () => {
     render(<LoanStockPanel />);
