@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarClock, PackageCheck, Pencil, Plus, Trash2 } from 'lucide-react';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import SalesStockSalePanel from '@/pages/loans/SalesStockSalePanel';
 import LoanCancelDialog from '@/pages/loans/LoanCancelDialog';
+import LoanOverviewInfoPopover, { type LoanOverviewInfoLoader } from '@/pages/loans/LoanOverviewInfoPopover';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { listLoanCases, updateLoanExpectedReturn, type LoanCaseSummary } from '@/lib/loanService';
+import { getLoanOverviewInfo, listLoanCases, updateLoanExpectedReturn, type LoanCaseSummary, type LoanOverviewInfo } from '@/lib/loanService';
 import { isLoanClosed, loanDerivedTimingStatus, loanMatchesOverviewFilter, loanStatusTranslationKey, type LoanOverviewFilter } from '@/lib/loanDomain';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAppUser } from '@/context/AppUserContext';
@@ -118,27 +119,38 @@ function LoanOverview({ cases, label, onEditReturn, onCancel, canCancel, showRec
   cases: LoanCaseSummary[]; label: (key: string) => string; onEditReturn: (item: LoanCaseSummary) => void;
   onCancel: (item: LoanCaseSummary) => void; canCancel: boolean; showReceivedDate: boolean;
 }) {
+  // Share one lazy read across fields and responsive representations.
+  // Refreshing the overview invalidates its local, view-owned cache.
+  const infoRequests = useMemo(() => new Map<string, Promise<LoanOverviewInfo> | null>(cases.map((item) => [item.id, null])), [cases]);
+  const loadInfo = useCallback<LoanOverviewInfoLoader>((caseId) => {
+    const existing = infoRequests.get(caseId);
+    if (existing) return existing;
+    const request = getLoanOverviewInfo(caseId).catch((error) => { infoRequests.set(caseId, null); throw error; });
+    infoRequests.set(caseId, request);
+    return request;
+  }, [infoRequests]);
   return <>
-    <div className="space-y-3 md:hidden">{cases.map((item) => <LoanMobileCard key={item.id} item={item} label={label} onEditReturn={onEditReturn} onCancel={onCancel} canCancel={canCancel} showReceivedDate={showReceivedDate} />)}</div>
+    <div className="space-y-3 md:hidden">{cases.map((item) => <LoanMobileCard key={item.id} item={item} label={label} loadInfo={loadInfo} onEditReturn={onEditReturn} onCancel={onCancel} canCancel={canCancel} showReceivedDate={showReceivedDate} />)}</div>
     <div className="hidden overflow-x-auto border border-slate-200 bg-white md:block"><table className="w-full min-w-[940px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-600"><tr>
       <th className="px-3 py-2">{label('loansNumber')}</th><th className="px-3 py-2">{label('loansPartner')}</th><th className="px-3 py-2">{label('loansResponsible')}</th><th className="px-3 py-2">{label('loansAssetCount')}</th><th className="px-3 py-2">{label('loansLoanDate')}</th>{showReceivedDate && <th className="px-3 py-2">{label('loansLastReceivedDate')}</th>}<th className="px-3 py-2">{label('loansExpectedReturn')}</th><th className="px-3 py-2">{label('loansStatus')}</th><th className="px-3 py-2">{label('loansActions')}</th>
     </tr></thead><tbody>{cases.map((item) => {
       const timing = loanDerivedTimingStatus(item.status, item.expected_return_date);
       return <tr key={item.id} className={`border-t border-slate-200 ${timing === 'OVERDUE' ? 'bg-red-50' : timing === 'DUE_SOON' ? 'bg-amber-50' : ''}`}>
-        <td className="px-3 py-3 font-semibold text-slate-950">{item.loan_number}</td><td className="px-3 py-3">{item.partner_name}</td><td className="px-3 py-3">{item.responsible_name}</td><td className="px-3 py-3 tabular-nums">{item.asset_count}</td><td className="px-3 py-3 whitespace-nowrap">{item.loan_date ?? '—'}</td>{showReceivedDate && <td className="px-3 py-3 whitespace-nowrap">{item.lifecycle_state?.last_received_at?.slice(0, 10) ?? '—'}</td>}<td className="px-3 py-3 whitespace-nowrap"><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></td><td className="px-3 py-3">{label(loanStatusTranslationKey(item.return_state?.presentation_state ?? item.status))}</td><td className="px-3 py-3"><div className="flex flex-wrap items-center gap-3">{item.can_edit_expected_return && !isLoanClosed(item.status) && <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300" title={label('loansEditReturn')}><Pencil className="h-4 w-4" /></button>}{item.return_state?.can_receive && <Link className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white" to={`/portal/loans/${item.id}/return`}><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}<Link className="font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link>{canCancel && item.lifecycle_state?.can_cancel_draft && <DeleteButton label={label} onClick={() => onCancel(item)} />}</div></td>
+        <td className="px-3 py-3 font-semibold text-slate-950"><LoanOverviewInfoPopover item={item} kind="assets" label={label} loadInfo={loadInfo} /></td><td className="px-3 py-3"><LoanOverviewInfoPopover item={item} kind="delivery" label={label} loadInfo={loadInfo} /></td><td className="px-3 py-3"><LoanOverviewInfoPopover item={item} kind="notes" label={label} loadInfo={loadInfo} /></td><td className="px-3 py-3 tabular-nums">{item.asset_count}</td><td className="px-3 py-3 whitespace-nowrap">{item.loan_date ?? '—'}</td>{showReceivedDate && <td className="px-3 py-3 whitespace-nowrap">{item.lifecycle_state?.last_received_at?.slice(0, 10) ?? '—'}</td>}<td className="px-3 py-3 whitespace-nowrap"><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></td><td className="px-3 py-3">{label(loanStatusTranslationKey(item.return_state?.presentation_state ?? item.status))}</td><td className="px-3 py-3"><div className="flex flex-wrap items-center gap-3">{item.can_edit_expected_return && !isLoanClosed(item.status) && <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300" title={label('loansEditReturn')}><Pencil className="h-4 w-4" /></button>}{item.return_state?.can_receive && <Link className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white" to={`/portal/loans/${item.id}/return`}><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}<Link className="font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link>{canCancel && item.lifecycle_state?.can_cancel_draft && <DeleteButton label={label} onClick={() => onCancel(item)} />}</div></td>
       </tr>;
     })}</tbody></table></div>
   </>;
 }
 
-function LoanMobileCard({ item, label, onEditReturn, onCancel, canCancel, showReceivedDate }: {
+function LoanMobileCard({ item, label, loadInfo, onEditReturn, onCancel, canCancel, showReceivedDate }: {
+  loadInfo: LoanOverviewInfoLoader;
   item: LoanCaseSummary; label: (key: string) => string; onEditReturn: (item: LoanCaseSummary) => void;
   onCancel: (item: LoanCaseSummary) => void; canCancel: boolean; showReceivedDate: boolean;
 }) {
   const timing = loanDerivedTimingStatus(item.status, item.expected_return_date);
   return <article className={`border p-4 ${timing === 'OVERDUE' ? 'border-red-300 bg-red-50' : timing === 'DUE_SOON' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
-    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-950">{item.loan_number}</p><p className="mt-1 text-sm text-slate-700">{item.partner_name}</p></div><span className="text-right text-xs font-medium text-slate-600">{label(loanStatusTranslationKey(item.return_state?.presentation_state ?? item.status))}</span></div>
-    <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-slate-500">{label('loansResponsible')}</dt><dd>{item.responsible_name}</dd></div><div><dt className="text-xs text-slate-500">{label('loansAssetCount')}</dt><dd>{item.asset_count}</dd></div><div><dt className="text-xs text-slate-500">{label('loansLoanDate')}</dt><dd>{item.loan_date ?? '—'}</dd></div><div><dt className="text-xs text-slate-500">{label('loansExpectedReturn')}</dt><dd><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></dd></div>{showReceivedDate && <div><dt className="text-xs text-slate-500">{label('loansLastReceivedDate')}</dt><dd>{item.lifecycle_state?.last_received_at?.slice(0, 10) ?? '—'}</dd></div>}</dl>
+    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold text-slate-950"><LoanOverviewInfoPopover item={item} kind="assets" label={label} loadInfo={loadInfo} /></p><p className="mt-1 text-sm text-slate-700"><LoanOverviewInfoPopover item={item} kind="delivery" label={label} loadInfo={loadInfo} /></p></div><span className="text-right text-xs font-medium text-slate-600">{label(loanStatusTranslationKey(item.return_state?.presentation_state ?? item.status))}</span></div>
+    <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div className="min-w-0"><dt className="text-xs text-slate-500">{label('loansResponsible')}</dt><dd><LoanOverviewInfoPopover item={item} kind="notes" label={label} loadInfo={loadInfo} /></dd></div><div><dt className="text-xs text-slate-500">{label('loansAssetCount')}</dt><dd>{item.asset_count}</dd></div><div><dt className="text-xs text-slate-500">{label('loansLoanDate')}</dt><dd>{item.loan_date ?? '—'}</dd></div><div><dt className="text-xs text-slate-500">{label('loansExpectedReturn')}</dt><dd><ReturnDate value={item.expected_return_date} timing={timing} label={label} /></dd></div>{showReceivedDate && <div><dt className="text-xs text-slate-500">{label('loansLastReceivedDate')}</dt><dd>{item.lifecycle_state?.last_received_at?.slice(0, 10) ?? '—'}</dd></div>}</dl>
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{item.can_edit_expected_return && !isLoanClosed(item.status) && <button type="button" onClick={() => onEditReturn(item)} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm"><CalendarClock className="h-4 w-4" />{label('loansEditReturn')}</button>}{item.return_state?.can_receive && <Link className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white" to={`/portal/loans/${item.id}/return`}><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}{canCancel && item.lifecycle_state?.can_cancel_draft && <DeleteButton label={label} onClick={() => onCancel(item)} />}</div><Link className="text-sm font-medium text-emerald-800 underline" to={`/portal/loans/${item.id}`}>{label('loansOpen')}</Link></div>
   </article>;
 }

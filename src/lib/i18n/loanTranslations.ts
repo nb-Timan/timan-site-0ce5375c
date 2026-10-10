@@ -337,3 +337,19 @@ Object.assign(LOAN_TRANSLATIONS.de, {
   loansDeleteReason: 'Grund der Löschung', loansDeleteReasonRequired: 'Geben Sie einen Grund mit 1-500 Zeichen an.',
   loansDeleteRetrySameReason: 'Mit demselben Grund erneut versuchen oder den Leihstatus neu laden.', loansHistoryCancelled: 'Leihe storniert',
 });
+
+const OVERVIEW_INFO_EN = {
+  loansInfoAssets: 'Machines and implements', loansInfoDelivery: 'Delivery address', loansInfoPartnerAddress: 'Partner address',
+  loansInfoNotes: 'Loan comment', loansInfoNoAddress: 'Address not registered', loansInfoNoNotes: 'No comment registered', loansInfoNoAssets: 'No assets registered',
+};
+for (const language of Object.keys(LOAN_TRANSLATIONS) as PortalUiLanguage[]) {
+  Object.assign(LOAN_TRANSLATIONS[language], OVERVIEW_INFO_EN);
+}
+Object.assign(LOAN_TRANSLATIONS.da, {
+  loansInfoAssets: 'Maskiner og redskaber', loansInfoDelivery: 'Leveringsadresse', loansInfoPartnerAddress: 'Partnerens adresse',
+  loansInfoNotes: 'Bemærkning til udlån', loansInfoNoAddress: 'Adresse ikke registreret', loansInfoNoNotes: 'Ingen bemærkning registreret', loansInfoNoAssets: 'Ingen aktiver registreret',
+});
+Object.assign(LOAN_TRANSLATIONS.de, {
+  loansInfoAssets: 'Maschinen und Anbaugeräte', loansInfoDelivery: 'Lieferadresse', loansInfoPartnerAddress: 'Partneradresse',
+  loansInfoNotes: 'Anmerkung zur Leihe', loansInfoNoAddress: 'Keine Adresse hinterlegt', loansInfoNoNotes: 'Keine Anmerkung hinterlegt', loansInfoNoAssets: 'Keine Einheiten hinterlegt',
+});

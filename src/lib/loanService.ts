@@ -145,6 +145,37 @@ const LOAN_MEDIA_BUCKET = 'loan-case-media';
 const LOAN_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const LOAN_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
+export type LoanDeliverySnapshot = Pick<LoanCase, 'alternative_delivery_address' | 'delivery_address' | 'delivery_postal_code' | 'delivery_city' | 'delivery_country' | 'delivery_contact'>;
+export interface LoanOverviewInfo {
+  delivery: LoanDeliverySnapshot;
+  notes: string | null;
+  items: LoanCaseItem[];
+  returnSummary: LoanReturnSummary[];
+}
+
+// Read only the case-owned data needed by overview popovers. Existing RLS applies;
+// no Fabric stock, live partner address, photo signing or permission changes.
+export async function getLoanOverviewInfo(caseId: string): Promise<LoanOverviewInfo> {
+  const deliveryColumns = 'alternative_delivery_address,delivery_address,delivery_postal_code,delivery_city,delivery_country,delivery_contact';
+  const [caseResult, itemResult, returnResult] = await Promise.all([
+    supabase.from('loan_cases').select(`status,current_version_number,notes,${deliveryColumns}`).eq('id', caseId).single(),
+    supabase.from('loan_case_items').select('*').eq('case_id', caseId).order('created_at'),
+    supabase.rpc('loan_list_return_summary', { p_case_id: caseId }),
+  ]);
+  if (caseResult.error) throw caseResult.error;
+  if (itemResult.error) throw itemResult.error;
+  if (returnResult.error) throw returnResult.error;
+  const loanCase = caseResult.data as LoanDeliverySnapshot & Pick<LoanCase, 'status' | 'current_version_number' | 'notes'>;
+  let delivery: LoanDeliverySnapshot = loanCase;
+  if (loanCase.current_version_number > 0 && !['DRAFT', 'READY_FOR_REVIEW'].includes(loanCase.status)) {
+    const version = await supabase.from('loan_case_versions').select(deliveryColumns)
+      .eq('case_id', caseId).eq('version_number', loanCase.current_version_number).maybeSingle();
+    if (version.error) throw version.error;
+    if (version.data) delivery = version.data as LoanDeliverySnapshot;
+  }
+  return { delivery, notes: loanCase.notes, items: rows<LoanCaseItem>(itemResult.data), returnSummary: rows<LoanReturnSummary>(returnResult.data) };
+}
+
 function rows<T>(data: unknown): T[] { return Array.isArray(data) ? data as T[] : []; }
 
 export async function listLoanCases(partnerId?: string | null): Promise<LoanCaseSummary[]> {
