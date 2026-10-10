@@ -910,7 +910,7 @@ async function insertConfigurationRow(row: Record<string, unknown>) {
 async function saveConfigurationItems(configurationId: string, state: ConfiguratorState): Promise<string | null> {
   let items: Array<Record<string, unknown>> = [];
 
-  for (const mc of state.machineConfigs) {
+  for (const [index, mc] of state.machineConfigs.entries()) {
     const unitConfigs: Record<string, { acc: string[] }> = {};
     if (mc.configMode === 'individual') {
       for (let i = 1; i <= mc.qty; i++) {
@@ -921,7 +921,9 @@ async function saveConfigurationItems(configurationId: string, state: Configurat
       }
     }
 
-    const title = mc.type
+    const stockAsset = state.salesChannel === 'sales_stock_demo'
+      ? state.salesStockAssets?.find(asset => asset.priceSource !== undefined && asset.configuratorUnitNumber === index + 1) : null;
+    const title = stockAsset ? `${stockAsset.itemNumber} · ${stockAsset.itemText} ×${stockAsset.quantity}` : mc.type
       ? `${mc.type} x${mc.qty}`
       : `Machine x${mc.qty}`;
 

@@ -17,8 +17,10 @@ const assets = [
   asset('QA-RC751-01', { brik_number: 154 }),
   asset('QA-BRUSH-01', { item_number: '312010-00', line_text: 'Nr.82 Fejekost med blad B=1300', brik_number: 82, item_type: 'equipment', warehouse_location_code: '4', account_number: '1020' }),
   asset('QA-LOAN-01', { allocated: true, line_text: 'Reserveret RC-751', brik_number: 194 }),
-  asset('QA-GROUP-A', { item_number: '410910-00', line_text: 'Redskab A · delt Brik', serial_number: null, serial_number_normalized: null, brik_number: 96, item_type: 'equipment' }),
-  asset('QA-GROUP-B', { item_number: '411666-00', line_text: 'Redskab B · delt Brik', serial_number: null, serial_number_normalized: null, brik_number: 96, item_type: 'equipment' }),
+  asset('QA-GROUP-A', { item_number: '210100-01', line_text: 'Nr.96 Skovl 200l med stålskær (1250)', serial_number: null, serial_number_normalized: null, brik_number: 96, item_type: null }),
+  asset('QA-GROUP-B', { item_number: '210123-00', line_text: 'Nr.96 Overfald for 200 L Skovl B=1250', serial_number: null, serial_number_normalized: null, brik_number: 96, item_type: null }),
+  asset('QA-AFRAME', { item_number: '210112-02', line_text: 'Nr.157 A-Ramme kat. 1 (flydende arme)', serial_number: null, serial_number_normalized: null, brik_number: 157, item_type: null }),
+  asset('QA-BUCKET-USED', { item_number: '210100-01', line_text: 'Nr.3 Skovl 200l med stålskær (1250)', serial_number: null, serial_number_normalized: null, brik_number: 3, item_type: null, warehouse_location_code: '4' }),
   asset('QA-BULK', { item_number: '65101002', line_text: 'Nr. Hammerslagle', serial_number: null, serial_number_normalized: null, inventory_qty: 18, warehouse_location_code: '4' }),
   asset('QA-SALE', { sales_committed: true, line_text: 'Allerede reserveret til salg' }),
 ];
@@ -32,11 +34,25 @@ const modules = {
     import {BrowserRouter,Routes,Route} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
     import Stock from '@/pages/loans/LoanStockPanel';import Sale from '@/pages/loans/SalesStockSalePanel';
     import {consumeSalesStockHandoff,buildSalesStockConfiguratorState} from '@/lib/salesStockConfigurator';import '@/index.css';
+    import {SalesStockPricingPanel} from '@/components/configurator/SalesStockPricingPanel';
+    import {calculateConfiguration} from '@/lib/calcConfiguration';
+
+    import {finalizeConfiguratorPricingSnapshot} from '@/lib/configurationsService';
+    import {transitionConfiguratorFlowType} from '@/lib/configuratorState';
+    import {buildSubmittedOrderCsv} from '@/lib/submittedOrderCsv';
     function Browser(){const [tab,setTab]=useState('stock');return <><h1 className='mb-4 text-xl font-semibold'>Salgslager · isoleret browser-QA</h1>
       <div role='tablist' className='mb-4 flex flex-wrap gap-4'><button role='tab' aria-selected={tab==='stock'} onClick={()=>setTab('stock')}>Salgslager</button>
       <button role='tab' aria-selected={tab==='sale'} onClick={()=>setTab('sale')}>Sælg salgslagermaskine</button></div>{tab==='stock'?<Stock/>:<Sale/>}</>;}
-    function Handoff(){const [assets]=useState(consumeSalesStockHandoff);const state=buildSalesStockConfiguratorState(assets);return <><h1>Configurator handoff QA</h1>
-      <p>Overførte aktiver: {assets.length}</p><pre className='whitespace-pre-wrap break-all'>{JSON.stringify({assets,units:state.machineConfigs},null,2)}</pre></>;}
+    function Handoff(){const [state,setState]=useState(()=>buildSalesStockConfiguratorState(consumeSalesStockHandoff()));const [result,setResult]=useState('');
+      const calc=calculateConfiguration(state);const money=(value,pending=false)=>!pending&&Number.isFinite(value)?value.toLocaleString('da-DK')+' DKK':'Salgspris kræver fastsættelse';
+      async function verify(){try{const quote=await finalizeConfiguratorPricingSnapshot(state);const order=await finalizeConfiguratorPricingSnapshot(transitionConfiguratorFlowType(quote,'order'));
+        const csv=buildSubmittedOrderCsv({state:order,orderNumber:'O-QA',orderDate:'2026-10-10',dealerNumber:'QA',dealerName:'QA',sellerInitials:'QA'});
+        setResult(csv.matchesOrderTotal?'Quote / Order / CSV PASS · ingen mail sendt':'FAIL');}catch(error){setResult(error.message);}}
+      return <><h1 className='mb-4 text-xl font-semibold'>Configurator handoff QA</h1><p>Overførte aktiver: {state.salesStockAssets.length}</p>
+      <SalesStockPricingPanel state={state} setState={setState} canEdit/>
+      <label className='block'>Ekstra forhandlerrabat<input className='mx-2 border p-2' aria-label='Ekstra forhandlerrabat' type='number' value={state.manualDealerDiscountPct} onChange={e=>setState(current=>({...current,manualDealerDiscountPct:Number(e.target.value),pricingSnapshot:undefined}))}/>%</label>
+      <section aria-label='Canonical salgslagerlinjer' className='my-4 space-y-3'>{calc.lineItems.filter(line=>!line.subtotal).map(line=><p key={line.index} className='break-words'>{line.varenr} · {line.description} · Stk. {line.quantity} · {money(line.price,line.pricePending)}</p>)}<p>Total: {money(calc.currentPrice,calc.pricingIncomplete)}</p></section>
+      <button className='rounded border p-3 disabled:opacity-50' disabled={calc.pricingIncomplete} onClick={verify}>Kontrollér tilbud/ordre-snapshot</button><p role='status'>{result}</p></>;}
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><main className='mx-auto max-w-6xl p-4'>
       <Routes><Route path='/configurator' element={<Handoff/>}/><Route path='*' element={<Browser/>}/></Routes></main></BrowserRouter></QueryClientProvider>);`,
 };
@@ -72,7 +88,7 @@ const server = await createServer({
       });
     },
   }],
-  server: { host: '127.0.0.1', port: 5192, strictPort: true },
+  server: { host: '127.0.0.1', port: Number(process.env.SALES_STOCK_QA_PORT ?? 5192), strictPort: true },
 });
 await server.listen();
-console.log('Isolated sales-stock QA: http://127.0.0.1:5192/');
+console.log(`Isolated sales-stock QA: http://127.0.0.1:${server.config.server.port}/`);

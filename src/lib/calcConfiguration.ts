@@ -100,7 +100,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     item.price = roundPricingMoney(item.price);
     item.quantity = quantity;
     item.unitPrice = roundPricingMoney(item.price / (sourceSalesStockLines && quantity > 0 ? quantity : Math.max(1, quantity)));
-    if (!sourceSalesStockLines && nettoPricing && isConfiguratorNettoSku(item.varenr)) item.isNetto = true;
+    if ((!sourceSalesStockLines || lineUnit === 0) && nettoPricing && isConfiguratorNettoSku(item.varenr)) item.isNetto = true;
     lineItems.push(item);
     const salesStockAsset = salesStockMode
       ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === lineUnit
@@ -297,7 +297,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   }
   const campaignPricingActive = isCampaignPricingActive(campaignLines);
 
-  if (!directPricing && !options.grossManualDiscountOnly && !campaignPricingActive && !importerPricing) {
+  if (!sourceSalesStockLines && !directPricing && !options.grossManualDiscountOnly && !campaignPricingActive && !importerPricing) {
     const eligibleDeliveryUnits = new Set<number>();
     const deliveryBasisByUnit = new Map<number, number>();
     for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {

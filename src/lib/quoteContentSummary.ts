@@ -22,6 +22,8 @@ import {
 import { configuratorCurrency, hasFrozenConfiguratorPricing, isConfiguratorNettoSku, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { usesSourceSalesStockLines } from '@/lib/salesStockConfigurator';
+import { buildAccountCaseLines } from '@/lib/configuratorAccountSummaries';
 import { hasMachineDeliveryOverride, machineDeliveryDate, lineDeliveryDates, resolveDeliveryDestination, type ConfiguratorDeliveryDestination } from '@/lib/configuratorDelivery';
 import {
   TIMAN_COMPANY_PROFILE,
@@ -119,7 +121,23 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
   let subtotal = 0;
   let runningUnitNumber = 0;
 
-  for (const mc of state.machineConfigs ?? []) {
+  if (usesSourceSalesStockLines(state)) {
+    const lines = buildAccountCaseLines(state, lang);
+    for (const asset of state.salesStockAssets!) {
+      const line = lines.find(item => item.unitNumber === asset.configuratorUnitNumber && item.itemNo === asset.itemNumber);
+      if (!line) throw new Error('SALES_STOCK_DOCUMENT_LINE_MISSING');
+      machines.push({ model_id: asset.sourceAssetId, model_type: 'SALES_STOCK', model_name: asset.itemText,
+        varenr: asset.itemNumber, qty: line.quantity, config_mode: 'shared', unit_price: line.unitPrice,
+        group_total: line.total, units: [{ unit_number: asset.configuratorUnitNumber,
+          config_key: state.machineConfigs[asset.configuratorUnitNumber - 1]?.id ?? asset.sourceAssetId,
+          is_demo: false, req_number: state.reqNumbers?.[`machine_${asset.configuratorUnitNumber}`] ?? null,
+          delivery_date: machineDeliveryDate(state, asset.configuratorUnitNumber) || null,
+          delivery_date_overridden: hasMachineDeliveryOverride(state, asset.configuratorUnitNumber),
+          delivery_address: resolveDeliveryDestination(state, asset.configuratorUnitNumber),
+          accessories: [], unit_total: line.total }] });
+      subtotal += line.total;
+    }
+  } else for (const mc of state.machineConfigs ?? []) {
     const product = PRODUCTS[mc.type];
     if (!product) continue;
 

@@ -76,6 +76,9 @@ vi.mock("@/lib/supabase", () => {
 });
 
 import * as supabaseModule from "@/lib/supabase";
+import { buildSalesStockConfiguratorState, updateSalesStockAssetPricing } from '@/lib/salesStockConfigurator';
+import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
+import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import {
   listSalesActuals,
   createBudgetLine,
@@ -145,6 +148,28 @@ function qtyByStableKey(actuals: Awaited<ReturnType<typeof listSalesActuals>>, p
 }
 
 describe("CRM Budget — order actuals are independent from budget_line_id", () => {
+  it('keeps non-catalogue stock quantities and allocates revenue by frozen line values, not catalogue or quantity ratios', async () => {
+    const asset = (sku: string, brik: number, quantity: number): FabricLoanAsset => ({
+      asset_id: `stock-${brik}`, asset_instance_id: `LINE|DAT|${brik}`, instance_ordinal: 1, company: 'DAT',
+      account_number: '1010', order_number: 'QA', line_number: 1, item_number: sku,
+      item_name: sku, line_text: `Original ${sku}`, serial_number: null, serial_number_normalized: null,
+      warehouse_location_code: '4', warehouse_location_name: 'Lager 4', inventory_qty: quantity,
+      reserved_qty: 0, stock_last_changed: '2026-10-10T10:00:00', classification: 'LOAN_CANDIDATE',
+      review_required: false, review_reason: null, identity_conflict: false, source_present: true,
+      item_type: null, allocated: false, sales_committed: false, brik_number: brik,
+    });
+    const assets = [asset('210100-01', 96, 3), asset('210112-02', 157, 1)];
+    let state = buildSalesStockConfiguratorState(assets);
+    state = updateSalesStockAssetPricing(state, assets[0].asset_id, { pricingMethod: 'adjusted_base', adjustedBasePrice: 100, pricingReason: 'QA' });
+    state = updateSalesStockAssetPricing(state, assets[1].asset_id, { pricingMethod: 'adjusted_base', adjustedBasePrice: 500, pricingReason: 'QA' });
+    state = await finalizeConfiguratorPricingSnapshot({ ...state, flowType: 'order', manualDealerDiscountPct: 5 });
+    const row = makeOrder('stock-order', 'SALES_STOCK', 2);
+    setOrders([row.view], [{ ...row.details, state_json: state, total_price: 760 }]);
+    const actuals = await listSalesActuals(FISCAL_YEAR);
+    expect(actuals.find(item => item.product_key === '210100-01')).toMatchObject({ qty_sold: 3, value_sold: 285 });
+    expect(actuals.find(item => item.product_key === '210112-02')).toMatchObject({ qty_sold: 1, value_sold: 475 });
+    expect(actuals.some(item => item.product_key === 'SALES_STOCK')).toBe(false);
+  });
   beforeEach(() => {
     localStorage.clear();
     resetBudget();

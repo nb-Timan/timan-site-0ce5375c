@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const { PGlite } = await import(pathToFileURL(resolve('node_modules/.cache/loans-sql/node_modules/@electric-sql/pglite/dist/index.js')).href);
+const { PGlite } = await import(pathToFileURL(resolve(process.env.LOANS_SQL_PGLITE_MODULE
+  ?? 'node_modules/.cache/loans-sql/node_modules/@electric-sql/pglite/dist/index.js')).href);
 const db = new PGlite();
 const migration = '20261010160651_sales_stock_optional_catalogue.sql';
 const sql = (name) => readFileSync(`supabase/migrations/${name}`, 'utf8');

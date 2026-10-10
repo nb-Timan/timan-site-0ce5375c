@@ -139,6 +139,10 @@ export function quoteMonthIso(row: Pick<CrmConfigurationRow,
  */
 export function pipelineProductQtyFromState(state: ConfiguratorState): Record<string, number> {
   const qtyByKey: Record<string, number> = {};
+  if (state.salesChannel === 'sales_stock_demo' && state.salesStockAssets?.some(asset => asset.priceSource !== undefined)) {
+    for (const asset of state.salesStockAssets) qtyByKey[asset.itemNumber] = (qtyByKey[asset.itemNumber] ?? 0) + asset.quantity!;
+    return qtyByKey;
+  }
   for (const machine of state.machineConfigs ?? []) {
     if (machine.type === 'LOOSE_TOOL') continue;
     const quantity = Number(machine.qty || 0);

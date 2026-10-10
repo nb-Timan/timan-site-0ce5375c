@@ -10,7 +10,7 @@ export function configuratorCartLineDescription(item: LineItem): string {
 }
 
 export function configuratorLineQuantity(item: LineItem): number {
-  return Math.max(1, item.quantity || 1);
+  return typeof item.quantity === 'number' && Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1;
 }
 
 export function configuratorLineUnitPrice(item: LineItem): number {

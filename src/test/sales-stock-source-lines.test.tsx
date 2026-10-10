@@ -9,6 +9,11 @@ import { createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing } from 
 import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
 import { buildAccountCaseLines } from '@/lib/configuratorAccountSummaries';
 import { buildSubmittedOrderCsv } from '@/lib/submittedOrderCsv';
+import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
+import { buildCrmLeadMachineInterestItemsFromConfigurationState, buildCrmLeadMachineTypesFromConfigurationState } from '@/lib/crmLeadConfigurationSync';
+import { normalizeCrmLeadMachineInterestItems } from '@/lib/crmLeadMachineInterest';
+import { pipelineProductQtyFromState } from '@/lib/crmRelationsService';
+import { configuratorLineQuantity } from '@/lib/configuratorLinePresentation';
 import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import type { Currency } from '@/lib/currency';
 import { jsPDF } from 'jspdf';
@@ -82,6 +87,11 @@ describe('Fabric-native sales-stock lines', () => {
       total: 18000, finalNetAmount: 17280,
     });
     expect(buildAccountCaseLines(frozen, 'de')[0].itemNo).toBe('210100-01');
+    expect(buildQuoteContentSummary(frozen).machines[0]).toMatchObject({ varenr: '210100-01', model_name: 'Nr.96 C5 varetekst', qty: 18, group_total: 18000 });
+    expect(buildCrmLeadMachineTypesFromConfigurationState(frozen)).toEqual(['210100-01 - Nr.96 C5 varetekst']);
+    const interests = buildCrmLeadMachineInterestItemsFromConfigurationState(frozen);
+    expect(normalizeCrmLeadMachineInterestItems([], interests)[0]).toMatchObject({ item_number: '210100-01', quantity: 18 });
+    expect(pipelineProductQtyFromState(frozen)).toEqual({ '210100-01': 18 });
     expect(buildAccountCaseLines(normalizeConfiguratorState(JSON.parse(JSON.stringify(frozen))), 'da')).toEqual(buildAccountCaseLines(frozen, 'da'));
     const csv = buildSubmittedOrderCsv({ state: frozen, orderNumber: 'O-TEST', orderDate: '2026-10-10',
       dealerNumber: '10295', dealerName: 'Test', sellerInitials: 'NB' });
@@ -111,6 +121,7 @@ describe('Fabric-native sales-stock lines', () => {
       '210100-01', { adjustedBasePrice: 1000, pricingReason: 'Godkendt pris' });
     const frozen = await finalizeConfiguratorPricingSnapshot({ ...priced, flowType: 'order', manualDealerDiscountPct: 4 });
     expect(frozen.pricingSnapshot!.lines![0]).toMatchObject({ quantity: 0.5, unitPrice: 1000, total: 500, finalNetAmount: 480 });
+    expect(configuratorLineQuantity(calculateConfiguration(frozen).lineItems[0])).toBe(0.5);
     const csv = buildSubmittedOrderCsv({ state: frozen, orderNumber: 'O-TEST', orderDate: '2026-10-10',
       dealerNumber: '10295', dealerName: 'Test', sellerInitials: 'NB' });
     expect(csv.matchesOrderTotal).toBe(true);
@@ -156,10 +167,19 @@ describe('Fabric-native sales-stock lines', () => {
 
   it('never adds the parent machine or ordinary demo/campaign/quantity/delivery layers to equipment', () => {
     const state = buildSalesStockConfiguratorState([source('411666-00', { inventory_qty: 3, item_type: 'equipment' })]);
-    const calc = calculateConfiguration({ ...state, date: '2027-01-01', demoMachines: { '411000_1': true }, manualDealerDiscountPct: 4 });
+    const calc = calculateConfiguration({ ...state, date: '2030-01-01', demoMachines: { '411000_1': true }, manualDealerDiscountPct: 4 });
     expect(calc.lineItems.filter(line => !line.subtotal).map(line => line.varenr)).toEqual(['411666-00']);
     expect(calc.discountDetails.map(row => row.kind)).toEqual(['sales_stock', 'dealer']);
     expect(calc.campaignLines).toEqual([]);
+  });
+
+  it('keeps delivery/startup netto charges outside stock and extra dealer discounts', () => {
+    const state = updateSalesStockAssetPricing(buildSalesStockConfiguratorState([source('210100-01', { inventory_qty: 1 })]),
+      '210100-01', { adjustedBasePrice: 1000, pricingReason: 'Godkendt pris' });
+    const calc = calculateConfiguration({ ...state, deliveryMethod: 'deliver', deliveryDeliverStartup: 'no_bridge', manualDealerDiscountPct: 4 });
+    expect(calc.nettoTotal).toBe(1500);
+    expect(calc.currentPrice).toBe(2460);
+    expect(calc.discountDetails.map(line => line.kind)).toEqual(['dealer']);
   });
 
   it.each([{ allocated: true }, { sales_committed: true }, { identity_conflict: true },

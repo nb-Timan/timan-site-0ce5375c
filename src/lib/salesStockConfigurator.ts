@@ -190,6 +190,11 @@ export function isSalesStockConfiguration(state: Pick<ConfiguratorState, 'salesC
   return state.salesChannel === 'sales_stock_demo';
 }
 
+/** The existing priceSource marker distinguishes source lines from legacy catalogue snapshots. */
+export function usesSourceSalesStockLines(state: Pick<ConfiguratorState, 'salesChannel' | 'salesStockAssets'>): boolean {
+  return isSalesStockConfiguration(state) && Boolean(state.salesStockAssets?.some(asset => asset.priceSource !== undefined));
+}
+
 export type SalesSourceType = 'STANDARD' | 'SALES_STOCK_DEMO';
 
 export function configuratorSalesSourceType(state: Pick<ConfiguratorState, 'salesChannel'>): SalesSourceType {
@@ -209,6 +214,7 @@ export function salesStockAssetContextLines(
       `Lager: ${asset.warehouseLocationCode}`,
       `Konto: ${asset.accountNumber || '-'}`,
       `Kildeordre: ${asset.sourceOrderNumber || '-'}`,
+      `Stk.: ${asset.quantity ?? 1}`,
     ].join(' | ')),
   ];
 }

@@ -15,7 +15,8 @@ import { subscribeProductMaster } from '@/lib/publishedProductMaster';
 import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
-import { calcConfigurationTotals } from "@/lib/calcConfiguration";
+import { calcConfigurationTotals, calculateConfiguration } from "@/lib/calcConfiguration";
+import { usesSourceSalesStockLines } from '@/lib/salesStockConfigurator';
 import { currencyFromLanguage, isCurrency, toDkk, type Currency } from "@/lib/currency";
 
 // ---------- Types ----------
@@ -818,6 +819,13 @@ function machineQtyFromOrder(row: BudgetOrderRow, productByNormKey: Map<string, 
   let totalQty = 0;
   const state = parseOrderState(row);
   if (state) {
+    if (usesSourceSalesStockLines(state)) {
+      for (const asset of state.salesStockAssets!) {
+        qtyByKey[asset.itemNumber] = (qtyByKey[asset.itemNumber] ?? 0) + asset.quantity!;
+        totalQty += asset.quantity!;
+      }
+      return { qtyByKey, totalQty };
+    }
     for (const mc of state.machineConfigs ?? []) {
       const machineKey = resolveMachineKey(mc?.type, productByNormKey) || mc?.type;
       if (!machineKey) continue;
@@ -850,6 +858,7 @@ function equipmentQtyFromConfiguratorState(
   productByNormKey: Map<string, string>,
   equipmentLookup: EquipmentLookup,
 ): Record<string, number> {
+  if (usesSourceSalesStockLines(state)) return {};
   const qtyByKey: Record<string, number> = {};
   const add = (machineType: string, configKey: string, accessoryId: string) => {
     const catalogType = catalogMachineType(machineType);
@@ -1260,6 +1269,15 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         totals.set(actualId, prev);
       };
 
+      if (state && usesSourceSalesStockLines(state)) {
+        const stockLines = state.pricingSnapshot?.lines ?? calculateConfiguration(state).commercialLines?.map(line => ({
+          ...line, unitNumber: line.unitNumber,
+        })) ?? [];
+        const sourceLines = stockLines.filter(line => state.salesStockAssets!.some(asset => asset.configuratorUnitNumber === line.unitNumber && asset.itemNumber === line.itemNo));
+        const basis = sourceLines.reduce((sum, line) => sum + (line.finalNetAmount ?? 0), 0);
+        for (const line of sourceLines) addActual(line.itemNo, line.quantity, basis > 0 ? finalPriceDkk * (line.finalNetAmount ?? 0) / basis : 0);
+        continue;
+      }
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
         addActual(machineKey, qty, finalPriceDkk * (qty / totalQty));
       }

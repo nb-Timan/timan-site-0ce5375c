@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { LOOSE_TOOL_KEY } from '@/data/machines';
 import type { CrmLeadMachineInterestItem } from '@/lib/crmLeadMachineInterest';
 import type { ConfiguratorState } from '@/types/configurator';
+import { usesSourceSalesStockLines } from '@/lib/salesStockConfigurator';
 
 const SYNC_START = '--- CONFIGURATOR SYNC START ---';
 const SYNC_END = '--- CONFIGURATOR SYNC END ---';
@@ -177,6 +178,7 @@ export function buildCrmLeadMachineTypesFromConfigurationState(
   state: ConfiguratorState,
   existingMachineTypes: string[] = [],
 ): string[] {
+  if (usesSourceSalesStockLines(state)) return mergeUnique([...existingMachineTypes, ...state.salesStockAssets!.map(asset => `${asset.itemNumber} - ${asset.itemText}`)]);
   const summary = buildQuoteContentSummary(state);
   const values: string[] = existingMachineTypes
     .map(canonicalizeExistingMachineInterest)
@@ -200,6 +202,16 @@ export function buildCrmLeadMachineTypesFromConfigurationState(
 export function buildCrmLeadMachineInterestItemsFromConfigurationState(
   state: ConfiguratorState,
 ): CrmLeadMachineInterestItem[] {
+  if (usesSourceSalesStockLines(state)) {
+    const items = new Map<string, CrmLeadMachineInterestItem>();
+    for (const asset of state.salesStockAssets!) {
+      const previous = items.get(asset.itemNumber);
+      items.set(asset.itemNumber, { interest_type: asset.itemType === 'machine' ? 'machine' : 'equipment',
+        machine_key: asset.itemNumber, item_key: asset.itemNumber, item_number: asset.itemNumber,
+        quantity: (previous?.quantity ?? 0) + asset.quantity! });
+    }
+    return [...items.values()];
+  }
   const summary = buildQuoteContentSummary(state);
   const items = new Map<string, CrmLeadMachineInterestItem>();
 
