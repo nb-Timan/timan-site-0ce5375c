@@ -358,3 +358,34 @@ SharePoint integration and its production source remain unchanged; no cutover
 or SharePoint write was performed. The existing served preview did not yet
 contain the new comparison button at the initial browser check. Production UI
 acceptance must not be inferred from component tests or triggered Lovable builds.
+
+### Final browser and engineering verification, 2026-10-10
+
+After scoped commit ed707811 was pushed, the existing preview loaded the new
+comparison UI on normal browser reload. No Lovable Build, Preview generation,
+publish action or new hosting was invoked. Live Backend UI displays Portal 111,
+C5 916, matched 111 and the exact status/classification counts above. Search and
+the Forhandlerkunder filter work together. JE, AB Lauridsen, Kendy and Palles Auto
+were expanded and their source provenance, invoice chains and existing Portal
+parent parity verified in the browser. The panel has no apply/create/update
+business controls.
+
+Desktop and an actual 390 x 844 viewport passed. At 390 px the document width
+is 375 px and the comparison panel client/scroll widths are both 350 px, with
+wrapped filters, readable status labels and vertically reachable details.
+Temporary viewport overrides were reset after verification.
+
+Final checks: 50/50 focused tests, 35 local SQL/RLS/isolation checks, scoped
+ESLint, Vite production build and staged git diff --check PASS. Full application
+typecheck is NOT globally green: 111 diagnostics. An in-memory comparison to
+the unmodified main base 5238375080e14ff61c375339dcfc587e5c1ac6f3 also finds
+111 diagnostics and zero added diagnostics. No unrelated type failures were
+fixed. Production checks confirm all three shadow tables retain RLS and no
+anon/authenticated direct SELECT/DML access. The security advisor's no-policy
+information on these intentionally RPC-only tables does not warrant broad
+client policies; existing unrelated advisories were left untouched.
+
+Shadow/parity technical acceptance is complete. Masterdata cutover remains
+unapproved and not ready: unknown type codes, review-required accounts and
+review-only invoice/billing/hierarchy differences need separate business
+decisions. SharePoint remains the production masterdata source.
