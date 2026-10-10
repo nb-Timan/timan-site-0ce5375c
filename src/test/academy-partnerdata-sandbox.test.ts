@@ -26,6 +26,19 @@ describe('canonical Partnerdata with a local data adapter', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('removes a legacy practice contact only in the existing local adapter', async () => {
+    sandbox.start(1);
+    const dealer = sandbox.listDealers()[0];
+    const repo = getPartnerDataRepository();
+    await repo.updateDealerAccount(dealer.id, { finance_contact_name: 'QA Local Finance', finance_contact_email: 'qa@localhost' });
+    await expect(repo.archiveLegacyDealerContact(dealer.id, 'finance', null)).resolves.toMatchObject({ ok: true });
+    const row = sandbox.listDealers().find((item) => item.id === dealer.id);
+    expect(row.finance_contact_name).toBeNull();
+    expect(row.finance_contact_email).toBeNull();
+    expect(row.company_name).toBe(dealer.company_name);
+    expect(await repo.listRemovedDealerContactAreas(dealer.id)).toEqual([]);
+  });
+
   it('requires the canonical Academy route, sales contact, website and YouTube checks', async () => {
     sandbox.start(1);
     expect(sandbox.getProgress().part1Completed).toBe(false);

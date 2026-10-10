@@ -9,6 +9,7 @@ import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import type { LoanCase, LoanCaseItem, LoanItemPhoto } from '@/lib/loanService';
 
 const mocks = vi.hoisted(() => ({
+  getLoanCaseActionState: vi.fn(), getLoanHistoricalContact: vi.fn(),
   getLoanCase: vi.fn(), listLoanCaseHistory: vi.fn(), listLoanSellers: vi.fn(), listLoanPartners: vi.fn(), listLoanContacts: vi.fn(),
   listEligibleLoanAssets: vi.fn(), createLoanCase: vi.fn(), updateLoanDraft: vi.fn(), updateLoanCaseRelationships: vi.fn(),
   addLoanAsset: vi.fn(), addFabricLoanAsset: vi.fn(), removeLoanItem: vi.fn(), removeLoanItemPhoto: vi.fn(),
@@ -70,6 +71,8 @@ beforeEach(() => {
   identity.role = 'timan_backend';
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   Element.prototype.scrollIntoView = vi.fn();
+  mocks.getLoanCaseActionState.mockResolvedValue({ can_review: false, can_accept: false, terms_ready: false, active_reservation_count: 1 });
+  mocks.getLoanHistoricalContact.mockResolvedValue("QA Contact");
   mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item], photos: [photo] });
   mocks.listLoanCaseHistory.mockResolvedValue([]);
   mocks.listLoanSellers.mockResolvedValue([{ id: 'seller', display_name: 'QA Seller', initials: 'QA' }]);

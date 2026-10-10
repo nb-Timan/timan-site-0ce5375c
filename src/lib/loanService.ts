@@ -58,6 +58,26 @@ export interface LoanCaseSummary {
   updated_at: string;
   return_state?: LoanCaseReturnState;
   lifecycle_state?: LoanCaseLifecycleState;
+  action_state?: LoanCaseActionState;
+}
+export interface LoanCaseActionState {
+  case_id: string;
+  can_review: boolean;
+  can_accept: boolean;
+  terms_ready: boolean;
+  active_reservation_count: number;
+}
+export async function getLoanCaseActionState(caseId: string): Promise<LoanCaseActionState> {
+  const { data, error } = await supabase.rpc('loan_list_case_action_states');
+  if (error) throw error;
+  const state = rows<LoanCaseActionState>(data).find((row) => row.case_id === caseId);
+  if (!state) throw new Error('Loan case access denied');
+  return state;
+}
+export async function getLoanHistoricalContact(caseId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('loan_case_historical_contact', { p_case_id: caseId });
+  if (error) throw error;
+  return rows<{ name: string | null }>(data)[0]?.name ?? null;
 }
 export interface LoanCaseLifecycleState {
   case_id: string;
@@ -179,14 +199,16 @@ export async function getLoanOverviewInfo(caseId: string): Promise<LoanOverviewI
 function rows<T>(data: unknown): T[] { return Array.isArray(data) ? data as T[] : []; }
 
 export async function listLoanCases(partnerId?: string | null): Promise<LoanCaseSummary[]> {
-  const [casesResult, stateResult, lifecycleResult] = await Promise.all([
+  const [casesResult, stateResult, lifecycleResult, actionResult] = await Promise.all([
     supabase.rpc('loan_list_case_overview', { p_partner_id: partnerId || null }),
     supabase.rpc('loan_list_case_return_states'),
     supabase.rpc('loan_list_case_lifecycle_states'),
+    supabase.rpc('loan_list_case_action_states'),
   ]);
   if (casesResult.error) throw casesResult.error;
   if (stateResult.error) throw stateResult.error;
   if (lifecycleResult.error) throw lifecycleResult.error;
+  if (actionResult.error) throw actionResult.error;
   const stateByCase = new Map(rows<LoanCaseReturnState>(stateResult.data).map((state) => [state.case_id, state]));
   const lifecycleByCase = new Map(rows<LoanCaseLifecycleState>(lifecycleResult.data).map((state) => [state.case_id, state]));
   return rows<LoanCaseSummary>(casesResult.data).map((loanCase) => ({
@@ -194,6 +216,7 @@ export async function listLoanCases(partnerId?: string | null): Promise<LoanCase
     can_edit_expected_return: loanCase.can_edit_expected_return && !isLoanClosed(loanCase.status),
     return_state: stateByCase.get(loanCase.id),
     lifecycle_state: lifecycleByCase.get(loanCase.id),
+    action_state: rows<LoanCaseActionState>(actionResult.data).find((state) => state.case_id === loanCase.id),
   }));
 }
 
@@ -350,6 +373,39 @@ export async function createLoanCaseVersion(caseId: string, serialNumbersConfirm
   });
   if (error) throw error;
   return Number(data);
+}
+
+export interface LoanApprovalData {
+  number: string; state: LoanCaseActionState; versionId: string | null; terms: { title: string; body: string } | null;
+}
+export async function getLoanApprovalData(caseId: string): Promise<LoanApprovalData> {
+  const state = await getLoanCaseActionState(caseId);
+  const { data: loanCase, error } = await supabase.from('loan_cases').select('loan_number,language_code,current_version_number').eq('id', caseId).single();
+  if (error) throw error;
+  let versionId: string | null = null;
+  let termId: string | null = null;
+  if (state.can_review && state.terms_ready) {
+    const result = await supabase.from('loan_term_versions').select('id,loan_term_translations!inner(language_code)')
+      .eq('status', 'APPROVED').eq('loan_term_translations.language_code', loanCase.language_code).order('version_number', { ascending: false }).limit(1).maybeSingle();
+    if (result.error) throw result.error;
+    termId = result.data?.id ?? null;
+  } else if (state.can_accept) {
+    const result = await supabase.from('loan_case_versions').select('id,term_version_id').eq('case_id', caseId)
+      .eq('version_number', loanCase.current_version_number).single();
+    if (result.error) throw result.error;
+    versionId = result.data.id; termId = result.data.term_version_id;
+  }
+  let terms: LoanApprovalData['terms'] = null;
+  if (termId) {
+    const result = await supabase.from('loan_term_translations').select('title,body').eq('term_version_id', termId).eq('language_code', loanCase.language_code).single();
+    if (result.error) throw result.error;
+    terms = result.data;
+  }
+  return { number: loanCase.loan_number, state, versionId, terms };
+}
+export async function acceptLoanCaseVersion(caseId: string, versionId: string): Promise<void> {
+  const { error } = await supabase.rpc('loan_accept_case_version', { p_case_id: caseId, p_case_version_id: versionId, p_accept: true });
+  if (error) throw error;
 }
 
 export async function submitLoanCaseForReview(caseId: string, serialNumbersConfirmed: boolean): Promise<void> {

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
+import LoanNextAction from '@/pages/loans/LoanNextAction';
 import LoanCancelDialog from '@/pages/loans/LoanCancelDialog';
 import LoanPartnerCombobox from '@/pages/loans/LoanPartnerCombobox';
 import { addFabricLoanAsset } from '@/lib/fabricLoanStockService';
@@ -18,6 +19,9 @@ import {
   createLoanCase,
   confirmLoanDraftSerials,
   getLoanCase,
+  getLoanCaseActionState,
+  getLoanHistoricalContact,
+  type LoanCaseActionState,
   listLoanCaseHistory,
   listLoanContacts,
   listLoanPartners,
@@ -72,6 +76,8 @@ export default function LoanCasePage() {
   const [returnSummary, setReturnSummary] = useState<LoanReturnSummary[]>([]);
   const [returnState, setReturnState] = useState<LoanCaseReturnState | null>(null);
   const [lifecycleState, setLifecycleState] = useState<LoanCaseLifecycleState | null>(null);
+  const [actionState, setActionState] = useState<LoanCaseActionState | null>(null);
+  const [historicalContactName, setHistoricalContactName] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [sellerId, setSellerId] = useState('');
   const [partnerId, setPartnerId] = useState('');
@@ -108,9 +114,11 @@ export default function LoanCasePage() {
   const refresh = useCallback(async (targetId = caseId) => {
     if (!targetId) return;
     const generation = ++refreshGeneration.current;
-    const [detail, events] = await Promise.all([getLoanCase(targetId), listLoanCaseHistory(targetId)]);
+    const [detail, events, actions, historicalName] = await Promise.all([getLoanCase(targetId), listLoanCaseHistory(targetId), getLoanCaseActionState(targetId), getLoanHistoricalContact(targetId)]);
     if (generation !== refreshGeneration.current) return;
     setLoanCase(detail.loanCase);
+    setActionState(actions);
+    setHistoricalContactName(historicalName);
     setItems(detail.items);
     setPhotos(detail.photos);
     setHistory(events);
@@ -334,6 +342,7 @@ export default function LoanCasePage() {
     <div className="mb-4"><Link to="/portal/loans" className="text-sm font-medium text-emerald-800 underline">{label('loansCases')}</Link></div>
     <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-semibold text-slate-900">{isNew ? label('loansNewCase') : loanCase?.loan_number ?? label('loansLoading')}</h1>
       <div className="flex flex-wrap gap-2">
+        {caseId && <LoanNextAction caseId={caseId} state={actionState} label={label} />}
         {canManageCase && caseId && returnState?.can_receive && <Link to={`/portal/loans/${caseId}/return`} className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white"><PackageCheck className="h-4 w-4" />{label('loansReceive')}</Link>}
         {canAdministerCase && loanCase && ['READY_FOR_REVIEW','AWAITING_ACCEPTANCE','ACCEPTED'].includes(loanCase.status) && <button type="button" disabled={busy} onClick={() => void reopen()} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800"><RotateCcw className="h-4 w-4" />{label('loansReopen')}</button>}
         {canAdministerCase && lifecycleState?.can_cancel_draft && <button type="button" disabled={busy} onClick={() => setCancelDialogOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700"><Trash2 className="h-4 w-4" />{label('loansDelete')}</button>}
@@ -366,7 +375,7 @@ export default function LoanCasePage() {
           </> : <>
             <Info label={label('loansSeller')} value={sellers.find((seller) => seller.id === sellerId)?.display_name ?? sellerId} />
             <Info label={label('loansPartner')} value={partners.find((partner) => partner.id === partnerId)?.company_name ?? partnerId} />
-            <Info label={label('loansContact')} value={contacts.find((contact) => contact.id === contactId)?.name ?? contactId} />
+            <Info label={label('loansContact')} value={contacts.find((contact) => contact.id === contactId)?.name ?? historicalContactName ?? contactId} />
           </>}
           <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2" data-testid="loan-date-row">
             <Input label={label('loansLoanDate')} value={loanDate} setValue={setLoanDate} type="date" invalid={validationIssues.includes('loan_date') && !loanDate} error={label('loansRequiredLoanDate')} />

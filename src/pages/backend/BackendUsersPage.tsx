@@ -21,6 +21,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { t } from '@/lib/i18n/translations';
 import PortalHeader from "@/components/portal/PortalHeader";
+import BackendPersonnelHistory from '@/components/backend/BackendPersonnelHistory';
 import PortalFooter from "@/components/portal/PortalFooter";
 import {
   PORTAL_ROLES,
@@ -653,6 +654,7 @@ export default function BackendUsersPage() {
           </table>
         </div>
 
+        <BackendPersonnelHistory />
         <p className="mt-4 text-xs text-slate-500">
           {source === "supabase"
             ? "Kilde: Supabase public.app_users — ændringer gemmes direkte i databasen."

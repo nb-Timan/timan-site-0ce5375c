@@ -46,6 +46,9 @@ const avistechLikeDealer = {
 const label = () => "Direktør";
 
 describe("Partnerdata contact hydration", () => {
+  it('never resurrects a removed employee through legacy fallback', () => {
+    expect(mergeLegacyContacts(avistechLikeDealer, [], label, ['director'])).toEqual([]);
+  });
   it("never turns an unmatched legacy display row into a save candidate", () => {
     const hydrated = mergeLegacyContacts(avistechLikeDealer, [], label);
     const legacy = hydrated.find(isLegacyViewContact);

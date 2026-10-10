@@ -29,10 +29,11 @@ export type ProfileI18nKey =
   | "roleSalesDirector" | "roleSalesManager" | "roleSalesRep" | "roleSalesCoordinator" | "roleKeyAccount"
   | "roleWorkshop" | "roleWorkshopResponsible" | "roleWorkshopManager" | "roleServiceManager" | "roleServiceTechnician" | "roleMechanic" | "rolePartsManager" | "rolePartsOrderer" | "roleStockManager" | "roleServiceCoord"
   | "roleMarketingManager" | "roleMarketingCoordinator" | "roleSocialMedia" | "roleWebsiteManager" | "roleCommunications"
-  | "roleOther" | "area_primary";
+  | "roleOther" | "area_primary" | "removePersonTitle" | "removePersonDescription" | "confirmRemovePerson";
 
 const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   da: {
+    removePersonTitle: "Vil du fjerne denne medarbejder?", removePersonDescription: "Medarbejderen fjernes fra partnerens aktive kontaktliste. Tidligere aktiviteter og historiske registreringer bevares.", confirmRemovePerson: "Fjern medarbejder",
     profileTitle: "Forhandlerprofil",
     profileSubtitle: "Udfyld jeres stamdata. En Gem-knap gemmer hele profilen.",
     progressComplete: "Profil komplet",
@@ -76,6 +77,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleOther: "Andet", area_primary: "Primær",
   },
   en: {
+    removePersonTitle: "Remove this employee?", removePersonDescription: "The employee is removed from the active contact list. Previous activities and historical records are retained.", confirmRemovePerson: "Remove employee",
     profileTitle: "Dealer profile",
     profileSubtitle: "Fill in your company details. Any Save button saves the full profile.",
     progressComplete: "Profile complete",
@@ -117,6 +119,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleOther: "Other", area_primary: "Primary",
   },
   de: {
+    removePersonTitle: "Mitarbeiter entfernen?", removePersonDescription: "Der Mitarbeiter wird aus der aktiven Kontaktliste entfernt. Aktivitäten und historische Aufzeichnungen bleiben erhalten.", confirmRemovePerson: "Mitarbeiter entfernen",
     profileTitle: "Händlerprofil",
     profileSubtitle: "Stammdaten ausfüllen. Jede Speichern-Schaltfläche speichert das gesamte Profil.",
     progressComplete: "Profil vollständig", progressMissing: "Fehlt", progressFilled: "Profil", progressOf: "von",
@@ -155,6 +158,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleOther: "Sonstiges", area_primary: "Primär",
   },
   it: {
+    removePersonTitle: "Rimuovere questo dipendente?", removePersonDescription: "Il dipendente viene rimosso dai contatti attivi. Attività precedenti e registrazioni storiche vengono conservate.", confirmRemovePerson: "Rimuovi dipendente",
     profileTitle: "Profilo concessionario",
     profileSubtitle: "Compila i dati aziendali. Qualsiasi pulsante Salva salva tutto il profilo.",
     progressComplete: "Profilo completo", progressMissing: "Mancano", progressFilled: "Profilo", progressOf: "di",
@@ -193,6 +197,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleOther: "Altro", area_primary: "Primario",
   },
   hu: {
+    removePersonTitle: "Eltávolítja ezt a munkatársat?", removePersonDescription: "A munkatárs eltűnik az aktív kapcsolati listából. A korábbi tevékenységek és történeti adatok megmaradnak.", confirmRemovePerson: "Munkatárs eltávolítása",
     profileTitle: "Kereskedői profil",
     profileSubtitle: "Töltsd ki a cég adatait. Bármely mentés gomb a teljes profilt menti.",
     progressComplete: "Profil teljes", progressMissing: "Hiányzik", progressFilled: "Profil", progressOf: "/",

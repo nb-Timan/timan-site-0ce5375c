@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cancelLoanDraft } from '@/lib/loanService';
+import { cancelLoanDraft, getLoanCaseActionState } from '@/lib/loanService';
 
 export interface LoanCancellationTarget {
   id: string;
@@ -18,17 +18,26 @@ export default function LoanCancelDialog({ target, label, onClose, onCancelled }
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reservationCount, setReservationCount] = useState<number | null>(null);
   const saving = useRef(false);
   const requestId = useRef('');
   const attempt = useRef<{ reason: string; requestId: string } | null>(null);
+  const targetId = target?.id;
+  const loadError = label('loansLoadError');
   useEffect(() => {
     setReason(''); setError('');
+    setReservationCount(null);
     requestId.current = crypto.randomUUID();
     attempt.current = null;
-  }, [target?.id]);
+    let cancelled = false;
+    if (targetId) void getLoanCaseActionState(targetId).then((state) => {
+      if (!cancelled) setReservationCount(state.active_reservation_count);
+    }).catch(() => { if (!cancelled) setError(loadError); });
+    return () => { cancelled = true; };
+  }, [targetId, loadError]);
 
   const confirm = async () => {
-    if (!target || saving.current) return;
+    if (!target || saving.current || reservationCount === null) return;
     const trimmed = reason.trim();
     if (!trimmed || trimmed.length > 500) { setError(label('loansDeleteReasonRequired')); return; }
     if (attempt.current && attempt.current.reason !== trimmed) {
@@ -53,6 +62,8 @@ export default function LoanCancelDialog({ target, label, onClose, onCancelled }
         <DialogTitle>{label('loansDeleteTitle').replace('{number}', target?.loan_number ?? '')}</DialogTitle>
         <DialogDescription>{label('loansDeleteDescription')}</DialogDescription>
       </DialogHeader>
+      <p className="text-sm font-medium">{label('loansCancelReservationCount').replace('{count}', reservationCount === null ? '…' : String(reservationCount))}</p>
+      <p className="text-xs text-slate-600">{label('loansCancelNoStockMovement')}</p>
       <label className="block text-sm font-medium text-slate-700">
         <span className="mb-1 block">{label('loansDeleteReason')}</span>
         <textarea aria-label={label('loansDeleteReason')} aria-invalid={Boolean(error)} value={reason} maxLength={500}
@@ -61,8 +72,8 @@ export default function LoanCancelDialog({ target, label, onClose, onCancelled }
       </label>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" onClick={onClose} disabled={busy} className="h-10 rounded-md border border-slate-300 px-3 text-sm">{label('cancel')}</button>
-        <button type="button" onClick={() => void confirm()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-md bg-red-700 px-4 text-sm font-medium text-white disabled:opacity-50"><Trash2 className="h-4 w-4" />{label('loansDelete')}</button>
+        <button type="button" onClick={onClose} disabled={busy} className="h-10 rounded-md border border-slate-300 px-3 text-sm">{label('loansCancelCancellation')}</button>
+        <button type="button" onClick={() => void confirm()} disabled={busy || reservationCount === null} className="inline-flex h-10 items-center gap-2 rounded-md bg-red-700 px-4 text-sm font-medium text-white disabled:opacity-50"><Trash2 className="h-4 w-4" />{label('loansConfirmCancellation')}</button>
       </div>
     </DialogContent>
   </Dialog>;

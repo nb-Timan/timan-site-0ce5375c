@@ -353,3 +353,23 @@ Object.assign(LOAN_TRANSLATIONS.de, {
   loansInfoAssets: 'Maschinen und Anbaugeräte', loansInfoDelivery: 'Lieferadresse', loansInfoPartnerAddress: 'Partneradresse',
   loansInfoNotes: 'Anmerkung zur Leihe', loansInfoNoAddress: 'Keine Adresse hinterlegt', loansInfoNoNotes: 'Keine Anmerkung hinterlegt', loansInfoNoAssets: 'Keine Einheiten hinterlegt',
 });
+
+const SAFE_LOAN_ACTIONS = {
+  loansCancelCancellation: 'Cancel',
+  loansConfirmCancellation: 'Confirm cancellation', loansCancelReservationCount: 'Active reservations affected: {count}',
+  loansCancelNoStockMovement: 'Reservation release does not create a C5 stock movement. Issued assets must be returned.',
+  loansReviewCheckout: 'Review checkout', loansReviewConfirmation: 'I have checked the physical assets, serial numbers and checkout documentation.',
+  loansAcceptConfirmation: 'I confirm acceptance of these loan terms and this version.', loansConfirmAcceptance: 'Accept loan',
+  loansNoNextApproval: 'There is no pending approval for this loan.',
+};
+for (const language of Object.keys(LOAN_TRANSLATIONS) as PortalUiLanguage[]) Object.assign(LOAN_TRANSLATIONS[language], SAFE_LOAN_ACTIONS);
+Object.assign(LOAN_TRANSLATIONS.da, {
+  loansDeleteTitle: 'Vil du annullere udlån {number}?',
+  loansCancelCancellation: 'Annuller',
+  loansDeleteDescription: 'Udlånssagen fjernes fra den aktive oversigt, og dens aktive reservationer frigives. Registreret historik og dokumentation bevares.',
+  loansConfirmCancellation: 'Bekræft annullering', loansCancelReservationCount: 'Berørte aktive reservationer: {count}',
+  loansCancelNoStockMovement: 'Frigivelse af reservationer er ikke en lagerbevægelse i C5. Udleverede aktiver skal modtages gennem returflowet.',
+  loansReviewCheckout: 'Godkend kontrol', loansReviewConfirmation: 'Jeg har kontrolleret de fysiske aktiver, serienumre og udleveringsdokumentationen.',
+  loansAcceptConfirmation: 'Jeg accepterer disse udlånsbetingelser og denne version.', loansConfirmAcceptance: 'Accepter udlån',
+  loansNoNextApproval: 'Der er ingen afventende godkendelse for dette udlån.',
+});

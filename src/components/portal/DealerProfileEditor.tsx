@@ -231,9 +231,11 @@ export function mergeLegacyContacts(
   dealer: DealerAccount,
   rows: DealerContact[],
   t: (k: ProfileI18nKey) => string,
+  removedAreas: DealerContactArea[] = [],
 ): DealerContact[] {
   const merged = [...rows];
   for (const source of legacyContactSources(dealer, t)) {
+    if (removedAreas.includes(source.area)) continue;
     // Canonical dealer_contacts owns a populated section. Legacy profile fields are fallback-only.
     if (rows.some((contact) => (
       contact.contact_area === source.area && !isLocalContact(contact) && !isLegacyViewContact(contact)
@@ -465,6 +467,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
   const [savingSection, setSavingSection] = useState<SavingSection | null>(null);
   const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
+  const [removingContact, setRemovingContact] = useState<DealerContact | null>(null);
+  const [removingBusy, setRemovingBusy] = useState(false);
+  const removalSaving = useRef(false);
   const [contactTransfer, setContactTransfer] = useState<ContactTransferDialogState | null>(null);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
   const [contractPaymentTerms, setContractPaymentTerms] = useState<string | null>(null);
@@ -491,12 +496,12 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
     let cancelled = false;
     (async () => {
       setLoadingContacts(true);
-      const rows = await listDealerContacts(dealer.id);
+      const [rows, removedAreas] = await Promise.all([listDealerContacts(dealer.id), getPartnerDataRepository().listRemovedDealerContactAreas(dealer.id)]);
       if (!cancelled) {
-        setContacts(ensureMinimumAreaContacts(dealer.id, mergeLegacyContacts(dealer, rows, t)));
+        setContacts(ensureMinimumAreaContacts(dealer.id, mergeLegacyContacts(dealer, rows, t, removedAreas)));
         setLoadingContacts(false);
       }
-    })();
+    })().catch((error) => { if (!cancelled) { setContacts([]); setLoadingContacts(false); toast({ title: t('saveError'), description: String(error), variant: 'destructive' }); } });
     return () => { cancelled = true; };
   }, [dealer.id, t]);
 
@@ -677,16 +682,37 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
     const res = await queueContactSave(c);
     if (!res.ok) toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
   };
-  const removeContact = async (id: string) => {
-    const local = contacts.find((c) => c.id === id);
-    if (local && (isLocalContact(local) || isLegacyViewContact(local))) {
-      if (isLegacyViewContact(local)) clearLegacyContactSource(local.contact_area);
-      setContacts((prev) => prev.filter((c) => c.id !== id));
-      return;
-    }
-    const res = await deleteDealerContact(id, effectiveUserId);
-    if (res.ok) setContacts((prev) => prev.filter((c) => c.id !== id));
-    else toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+  const removeContact = (id: string) => {
+    setRemovingContact(contacts.find((contact) => contact.id === id) ?? null);
+  };
+  const confirmContactRemoval = async () => {
+    if (!removingContact || removalSaving.current) return;
+    removalSaving.current = true; setRemovingBusy(true);
+    try {
+      let id = removingContact.id;
+      const pendingSave = contactSaveQueues.current.get(id);
+      const pending = pendingSave ? await pendingSave : null;
+      if (pending && !pending.ok) throw Error(pending.error || t('saveError'));
+      if (pending?.row) id = pending.row.id;
+      let result: { ok: boolean; error?: string } = { ok: true };
+      if (isLegacyViewContact(removingContact)) result = await getPartnerDataRepository().archiveLegacyDealerContact(dealer.id, removingContact.contact_area, effectiveUserId);
+      else {
+        if (isLocalContact(removingContact) && !pending?.row && contactHasContent(removingContact)) {
+          const stored = contacts.find((row) => row.id === localContactCreateId(removingContact));
+          if (stored) id = stored.id;
+          else {
+            const saved = await persistContact(removingContact);
+            if (!saved.ok || !saved.row) throw Error(saved.error || t('saveError'));
+            id = saved.row.id;
+          }
+        }
+        if (!isLocalContact(removingContact) || id !== removingContact.id) result = await deleteDealerContact(id, effectiveUserId);
+      }
+      if (!result.ok) throw Error(result.error || t('saveError'));
+      setContacts((prev) => prev.filter((c) => c.id !== id && c.id !== removingContact.id));
+      setRemovingContact(null);
+    } catch (error) { toast({ title: t('saveError'), description: String(error), variant: 'destructive' }); }
+    finally { removalSaving.current = false; setRemovingBusy(false); }
   };
   const setPrimaryContact = async (id: string, checked: boolean) => {
     const target = contacts.find((contact) => contact.id === id);
@@ -1006,6 +1032,15 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
         </SectionShell>
       </div>
     </div>
+    <AlertDialog open={removingContact !== null} onOpenChange={(open) => { if (!open && !removalSaving.current) setRemovingContact(null); }}>
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-1rem)] max-w-md overflow-y-auto">
+        <AlertDialogHeader><AlertDialogTitle>{t('removePersonTitle')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('removePersonDescription')}</AlertDialogDescription></AlertDialogHeader>
+        <p className="break-words text-sm font-semibold">{removingContact?.name?.trim() || t('contact')} · {dealer.company_name} #{dealer.account_number}</p>
+        <AlertDialogFooter><AlertDialogCancel disabled={removingBusy}>{t('cancel')}</AlertDialogCancel>
+          <Button variant="destructive" disabled={removingBusy} onClick={() => void confirmContactRemoval()}>{t('confirmRemovePerson')}</Button></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <Dialog open={contactTransfer !== null} onOpenChange={(open) => { if (!open) closeContactTransfer(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

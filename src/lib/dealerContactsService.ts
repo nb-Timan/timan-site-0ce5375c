@@ -236,15 +236,16 @@ export async function deleteDealerContact(
   id: string,
   effectiveUserId?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (effectiveUserId !== undefined) {
-    const { data, error } = await supabase.rpc("delete_partnerdata_contact", {
-      p_contact_id: id,
-      p_effective_user_id: effectiveUserId,
-    });
-    if (error) return { ok: false, error: describeError(error) };
-    return { ok: Boolean(data) };
-  }
-  const { error } = await supabase.from("dealer_contacts").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  const { data, error } = await supabase.rpc('delete_partnerdata_contact', { p_contact_id: id, p_effective_user_id: effectiveUserId ?? null });
+  if (error) return { ok: false, error: describeError(error) };
+  return { ok: Boolean(data) };
+}
+export async function archiveLegacyDealerContact(dealerId: string, area: DealerContactArea, effectiveUserId?: string | null): Promise<{ ok: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('archive_partnerdata_legacy_contact', { p_dealer_account_id: dealerId, p_contact_area: area, p_effective_user_id: effectiveUserId ?? null });
+  return error ? { ok: false, error: describeError(error) } : { ok: Boolean(data) };
+}
+export async function listRemovedDealerContactAreas(dealerId: string): Promise<DealerContactArea[]> {
+  const { data, error } = await supabase.rpc('partnerdata_removed_contact_areas', { p_dealer_account_id: dealerId });
+  if (error) throw error;
+  return (data ?? []) as DealerContactArea[];
 }
