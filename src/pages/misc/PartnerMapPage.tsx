@@ -50,6 +50,7 @@ import {
   parseSwedenMunicipalitiesGeoJson,
 } from '@/lib/swedenMunicipalities';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
+import { isActivePartnerMapAccount, partnerMapCoordinates } from '@/lib/partnerMapAccount';
 
 type PartnerType = PartnerAccountTypeId;
 
@@ -123,7 +124,7 @@ function withCartoBasemapKey(url: string): string {
 
 const T: Record<string, Record<Language, string>> = {
   title: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
-  intro: { da: 'Partnere fra SharePoint/Supabase. Manglende koordinater vises i panelet til højre.', en: 'Partners from SharePoint/Supabase.', de: 'Partner aus SharePoint/Supabase.', it: 'Partner da SharePoint/Supabase.', hu: 'Partnerek SharePoint/Supabase-ből.' },
+  intro: { da: 'Portalens partnerregister', en: 'Portal partner register', de: 'Partnerregister des Portals', it: 'Registro partner del portale', hu: 'A portál partnernyilvántartása' },
   search: { da: 'Søg på land, by, sælger, firma eller kontonr.', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
   allSellers: { da: 'Alle sælgere', en: 'All sellers', de: 'Alle', it: 'Tutti', hu: 'Mind' },
   resetView: { da: 'Vis Europa', en: 'Show Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
@@ -133,8 +134,8 @@ const T: Record<string, Record<Language, string>> = {
   openCrm: { da: 'Forhandlerinformation', en: 'Dealer information', de: 'Händlerinformation', it: 'Informazioni rivenditore', hu: 'Kereskedői információ' },
   assignedSeller: { da: 'Tildelt sælger', en: 'Assigned seller', de: 'Verkäufer', it: 'Venditore', hu: 'Eladó' },
   pinLegend: { da: 'Partnertyper', en: 'Partner types', de: 'Typen', it: 'Tipi', hu: 'Típusok' },
-  missing: { da: 'Mangler koordinater', en: 'Missing coordinates', de: 'Fehlende Koordinaten', it: 'Coordinate mancanti', hu: 'Hiányzó koordináták' },
-  missingHint: { da: 'Kør "Geocode forhandlere" i Backend → Forhandlere for at hente koordinater.', en: 'Run "Geocode dealers" in Backend.', de: 'Backend → Forhandlere.', it: 'Backend → Forhandlere.', hu: 'Backend → Forhandlere.' },
+  missing: { da: 'Mangler kortposition', en: 'Missing map position', de: 'Fehlende Kartenposition', it: 'Posizione sulla mappa mancante', hu: 'Hiányzó térképpozíció' },
+  missingHint: { da: 'Backend → Partnerstyring → Kortpositioner / geokodning.', en: 'Backend → Partner management → Map positions / geocoding.', de: 'Backend → Partnerverwaltung → Kartenpositionen / Geokodierung.', it: 'Backend → Gestione partner → Posizioni sulla mappa / geocodifica.', hu: 'Backend → Partnerkezelés → Térképpozíciók / geokódolás.' },
   loading: { da: 'Henter forhandlere…', en: 'Loading…', de: 'Laden…', it: 'Caricamento…', hu: 'Betöltés…' },
   noData: { da: 'Ingen forhandlere fundet.', en: 'No dealers found.', de: 'Keine Händler.', it: 'Nessun rivenditore.', hu: 'Nincs forgalmazó.' },
   results: { da: 'Resultater', en: 'Results', de: 'Ergebnisse', it: 'Risultati', hu: 'Találatok' },
@@ -1587,19 +1588,17 @@ export default function PartnerMapPage() {
       // partners (and skip soft-deleted/blocked accounts to avoid stale entries).
       if (isDealerSide) {
         if (accountType === 'demo_location') return false;
-        if (d.is_deleted || d.is_blocked) return false;
+        if (!isActivePartnerMapAccount(d)) return false;
         return true;
       }
       if (!canSeeDemoLocations && accountType === 'demo_location') return false;
-      if (d.is_deleted && statusFilter === 'active') return false;
-      if (d.is_blocked && statusFilter === 'active') return false;
-      if (statusFilter === 'inactive' && !d.is_blocked && !d.is_deleted) return false;
+      if (statusFilter === 'active' && !isActivePartnerMapAccount(d)) return false;
+      if (statusFilter === 'inactive' && isActivePartnerMapAccount(d)) return false;
       // 'all' inkluderer alt undtagen hard-deleted (men is_deleted=true er soft-delete = lukket — vises ved inactive/all)
       return true;
     })
     .map((d) => {
       const st = stats[d.id];
-      const hasCoords = d.latitude != null && d.longitude != null;
       const accountType = resolvePartnerAccountType(d);
       const isDealerCustomer = isDealerCustomerAccount(d);
       const address = resolveDealerMapAddress(d);
@@ -1616,7 +1615,7 @@ export default function PartnerMapPage() {
         seller: d.assigned_seller_initials,
         sellerName: d.assigned_seller_name,
         sellerEmail: d.assigned_seller_email,
-        coords: hasCoords ? [d.latitude as number, d.longitude as number] : null,
+        coords: partnerMapCoordinates(d),
         geocodingStatus: d.geocoding_status ?? null,
         geocodingError: d.geocoding_error ?? null,
         users: st?.user_count ?? 0,

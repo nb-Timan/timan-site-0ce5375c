@@ -41,6 +41,8 @@ export interface DealerAccount {
   source_created_at: string | null;
   source_changed_at: string | null;
   is_blocked: boolean;
+  is_active?: boolean | null;
+  status?: string | null;
   blocked_at: string | null;
   blocked_by: string | null;
   is_deleted: boolean;
@@ -221,6 +223,8 @@ export function rowToDealer(row: Record<string, unknown>): DealerAccount {
     source_created_at: (row.source_created_at as string | null) ?? null,
     source_changed_at: (row.source_changed_at as string | null) ?? null,
     is_blocked: Boolean(row.is_blocked ?? false),
+    is_active: row.is_active == null ? null : Boolean(row.is_active),
+    status: (row.status as string | null) ?? null,
     blocked_at: (row.blocked_at as string | null) ?? null,
     blocked_by: (row.blocked_by as string | null) ?? null,
     is_deleted: Boolean(row.is_deleted ?? false),

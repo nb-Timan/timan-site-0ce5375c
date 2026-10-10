@@ -26,7 +26,7 @@ try {
     create table dealer_accounts(id uuid primary key default gen_random_uuid(),account_number text unique,dealer_number text,company_name text,
       address_line_1 text,address_line_2 text,address text,postal_code text,city text,country text,customer_type_label text,customer_type text,
       dealer_type text,assigned_seller_initials text,parent_account_number text,branch_name text,status text,is_active boolean,is_deleted boolean,
-      is_blocked boolean,source text,is_main_account boolean,billing_account_id uuid);
+      is_blocked boolean,source text,is_main_account boolean,billing_account_id uuid,phone text,email text);
     insert into dealer_accounts(id,account_number,company_name,customer_type_label,assigned_seller_initials,is_active,is_deleted,is_blocked,status)
       values('${parent}','10295','AB Lauridsen','Forhandler','EM',true,false,false,'active');
     grant usage on schema public,auth to anon,authenticated,service_role;
@@ -35,7 +35,7 @@ try {
   for (const migration of ['20260828163604_partner_account_relations','20261009100017_fabric_partner_master_shadow',
     '20261010103109_fabric_partner_review_decisions','20261010110700_permanent_partner_review_overrides',
     '20261010112321_partner_review_source_evidence','20261010113512_permanent_partner_cooperation_lifecycle',
-    '20261010120531_je_service_controlled_import_pilot']) await db.exec(file(migration));
+    '20261010120531_je_service_controlled_import_pilot','20261010125045_partner_management_readiness_preview']) await db.exec(file(migration));
   const rows = ['10295','12040','12041'].map((account,index) => ({ company:'DAT',account_number:account,account_raw:account,
     company_name:account==='12041'?'JE Service':account,address1:'Symbiosen 7',address2:null,postal_code:'4683',city:'Ronnede',
     zipcity_raw:'4683 Ronnede',zipcity_validation:'PARSED_DK',country:'Danmark',iso_country:'DK',phone:null,email:null,
@@ -68,6 +68,7 @@ try {
   check(plan.dealer_account.parent_account_number,'10295','approved operational parent, not invoice account');
   check(plan.dealer_account.billing_account_id,null,'no invented billing UUID');
   check(await scalar('select count(*)::int as value from dealer_accounts'),1,'dry-run creates nothing');
+  check((await scalar('select fabric_partner_shadow_preview() as value')).imports,[],'approval is not an executed import');
   await db.exec('set role anon'); await reject(preview(),/permission denied/); await reject(run(params),/permission denied/);
   await db.exec('reset role; set role service_role'); await reject(run(params),/permission denied/);
   await db.exec("reset role; set role authenticated; select set_config('qa.uid','44444444-4444-4444-8444-444444444444',false)");
@@ -106,6 +107,16 @@ try {
   check(await scalar("select count(*)::int as value from dealer_accounts where account_number='12040'"),0,'no invoice-account import');
   check(await scalar("select parent_account_number as value from dealer_accounts where account_number='12041'"),'10295','permanent canonical relation');
   check(await scalar("select customer_type_label as value from dealer_accounts where account_number='12041'"),'Forhandlerkunde','canonical Portal classification');
+  const status = await scalar('select fabric_partner_shadow_preview() as value');
+  check(status.imports.length,1,'Backend status exposes one actual receipt');
+  check(status.imports[0].account_id,result.account_id,'receipt uses the canonical UUID');
+  check(Object.keys(status.imports[0]).sort(),['account_id','account_number','approval_id','id','imported_at'],'status exposes no private request/actor/secret fields');
+  check(status.portal.find(account=>account.account_number==='12041').parent_account_number,'10295','comparison uses actual permanent Portal relation');
+  await db.exec('set role authenticated');
+  await scalar("select set_config('qa.uid','44444444-4444-4444-8444-444444444444',false) as value");
+  await reject(scalar('select fabric_partner_shadow_preview() as value'),/BACKEND_ONLY/);
+  await db.exec('reset role');
+  await scalar("select set_config('qa.uid',$1,false) as value",[auth]);
   await ingest(rows.map(row=>row.account_number==='12041'?{...row,c5_invoice_account_number:null}:row));
   check(await scalar("select parent_account_number as value from dealer_accounts where account_number='12041'"),'10295','refresh cannot remove cooperation');
   check(await scalar("select count(*)::int as value from partner_account_relations where active and source_account_id=$1",[parent]),1,'refresh keeps the exact relation active');

@@ -107,7 +107,7 @@ export default function BackendDealerAccountsPage() {
   const [authDiag, setAuthDiag] = useState<BackendAuthCheck | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [showFabricComparison, setShowFabricComparison] = useState(false);
+  const [showFabricComparison, setShowFabricComparison] = useState(true);
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
@@ -241,8 +241,8 @@ export default function BackendDealerAccountsPage() {
               <Building2 className="h-6 w-6 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Forhandlere</h1>
-              <p className="text-slate-500 mt-1 text-sm">Dealer accounts — kilden til forhandler/kontodata.</p>
+              <h1 className="text-3xl font-bold text-slate-900">Partnerstyring</h1>
+              <p className="text-slate-500 mt-1 text-sm">Forhandlere · Forhandlerkunder · Servicepartnere · Importører</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -269,10 +269,16 @@ export default function BackendDealerAccountsPage() {
           </div>
         </div>
 
-        <SharePointSyncPanel />
         {isBackend && showFabricComparison && <FabricPartnerComparisonPanel portalParents={Object.fromEntries(rows.map(row => [row.id, row.parent_account_number ?? null]))} />}
-        <GeocodeDealersPanel />
-        <DealerProfileImportPanel dealers={rows} onReload={() => reload()} />
+        <details className="mb-5 border-y border-slate-200 py-3">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">Legacy / system · SharePoint er fortsat aktiv stamdatakilde</summary>
+          <div className="mt-3"><SharePointSyncPanel />
+            <DealerProfileImportPanel dealers={rows} onReload={() => reload()} /></div>
+        </details>
+        <details className="mb-5 border-b border-slate-200 pb-3">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">Kortpositioner / geokodning</summary>
+          <div className="mt-3"><GeocodeDealersPanel /></div>
+        </details>
 
 
 

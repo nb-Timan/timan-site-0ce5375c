@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, CloudDownload, RefreshCw, Search, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { comparePartnerMaster, partnerParityCounts, proposeC5PartnerType, type ParityStatus, type PortalPartnerParity } from '@/lib/fabricPartnerParity';
 import type { PartnerShadowRow } from '../../../supabase/functions/_shared/fabricPartnerSnapshot';
-import { buildPartnerReviewRows, filterPartnerReviewRows, groupPartnerImportQueue, partnerReviewCounts,
+import { buildPartnerReviewRows, filterPartnerReviewRows, partnerReviewCounts,
   REVIEW_STATUSES, REVIEW_STATUS_LABELS, type PartnerReviewFilter, type PartnerReviewRow } from '@/lib/fabricPartnerReview';
 import { loadPartnerReviews, type PartnerReviewPreview } from '@/lib/fabricPartnerReviewService';
 import { getPartnerAccountTypeLabel } from '@/lib/partnerAccountTypes';
 import FabricPartnerReviewDialog from './FabricPartnerReviewDialog';
+import { partnerManagementCounts, type PartnerImportReceipt } from '@/lib/fabricPartnerManagement';
 
 interface Preview {
   state: { last_success_at: string | null; row_count: number; last_error: string | null; source_as_of: string | null };
   shadow: PartnerShadowRow[]; portal: PortalPartnerParity[];
+  imports?: PartnerImportReceipt[];
 }
 const labels: Record<ParityStatus, string> = {
   MATCH: 'Match', FIELD_DIFFERENCE: 'Afvigelser', C5_ONLY: 'Kun C5', PORTAL_ONLY: 'Kun Portal',
@@ -45,22 +47,43 @@ export default function FabricPartnerComparisonPanel({ portalParents }: { portal
   useEffect(() => { void reload(); }, []);
   // No snapshot means no parity conclusion, not 111 fabricated Portal-only records.
   const rows = useMemo(() => data?.state.last_success_at ? comparePartnerMaster(data.portal.map(row => ({ ...row,
-    parent_account_number: portalParents?.[row.id],
+    parent_account_number: portalParents && Object.prototype.hasOwnProperty.call(portalParents, row.id) ? portalParents[row.id] : row.parent_account_number,
   })), data.shadow) : [], [data, portalParents]);
   const counts = useMemo(() => partnerParityCounts(rows), [rows]);
   const reviewRows = useMemo(() => buildPartnerReviewRows(rows, reviews.reviews, reviews.contexts), [rows, reviews]);
   const reviewCounts = useMemo(() => partnerReviewCounts(reviewRows), [reviewRows]);
-  const queue = useMemo(() => groupPartnerImportQueue(reviewRows, reviews.parents.map(parent => parent.id)), [reviewRows, reviews.parents]);
+  const management = useMemo(() => partnerManagementCounts(reviewRows, data?.portal ?? [], data?.imports,
+    reviews.parents.map(parent => parent.id)), [reviewRows, data, reviews.parents]);
+  const queue = management.queue;
   const shown = filterPartnerReviewRows(reviewRows, reviewFilter, search, reviews.parents).filter(row => (!filter || (filter === 'FORHANDLERKUNDER' ? row.c5.some(source => proposeC5PartnerType(source.c5_partner_type_code) === 'dealer_customer')
     : filter === 'AUTO_SAFE_CANDIDATE' || filter === 'REVIEW_REQUIRED' ? row.classification === filter : row.statuses.includes(filter)))
   );
   return <section aria-label="Fabric sammenligning" className="my-6 border-y border-gray-200 py-5 text-sm">
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-lg font-semibold text-gray-900">Fabric sammenligning</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Partnerdata fra C5/Fabric</h2>
       <button type="button" title="Genindlæs sammenligning" aria-label="Genindlæs sammenligning" disabled={busy}
         onClick={() => void reload()} className="p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} /></button>
     </div>
     {error && <p role="alert" className="mt-3 text-red-700">{error}</p>}
+    <p className="mt-2 text-gray-600">Aktiv stamdatakilde: SharePoint + godkendte Portal-beslutninger. Fabric: shadow/review, ingen generel cutover.</p>
+    {data && <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3 sm:grid-cols-5">
+      {([
+        ['Eksisterende Portal-partnere', management.portalPartners],
+        ['Afventer gennemgang', management.pending],
+        ['Godkendt til import', management.approved],
+        ['Kræver afklaring/genkontrol', management.needsReview],
+        ['Faktisk overførte konti', management.transferred ?? 'Ikke tilgængelig'],
+      ] as const).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-gray-600">{label}</dt><dd className="mt-1 text-lg font-semibold">{value}</dd></div>)}
+    </dl>}
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <span title="Portal-udløst Fabric-job er ikke tilsluttet. Genindlæsning starter ikke en sync.">
+        <button type="button" disabled className="inline-flex items-center gap-2 rounded border px-3 py-2 text-gray-500 disabled:opacity-60"><CloudDownload className="h-4 w-4" />Opdatér fra Fabric</button>
+      </span>
+      <span title="Kun den allerede godkendte JE Service-pilot er aktiveret. Ingen generel import er frigivet.">
+        <button type="button" disabled className="inline-flex items-center gap-2 rounded border px-3 py-2 text-gray-500 disabled:opacity-60"><Send className="h-4 w-4" />Overfør godkendte til Partnerdata</button>
+      </span>
+    </div>
+    <p className="mt-2 text-xs text-gray-600">Portal-udløst sync: ikke tilsluttet. Kontrolleret import: kun enkeltpiloten; ingen generel import aktiveret.</p>
     {data && <p className="mt-2 text-gray-600">Portal: {data.portal.length} · C5: {data.state.row_count} · Matchet: {counts.matched}
       {' · '}Sidst synkroniseret: {data.state.last_success_at ? new Date(data.state.last_success_at).toLocaleString('da-DK') : 'Afventer første snapshot'}</p>}
     {data?.state.last_error && <p role="alert" className="mt-2 text-amber-800">Seneste synkronisering fejlede. Sidste gyldige snapshot vises.</p>}
@@ -69,6 +92,10 @@ export default function FabricPartnerComparisonPanel({ portalParents }: { portal
       <button type="button" role="tab" aria-selected={view === 'QUEUE'} onClick={() => setView('QUEUE')} className={`px-3 py-2 ${view === 'QUEUE' ? 'border-b-2 border-gray-900 font-semibold' : 'text-gray-600'}`}>Godkendte til import ({queue.reduce((sum, group) => sum + group.rows.length, 0)})</button>
     </div>
     {view === 'QUEUE' ? <div className="mt-4 space-y-4">
+      {!!data?.imports?.length && <div>
+        <h3 className="border-b pb-2 font-semibold">Faktisk overført</h3>
+        {data.imports.map(receipt => <p key={receipt.id} className="break-words border-b py-2">{receipt.account_number} · {new Date(receipt.imported_at).toLocaleString('da-DK')} · Portal-ID: {receipt.account_id}</p>)}
+      </div>}
       {queue.length === 0 && <p className="text-gray-600">Ingen aktuelle godkendelser i importkøen.</p>}
       {reviewCounts.NEEDS_RECHECK > 0 && <p className="text-amber-800">Kræver genkontrol: {reviewCounts.NEEDS_RECHECK}</p>}
       {queue.map(group => <div key={`${group.kind}-${group.partner_type}`}>

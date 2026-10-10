@@ -4,6 +4,10 @@ This extends the existing shadow/parity comparison, not the production
 masterdata source. SharePoint remains authoritative for existing Portal data.
 No import, apply, cutover, account creation or relation update is implemented.
 
+The statements above describe the original review-only phase. The explicitly
+approved JE Service one-account pilot and permanent cooperation lifecycle are
+documented below; they do not authorize a general masterdata cutover.
+
 ## Persistence and concurrency
 
 `fabric_partner_review_decisions` contains immutable account decision versions.
@@ -252,3 +256,76 @@ configuration differs from main in this SQL-only pilot. RLS and private audit
 grants were verified live. Advisor notices about the private audit table's
 lack of client policies and authenticated SECURITY DEFINER RPCs are expected:
 the audit is intentionally inaccessible, and both RPCs enforce Backend gates.
+
+## Partner management and map readiness
+
+The Backend heading is now Partnerstyring. C5/Fabric comparison is open by
+default; SharePoint/import maintenance and the existing geocoding tools remain
+available in collapsed sections. SharePoint is still the production profile
+source, with explicit approved Portal decisions/relationships taking priority.
+No SharePoint integration, scheduled job or source data is removed or disabled.
+
+Read-only migration `20261010125045_partner_management_readiness_preview.sql`
+extends the existing STABLE Backend preview RPC with canonical parent pointers
+and whitelisted immutable import receipts. MCP production history version is
+`20261010125902`, name `partner_management_readiness_preview`, on
+`rdodyoixxybiozvmuqon`. The fixed search path and existing function ACL remain
+unchanged. The Backend check fails closed, including a null result. No direct
+audit/table grant, business write or import action is added.
+
+Counts distinguish review decisions from completed import receipts validated
+against the actual Portal account UUID and account number. Existing current
+data: 916 C5 shadow rows, 112 Portal accounts and one completed JE receipt;
+the last successful snapshot is 2026-10-10T12:26:38.520098Z. Already transferred
+accounts do not reappear as pending imports. JE's conservative recheck flag
+is retained rather than automatically rewriting its approval.
+
+Opdater fra Fabric is disabled with an explicit unconnected-job status. The
+existing dedicated Fabric notebook pushes snapshots; there is no configured
+Portal-to-Fabric job trigger. Reload comparison remains a read-only action,
+not a Fabric refresh. Overfor godkendte til Partnerdata is disabled because
+the only executable importer is the previously approved fixed-account pilot.
+No generic importer or broader pilot approval is inferred from that pilot.
+
+Partner map identities still come from dealer_accounts or the existing narrow
+public-map RPC, never raw C5 shadow/review rows. The same four canonical partner
+types and existing role/filter rules are reused. Active filtering now also
+respects is_active/status, in addition to blocked/deleted flags; inactive/all
+filters retain their existing internal historical behavior. Coordinates must
+be finite and within latitude/longitude bounds. Missing positions are listed
+explicitly and refer to the existing geocoding tools, not a guessed location.
+Warranty/demo layers and CRM leads retain their separate sources and access.
+
+Immediately after the read-only migration all 18 protected-table checksums
+matched the baseline. The existing unrelated dealer's authenticated preview
+call was rejected with BACKEND_ONLY. No Portal profile, user, relationship,
+CRM, Budget, Loan or SharePoint data was written by this work.
+
+The existing served preview was inspected without Lovable Build/Preview
+generation. Its partner overview still used the old Forhandlere heading and
+expanded SharePoint panel at inspection time, so the new frontend is not
+claimed live-verified. Existing Afslut samarbejde and Skift forhandler dialogs
+were inspected without submitting changes. No QA partners were created.
+
+Verification: 87 directly focused tests PASS; the broader 263-test selection
+has 262 PASS and one existing Windows-CRLF literal assertion failure in
+messe-partner-type-filter.test.ts. Both that test and its SQL fixture are
+unchanged from HEAD. Local SQL checks: 46 pilot, 46 cooperation, 75 review,
+35 shadow PASS. Build and diff check PASS. Typecheck retains the same 111
+baseline diagnostics with no new errors; comparison substitutes all five
+tracked changed TS files with HEAD contents in memory and normalizes only
+TypeScript's expanded-interface display count for the two optional fields.
+Scoped lint adds no issues; the map retains 23 existing errors and the
+other changed files have zero lint errors. Actual 390 px served map and
+cooperation dialog have document width 375 px and dialog width 348 px, with
+no horizontal overflow. All four existing type controls were inspected.
+The final checksum pass retained all business/user/relation tables; only the
+independently scheduled derived Fabric Loans stock projection refreshed.
+
+Before cutover: synchronize the served frontend through an approved deployment
+path, connect a least-privilege server-side Fabric job trigger, authorize and
+verify each further controlled import scope, reconcile legacy/recheck conflicts,
+and explicitly approve field/account ownership transfer with before/after and
+rollback checks. Only then disable Partnerdata SharePoint writes for the exact
+adopted scope, covering both manual and scheduled entry points. Other SharePoint
+uses and history must remain intact.

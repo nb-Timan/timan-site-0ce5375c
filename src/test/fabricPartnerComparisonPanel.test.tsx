@@ -19,7 +19,9 @@ describe('Backend read-only Fabric comparison', () => {
     render(<FabricPartnerComparisonPanel />);
     expect(await screen.findByText('JE Service')).toBeInTheDocument();
     expect(rpc).toHaveBeenCalledWith('fabric_partner_shadow_preview');
-    expect(screen.queryByRole('button', { name: /gem|anvend|opdater fra fabric/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /gem|anvend/i })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Opdatér fra Fabric' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Overfør godkendte til Partnerdata' })).toBeDisabled();
   });
   it('reveals provenance and invoice account without inferred Portal hierarchy', async () => {
     rpc.mockResolvedValue({ data: preview, error: null });
@@ -74,5 +76,27 @@ describe('Backend read-only Fabric comparison', () => {
     expect(screen.getByText('C5 invoice-kæde · kildefakta')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'AUTO_SAFE_CANDIDATE (0)' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gem|anvend|opret partner/i })).toBeNull();
+  });
+  it('distinguishes an audited import from approval and keeps blocked actions inert', async () => {
+    rpc.mockResolvedValue({ data: { ...preview, portal: [{ id: 'je-id', account_number: '12041', company_name: 'JE Service',
+      customer_type_label: 'Forhandlerkunde', parent_account_number: '10295' }], imports: [{
+      id: 'receipt', account_id: 'je-id', account_number: '12041', approval_id: 'approval', imported_at: '2026-10-10T12:19:20Z',
+    }] }, error: null });
+    render(<FabricPartnerComparisonPanel />);
+    await screen.findByText('JE Service');
+    expect(screen.getByRole('heading', { name: 'Partnerdata fra C5/Fabric' })).toBeInTheDocument();
+    expect(screen.getByText('Faktisk overførte konti').parentElement).toHaveTextContent('1');
+    expect(screen.getByText('Godkendt til import').parentElement).toHaveTextContent('0');
+    fireEvent.click(screen.getByRole('button', { name: 'Opdatér fra Fabric' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Overfør godkendte til Partnerdata' }));
+    expect(rpc.mock.calls.map(call => call[0])).toEqual(['fabric_partner_shadow_preview', 'fabric_partner_review_preview']);
+    fireEvent.click(screen.getByRole('tab', { name: /Godkendte til import/ }));
+    expect(screen.getByText(/Portal-ID: je-id/)).toBeInTheDocument();
+  });
+  it('does not fabricate a zero imported count when the deployed RPC lacks receipts', async () => {
+    rpc.mockResolvedValue({ data: preview, error: null });
+    render(<FabricPartnerComparisonPanel />);
+    await screen.findByText('JE Service');
+    expect(screen.getByText('Faktisk overførte konti').parentElement).toHaveTextContent('Ikke tilgængelig');
   });
 });
