@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { canSelectFabricLoanAsset, fabricLoanPhysicalGroupKey, filterFabricLoanStock, isFabricStockFresh, type FabricLoanAsset, type FabricLoanStock } from '@/lib/fabricLoanStock';
 import { resolveSalesStockCatalogItem, salesStockAssetSelectionIssue, salesStockSelectedGroupIssue } from '@/lib/salesStockConfigurator';
@@ -39,6 +39,47 @@ beforeEach(() => { vi.clearAllMocks(); mocks.state = hook(); mocks.listCases.moc
 afterEach(cleanup);
 
 describe('single Fabric stock dataset', () => {
+  it.each(['Salgslager', 'Sælg salgslagermaskine'])('keeps column headings immediately above each nonempty warehouse in %s', async (tab) => {
+    render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('tab', { name: tab }));
+    const headers = () => screen.queryAllByText('Udlånsoplysninger')
+      .map(label => label.parentElement!)
+      .filter(parent => within(parent).queryByText('Navn'));
+    const assertWarehouseHeader = (name: RegExp) => {
+      const section = screen.getByRole('region', { name });
+      const firstRow = section.querySelector('article')!;
+      const header = firstRow.previousElementSibling as HTMLElement;
+      for (const label of ['Navn', 'Varenr.', 'Brik nr.', 'Udlånsoplysninger']) {
+        expect(within(header).getByText(label)).toBeInTheDocument();
+      }
+      expect(header.closest('section')).toBe(section);
+      expect(header.previousElementSibling).toBeNull();
+      expect(section.firstElementChild!.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    };
+    expect(headers()).toHaveLength(2);
+    assertWarehouseHeader(/^Lager 2 /);
+    assertWarehouseHeader(/^Lager 4 /);
+
+    fireEvent.click(screen.getByRole('button', { name: /Lager 2/ }));
+    expect(headers()).toHaveLength(1);
+    assertWarehouseHeader(/^Lager 2 /);
+    expect(screen.queryByRole('region', { name: /^Lager 4 / })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Lager 4/ }));
+    expect(headers()).toHaveLength(1);
+    assertWarehouseHeader(/^Lager 4 /);
+    expect(screen.queryByRole('region', { name: /^Lager 2 / })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Alle lagre' }));
+    const search = screen.getByRole('textbox', { name: 'Søg i salgslager' });
+    fireEvent.change(search, { target: { value: 'QA-SERIAL' } });
+    expect(headers()).toHaveLength(1);
+    assertWarehouseHeader(/^Lager 2 /);
+    expect(screen.queryByText('QA-EXTERNAL')).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'no-matching-asset' } });
+    expect(headers()).toHaveLength(0);
+    fireEvent.change(search, { target: { value: '' } });
+    expect(headers()).toHaveLength(2);
+  });
   it('defaults to active, preserves partial returns and exposes completed/cancelled history separately', async () => {
     const base = { id: 'draft', loan_number: 'U-QA-DRAFT', status: 'DRAFT', partner_name: 'QA', responsible_name: 'QA', asset_count: 1,
       lifecycle_state: { can_cancel_draft: true }, updated_at: '2026-10-09T08:00:00Z' };

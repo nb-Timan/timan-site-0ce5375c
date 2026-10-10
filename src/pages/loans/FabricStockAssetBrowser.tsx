@@ -111,10 +111,6 @@ export default function FabricStockAssetBrowser({
         onChange={(event) => setFilter({ search: event.target.value })} placeholder={label('loansStockSearch')} />
     </label>
     {loading && <p role="status" className="text-sm text-slate-600">{label('loansLoading')}</p>}
-    <div className={`${rowGridClass} hidden border-y border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 md:grid`}>
-      <span>{label('loansStockName')}</span><span>{label('loansItemNumber')}</span>
-      <span>{label('loansStockBrikNumber')}</span><span>{label('loansStockLoanInformation')}</span>
-    </div>
     {warehouseCodes.map((warehouseCode) => {
       const rows = visible.filter((asset) => asset.warehouse_location_code === warehouseCode);
       return <section key={warehouseCode} className="min-w-0" aria-label={`${label(`loansWarehouse${warehouseCode}`)} ${label(warehouseCode === '2' ? 'loansStockNew' : 'loansStockUsed')}`}>
@@ -123,6 +119,10 @@ export default function FabricStockAssetBrowser({
           <p className="text-sm text-slate-600">{label(warehouseCode === '2' ? 'loansStockNew' : 'loansStockUsed')}</p>
         </div>
         {rows.length === 0 ? <p className="py-4 text-sm text-slate-600">{label('loansStockNoMatch')}</p> : <div className="divide-y divide-slate-200 border-x border-slate-200">
+          <div className={`${rowGridClass} hidden border-y border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 md:grid`}>
+            <span>{label('loansStockName')}</span><span>{label('loansItemNumber')}</span>
+            <span>{label('loansStockBrikNumber')}</span><span>{label('loansStockLoanInformation')}</span>
+          </div>
           {rows.map((asset) => {
             const match = canonicalMatch(asset);
             const assignment = assignmentFor(asset);
