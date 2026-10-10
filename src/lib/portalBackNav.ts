@@ -18,7 +18,9 @@
  *   /portal/misc                      → /portal/salg-marketing  ("Salg & Marketing")
  *   /portal/videos/*                  → /portal/videos          ("Videoer")
  *   /portal/videos                    → /portal/salg-marketing  ("Salg & Marketing")
- *   /portal/loans/*                   → /portal/salg-marketing  ("Salg")
+ *   /portal/loans/:id/(return|accept) → /portal/loans/:id
+ *   /portal/loans/(new|:id)           → /portal/loans
+ *   /portal/loans                     → /portal/salg-marketing  ("Salg")
  *   /portal/salg-marketing            → /portal                 ("portal")
  *   /portal/teknik-service            → /portal                 ("portal")
  *   /portal/backend/*                 → /portal/backend         ("Backend")
@@ -65,6 +67,7 @@ type BackLabelKey =
   | 'forms'
   | 'contracts'
   | 'videos'
+  | 'loans'
   | 'my_dealers'
   | 'leads'
   | 'demo_leads'
@@ -79,6 +82,7 @@ type BackLabelKey =
   | 'partner_data';
 
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
+  loans:           { da: 'Tilbage til udlån', en: 'Back to loans', de: 'Zurück zu Ausleihen', it: 'Torna ai prestiti', hu: 'Vissza a kölcsönökhöz' },
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
   messe:           { da: 'Tilbage til Messe',         en: 'Back to Exhibition',       de: 'Zurück zu Messe',         it: 'Torna a Fiera',            hu: 'Vissza a kiállításhoz' },
   sales_marketing: { da: 'Tilbage til Salg', en: 'Back to Sales', de: 'Zurück zu Vertrieb', it: 'Torna a Vendite', hu: 'Vissza: Értékesítés' },
@@ -133,9 +137,6 @@ const RULES: ParentRule[] = [
   { match: p => startsWith(p, '/portal/videos') && !eq(p, '/portal/videos'), to: '/portal/videos', labelKey: 'videos' },
   { match: p => eq(p, '/portal/videos'),                  to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
 
-  // Loans is a Sales submodule, while its routes remain unchanged.
-  { match: p => startsWith(p, '/portal/loans'),           to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
-
   // Area landing pages
   { match: p => eq(p, '/portal/salg-marketing'),          to: '/portal', labelKey: 'portal' },
   { match: p => eq(p, '/portal/teknik-service'),          to: '/portal', labelKey: 'portal' },
@@ -179,8 +180,24 @@ const RULES: ParentRule[] = [
   { match: () => true,                                    to: '/portal', labelKey: 'portal' },
 ];
 
+/** Loans parents must not depend on history, user role or another module's context. */
+export function getLoansBackTarget(pathname: string): PortalBackTarget | null {
+  const clean = pathname.split(/[?#]/)[0].replace(/\/$/, '');
+  if (!startsWith(clean, '/portal/loans')) return null;
+  const [, , , caseId, subpage] = clean.split('/');
+  if (!caseId) return '/portal/salg-marketing';
+  if (caseId !== 'new' && (subpage === 'return' || subpage === 'accept')) {
+    return `/portal/loans/${caseId}`;
+  }
+  return '/portal/loans';
+}
+
 function resolve(pathname: string, search?: string): { to: string; labelKey: BackLabelKey } {
   const clean = pathname.split('?')[0].split('#')[0];
+  const loansParent = getLoansBackTarget(clean);
+  if (loansParent) {
+    return { to: loansParent, labelKey: loansParent === '/portal/salg-marketing' ? 'sales_marketing' : 'loans' };
+  }
 
   // Navigation context overrides — when a detail page was opened from
   // Min Maskine, the back button should return to that exact machine.

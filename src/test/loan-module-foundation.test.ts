@@ -35,8 +35,8 @@ describe('Loans Phase 1 capability and domain', () => {
 
   it('nests Loans navigation under Sales without changing Loans routes', () => {
     expect(getPortalBackTarget('/portal/loans')).toBe('/portal/salg-marketing');
-    expect(getPortalBackTarget('/portal/loans/new')).toBe('/portal/salg-marketing');
-    expect(getPortalBackTarget('/portal/loans/case-1/accept')).toBe('/portal/salg-marketing');
+    expect(getPortalBackTarget('/portal/loans/new')).toBe('/portal/loans');
+    expect(getPortalBackTarget('/portal/loans/case-1/accept')).toBe('/portal/loans/case-1');
 
     const portalHome = readFileSync('src/pages/PortalPage.tsx', 'utf8');
     const salesArea = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');

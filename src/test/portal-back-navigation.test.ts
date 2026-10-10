@@ -1,8 +1,30 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { getPortalBackTarget } from "@/lib/portalBackNav";
+import { getLoansBackTarget, getPortalBackInfo, getPortalBackTarget } from "@/lib/portalBackNav";
 
 describe("portal header parent navigation", () => {
+  it.each([
+    ['/portal/loans', '/portal/salg-marketing'],
+    ['/portal/loans?view=stock', '/portal/salg-marketing'],
+    ['/portal/loans?view=sale', '/portal/salg-marketing'],
+    ['/portal/loans?status=closed', '/portal/salg-marketing'],
+    ['/portal/loans/new', '/portal/loans'],
+    ['/portal/loans/case-123', '/portal/loans'],
+    ['/portal/loans/case-123/return', '/portal/loans/case-123'],
+    ['/portal/loans/case-123/accept', '/portal/loans/case-123'],
+    ['/portal/loans/case-123/return/?view=stock#photo', '/portal/loans/case-123'],
+  ])('resolves the logical Loans parent for %s', (path, parent) => {
+    expect(getLoansBackTarget(path)).toBe(parent);
+    expect(getPortalBackTarget(path, '?fromMachine=unrelated')).toBe(parent);
+    expect(getPortalBackInfo(path).to).toBe(parent);
+  });
+
+  it('does not claim unrelated routes or change the sales-stock Configurator handoff', () => {
+    expect(getLoansBackTarget('/portal/loans-other/new')).toBeNull();
+    expect(getLoansBackTarget('/portal/crm/leads/42')).toBeNull();
+    expect(getPortalBackTarget('/configurator', '?salesStock=1')).toBe('/portal/salg-marketing');
+  });
+
   it("returns the Sales root to the portal home", () => {
     expect(getPortalBackTarget("/portal/salg-marketing")).toBe("/portal");
   });

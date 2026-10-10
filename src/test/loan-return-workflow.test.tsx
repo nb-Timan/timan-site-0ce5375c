@@ -86,6 +86,31 @@ describe('loan return domain', () => {
 });
 
 describe('loan return UI', () => {
+  it('returns Cancel to the same case rather than the overview or Portal home', async () => {
+    mount(); await screen.findByText('RC-751');
+    fireEvent.click(screen.getByRole('button', { name: 'Annullér' }));
+    expect(await screen.findByText('CASE')).toBeInTheDocument();
+    expect(mocks.receiveLoanAssets).not.toHaveBeenCalled();
+  });
+
+  it('preserves the in-flight receipt close guard', async () => {
+    const detail = await mocks.getLoanCase();
+    mocks.getLoanCase.mockResolvedValue({ ...detail, items: [attachment], returnSummary: [summary(attachment)] });
+    let finish!: () => void;
+    mocks.receiveLoanAssets.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    mount(); await screen.findByText('Weed Brush');
+    fireEvent.click(screen.getByLabelText('Vælg aktiv'));
+    fireEvent.change(screen.getByLabelText(/Brik nr. ved modtagelse/), { target: { value: '194' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gennemfør modtagelse' }));
+    await waitFor(() => expect(mocks.receiveLoanAssets).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Annullér' })).toBeDisabled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByText('CASE')).not.toBeInTheDocument();
+    finish();
+    expect(await screen.findByText('CASE')).toBeInTheDocument();
+  });
+
   it('shows multi-asset selection, shared Brik context and responsive internal scrolling', async () => {
     mount();
     await screen.findByText(/Modtag udlån U-QA-6603/);

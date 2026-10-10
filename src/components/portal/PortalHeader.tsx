@@ -19,7 +19,7 @@ import {
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
-import { getPortalBackInfo } from '@/lib/portalBackNav';
+import { getLoansBackTarget, getPortalBackInfo } from '@/lib/portalBackNav';
 import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 import { ACADEMY_PARTNER_MAP, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
@@ -100,7 +100,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const crmLeadsReturnTarget = readCrmLeadsReturnTarget(location.state);
   const isDealerUser = derivePortalRole(user) === 'dealer_user';
   const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator' || (academySandbox.isActive() && location.pathname !== '/academy');
-  const portalBackTarget = crmLeadsReturnTarget
+  const portalBackTarget = getLoansBackTarget(location.pathname) ?? crmLeadsReturnTarget
     ?? (academySandbox.isActive() ? '/academy' : isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to);
   const portalBackLabel = t('previous', uiLanguage);
   const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
