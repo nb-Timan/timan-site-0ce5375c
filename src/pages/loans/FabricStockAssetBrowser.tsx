@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Check, ChevronRight, Info, Search } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -35,6 +35,7 @@ type Props = {
   renderBrik?: (asset: FabricLoanAsset) => ReactNode;
   statusFor?: (asset: FabricLoanAsset) => ReactNode;
   informationFor?: (asset: FabricLoanAsset) => ReactNode;
+  renderSummary?: (visible: FabricLoanAsset[], onFindAsset: (assetId: string) => void) => ReactNode;
 };
 
 const detailGridClass = 'grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-5';
@@ -42,11 +43,12 @@ const rowGridClass = 'grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-[min
 
 export default function FabricStockAssetBrowser({
   assets, activeAssignments = [], filters, onFiltersChange, loading = false, countsReady = true,
-  selection, renderBrik, statusFor, informationFor,
+  selection, renderBrik, statusFor, informationFor, renderSummary,
 }: Props) {
   const { uiLanguage } = useLanguage();
   const label = (key: string) => t(key, uiLanguage);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const rowRefs = useRef(new Map<string, HTMLElement>());
   const canonicalMatch = (asset: FabricLoanAsset) => resolveSalesStockCatalogItem(asset.item_number, 'DKK');
   const assignmentByAssetId = new Map(activeAssignments.map((assignment) => [assignment.asset_id, assignment]));
   const assignmentFor = (asset: FabricLoanAsset) => {
@@ -80,8 +82,17 @@ export default function FabricStockAssetBrowser({
     event.preventDefault();
     toggleDetails(assetId);
   };
+  const findAsset = (assetId: string) => {
+    if (!visible.some(asset => asset.asset_id === assetId)) return;
+    setExpandedIds(current => new Set([...current, assetId]));
+    requestAnimationFrame(() => {
+      const row = rowRefs.current.get(assetId);
+      row?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      row?.focus({ preventScroll: true });
+    });
+  };
 
-  return <div className="min-w-0 space-y-4">
+  return <>{renderSummary?.(visible, findAsset)}<div className="min-w-0 space-y-4">
     <div className="grid min-w-0 gap-4 md:grid-cols-2">
       <fieldset className="min-w-0">
         <legend className="mb-1.5 text-xs font-semibold text-slate-700">{label('loansWarehouse')}</legend>
@@ -138,6 +149,7 @@ export default function FabricStockAssetBrowser({
             const issueText = issue && asset.allocated && !asset.sales_committed && assignment
               ? `${issue} · ${assignment.loan_number}` : issue;
             return <article key={asset.asset_id} data-asset-id={asset.asset_id} tabIndex={0}
+              ref={row => { if (row) rowRefs.current.set(asset.asset_id, row); else rowRefs.current.delete(asset.asset_id); }}
               aria-expanded={expanded} onClick={(event) => rowClick(event, asset.asset_id)} onKeyDown={(event) => rowKeyDown(event, asset.asset_id)}
               className={`min-w-0 px-3 py-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700 ${selected ? 'bg-emerald-50' : 'bg-white hover:bg-slate-50'}`}>
               <div className={rowGridClass}>
@@ -211,5 +223,5 @@ export default function FabricStockAssetBrowser({
         </div>}
       </section>;
     })}
-  </div>;
+  </div></>;
 }

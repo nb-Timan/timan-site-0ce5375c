@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarClock, PackageCheck, Pencil, Plus, Trash2 } from 'lucide-react';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
+import LoanPageHeader from '@/pages/loans/LoanPageHeader';
 import SalesStockSalePanel from '@/pages/loans/SalesStockSalePanel';
 import LoanCancelDialog from '@/pages/loans/LoanCancelDialog';
 import LoanOverviewInfoPopover, { type LoanOverviewInfoLoader } from '@/pages/loans/LoanOverviewInfoPopover';
@@ -39,6 +40,7 @@ export default function LoansPage() {
   const [returnError, setReturnError] = useState('');
   const [savingReturn, setSavingReturn] = useState(false);
   const [cancellingCase, setCancellingCase] = useState<LoanCaseSummary | null>(null);
+  const [stockSummaryTarget, setStockSummaryTarget] = useState<HTMLDivElement | null>(null);
   const visibleCases = cases?.filter((item) => loanMatchesOverviewFilter(item.status, statusFilter)) ?? [];
 
   const loadCases = useCallback(async () => {
@@ -70,17 +72,16 @@ export default function LoansPage() {
   };
 
   return <LoanShell>
-    <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-      <div><h1 className="text-2xl font-semibold text-slate-900">{label('area_loans_title')}</h1><p className="mt-1 text-sm text-slate-600">{label('area_loans_desc')}</p></div>
-      {canManageCases && <Link to="/portal/loans/new" className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" />{label('loansNewCase')}</Link>}
-    </header>
+    <LoanPageHeader title={label('area_loans_title')} description={label('area_loans_desc')}
+      summaryRef={view === 'stock' ? setStockSummaryTarget : undefined}
+      action={canManageCases && <Link to="/portal/loans/new" className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800"><Plus className="h-4 w-4" />{label('loansNewCase')}</Link>} />
     {canManageCases && <div className="mb-5 flex gap-5 border-b border-slate-200" role="tablist" aria-label={label('area_loans_title')}>
       {(['loans', 'stock', ...(canSellStock ? ['sale' as const] : [])] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={view === value}
         onClick={() => setSearchParams((current) => { const next = new URLSearchParams(current); next.set('view', value); return next; })}
         className={`min-h-11 border-b-2 px-1 text-sm font-semibold ${view === value ? 'border-emerald-700 text-emerald-900' : 'border-transparent text-slate-600'}`}>
         {value === 'loans' ? label('loansView') : value === 'stock' ? label('loansStockView') : 'Sælg salgslagermaskine'}</button>)}
     </div>}
-    {view === 'stock' ? <LoanStockPanel /> : view === 'sale' ? <SalesStockSalePanel /> : <>
+    {view === 'stock' ? <LoanStockPanel summaryTarget={stockSummaryTarget} /> : view === 'sale' ? <SalesStockSalePanel /> : <>
       <div role="group" aria-label={label('loansLifecycleFilter')} className="mb-4 flex flex-wrap gap-2">
         {(['active', 'closed', 'all'] as const).map((value) => <button key={value} type="button" aria-pressed={statusFilter === value}
           onClick={() => setSearchParams((current) => { const next = new URLSearchParams(current); next.set('status', value); return next; })}

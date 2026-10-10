@@ -35,14 +35,28 @@ const modules = {
     import Stock from '@/pages/loans/LoanStockPanel';import Sale from '@/pages/loans/SalesStockSalePanel';
     import {consumeSalesStockHandoff,buildSalesStockConfiguratorState} from '@/lib/salesStockConfigurator';import '@/index.css';
     import {SalesStockPricingPanel} from '@/components/configurator/SalesStockPricingPanel';
+    import LoanPageHeader from '@/pages/loans/LoanPageHeader';import FabricStockSummary from '@/pages/loans/FabricStockSummary';
+    import FabricStockAssetBrowser from '@/pages/loans/FabricStockAssetBrowser';import {summarizeFabricStock} from '@/lib/fabricStockSummary';
+    import {createPortal} from 'react-dom';import {useFabricLoanStock} from '@/hooks/useFabricLoanStock';
     import {calculateConfiguration} from '@/lib/calcConfiguration';
 
     import {finalizeConfiguratorPricingSnapshot} from '@/lib/configurationsService';
     import {transitionConfiguratorFlowType} from '@/lib/configuratorState';
     import {buildSubmittedOrderCsv} from '@/lib/submittedOrderCsv';
-    function Browser(){const [tab,setTab]=useState('stock');return <><h1 className='mb-4 text-xl font-semibold'>Salgslager · isoleret browser-QA</h1>
+    function Browser(){const [tab,setTab]=useState('stock');const [target,setTarget]=useState(null);return <>
+      <LoanPageHeader title='Lån af maskiner fra Timan' description='Opret, accepter og afslut lån af Timan-maskiner.' summaryRef={tab==='stock'?setTarget:undefined}
+        action={<button className='inline-flex h-10 items-center rounded-md bg-emerald-700 px-3 text-sm font-medium text-white'>Nyt lån</button>}/>
       <div role='tablist' className='mb-4 flex flex-wrap gap-4'><button role='tab' aria-selected={tab==='stock'} onClick={()=>setTab('stock')}>Salgslager</button>
-      <button role='tab' aria-selected={tab==='sale'} onClick={()=>setTab('sale')}>Sælg salgslagermaskine</button></div>{tab==='stock'?<Stock/>:<Sale/>}</>;}
+      <button role='tab' aria-selected={tab==='sale'} onClick={()=>setTab('sale')}>Sælg salgslagermaskine</button></div>{tab==='stock'?<Stock summaryTarget={target}/>:<Sale/>}</>;}
+    // Documented synthetic facts exist only in this isolated UI fixture, never the live source.
+    function RankingQA(){const {query}=useFabricLoanStock();const [target,setTarget]=useState(null);const [filters,setFilters]=useState({warehouse:'all',account:'all',search:''});
+      const facts=row=>({valueDkk:row.asset_id==='QA-BULK'?1800:row.asset_id==='QA-RC751-01'?61908.59:8000,
+        valuationCurrency:'DKK',valuationReference:row.asset_id,receivedDate:'2025-01-01',receiptReference:'synthetic-'+row.asset_id});
+      return <><p className='mb-2 text-xs'>ISOLERET QA — syntetiske værdier/datoer; ingen databaseændringer</p>
+        <LoanPageHeader title='Lån af maskiner fra Timan' description='Opret, accepter og afslut lån af Timan-maskiner.' summaryRef={setTarget}
+          action={<button className='inline-flex h-10 items-center rounded-md bg-emerald-700 px-3 text-sm font-medium text-white'>Nyt lån</button>}/>
+        <FabricStockAssetBrowser assets={query.data?.assets??[]} filters={filters} onFiltersChange={setFilters} loading={query.isPending}
+          renderSummary={(visible,onFindAsset)=>target?createPortal(<FabricStockSummary summary={summarizeFabricStock(visible,facts)} onFindAsset={onFindAsset}/>,target):null}/></>;}
     function Handoff(){const [state,setState]=useState(()=>buildSalesStockConfiguratorState(consumeSalesStockHandoff()));const [result,setResult]=useState('');
       const calc=calculateConfiguration(state);const money=(value,pending=false)=>!pending&&Number.isFinite(value)?value.toLocaleString('da-DK')+' DKK':'Salgspris kræver fastsættelse';
       async function verify(){try{const quote=await finalizeConfiguratorPricingSnapshot(state);const order=await finalizeConfiguratorPricingSnapshot(transitionConfiguratorFlowType(quote,'order'));
@@ -53,12 +67,12 @@ const modules = {
       <label className='block'>Ekstra forhandlerrabat<input className='mx-2 border p-2' aria-label='Ekstra forhandlerrabat' type='number' value={state.manualDealerDiscountPct} onChange={e=>setState(current=>({...current,manualDealerDiscountPct:Number(e.target.value),pricingSnapshot:undefined}))}/>%</label>
       <section aria-label='Canonical salgslagerlinjer' className='my-4 space-y-3'>{calc.lineItems.filter(line=>!line.subtotal).map(line=><p key={line.index} className='break-words'>{line.varenr} · {line.description} · Stk. {line.quantity} · {money(line.price,line.pricePending)}</p>)}<p>Total: {money(calc.currentPrice,calc.pricingIncomplete)}</p></section>
       <button className='rounded border p-3 disabled:opacity-50' disabled={calc.pricingIncomplete} onClick={verify}>Kontrollér tilbud/ordre-snapshot</button><p role='status'>{result}</p></>;}
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><main className='mx-auto max-w-6xl p-4'>
-      <Routes><Route path='/configurator' element={<Handoff/>}/><Route path='*' element={<Browser/>}/></Routes></main></BrowserRouter></QueryClientProvider>);`,
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><main className='mx-auto w-full max-w-[1400px] min-w-0 px-4 py-6 sm:px-6'>
+      <Routes><Route path='/configurator' element={<Handoff/>}/><Route path='/summary-qa' element={<RankingQA/>}/><Route path='*' element={<Browser/>}/></Routes></main></BrowserRouter></QueryClientProvider>);`,
 };
 const server = await createServer({
   configFile: false,
-  optimizeDeps: { noDiscovery: true, include: ['react', 'react-dom/client', 'react/jsx-runtime',
+  optimizeDeps: { noDiscovery: true, include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime',
     'react-router-dom', '@tanstack/react-query', 'lucide-react', '@radix-ui/react-checkbox', '@radix-ui/react-popover'] },
   resolve: { alias: [
     { find: '@/hooks/useFabricLoanStock', replacement: '/__qa/stock.ts' },
@@ -80,7 +94,7 @@ const server = await createServer({
           sync: { configured: true, running: false, failed: false, stale: false, source_as_of: new Date().toISOString(),
             last_success_at: new Date().toISOString(), stale_after_seconds: 900 } }));
         }
-        if (url.pathname === '/' || url.pathname === '/configurator') {
+        if (url.pathname === '/' || url.pathname === '/configurator' || url.pathname === '/summary-qa') {
           res.setHeader('Content-Type', 'text/html');
           return res.end(await vite.transformIndexHtml(url.pathname, "<!doctype html><html lang='da'><head><meta name='viewport' content='width=device-width,initial-scale=1'></head><body><div id='root'></div><script type='module' src='/__qa/main.tsx'></script></body></html>"));
         }

@@ -1,13 +1,16 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, Loader2, Pencil, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useFabricLoanStock } from '@/hooks/useFabricLoanStock';
 import { canSelectFabricLoanAsset, fabricLoanAssetDisplayIdentity, isFabricStockFresh, type FabricLoanAsset } from '@/lib/fabricLoanStock';
 import { t } from '@/lib/i18n/translations';
 import FabricStockAssetBrowser, { type FabricStockBrowserFilters } from './FabricStockAssetBrowser';
+import FabricStockSummary from './FabricStockSummary';
+import { summarizeFabricStock } from '@/lib/fabricStockSummary';
 
-export default function LoanStockPanel({ onSelect, busy = false, selectionReady = true }: {
-  onSelect?: (asset: FabricLoanAsset) => void; busy?: boolean; selectionReady?: boolean;
+export default function LoanStockPanel({ onSelect, busy = false, selectionReady = true, summaryTarget }: {
+  onSelect?: (asset: FabricLoanAsset) => void; busy?: boolean; selectionReady?: boolean; summaryTarget?: HTMLElement | null;
 }) {
   const { uiLanguage } = useLanguage();
   const label = (key: string) => t(key, uiLanguage);
@@ -64,6 +67,9 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
     <FabricStockAssetBrowser assets={stock?.assets ?? []} activeAssignments={stock?.active_assignments ?? []}
       filters={filters} onFiltersChange={setFilters} loading={query.isPending}
       countsReady={Boolean(stock?.sync.last_success_at)}
+      renderSummary={summaryTarget ? (visible, onFindAsset) => createPortal(<FabricStockSummary
+        summary={summarizeFabricStock(visible)} loading={query.isPending || !stock?.sync.last_success_at}
+        failed={query.isError && !stock} onFindAsset={onFindAsset} />, summaryTarget) : undefined}
       selection={onSelect && stock ? {
         selectedIds: new Set<string>(),
         onToggle: onSelect,

@@ -8,6 +8,9 @@ import { FABRIC_LOAN_FIELDS, runFabricLoanSync, validateFabricLoanSnapshot } fro
 import { validateFabricPush } from '../../supabase/functions/fabric-loan-sync/fabricIngest';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoansPage from '@/pages/loans/LoansPage';
+import FabricStockAssetBrowser from '@/pages/loans/FabricStockAssetBrowser';
+import FabricStockSummary from '@/pages/loans/FabricStockSummary';
+import { summarizeFabricStock } from '@/lib/fabricStockSummary';
 
 const mocks = vi.hoisted(() => ({ state: null as unknown, refresh: vi.fn(), setBrik: vi.fn(), listCases: vi.fn(), updateReturn: vi.fn() }));
 vi.mock('@/hooks/useFabricLoanStock', () => ({ useFabricLoanStock: () => mocks.state }));
@@ -39,6 +42,80 @@ beforeEach(() => { vi.clearAllMocks(); mocks.state = hook(); mocks.listCases.moc
 afterEach(cleanup);
 
 describe('single Fabric stock dataset', () => {
+  it('keeps touch hover closed, opens on tap/click and closes with Escape', async () => {
+    render(<FabricStockSummary summary={summarizeFabricStock([asset])} onFindAsset={vi.fn()} />);
+    const trigger = screen.getByRole('button', { name: 'Tre dyreste varer' });
+    const touch = new MouseEvent('pointerover', { bubbles: true });
+    Object.defineProperty(touch, 'pointerType', { value: 'touch' });
+    fireEvent(trigger, touch);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(await screen.findByRole('dialog', { name: 'Tre dyreste varer' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('places exactly four stock KPIs between the page title/action and tabs, using the list filters and refreshed snapshot', async () => {
+    const data = stock();
+    data.assets.push({ ...asset, asset_id: 'shared-component', asset_instance_id: 'LINE|QA|3', serial_number: null, serial_number_normalized: null });
+    data.assets.push({ ...asset, asset_id: 'bulk', asset_instance_id: 'LINE|QA|4', brik_number: null, serial_number: null, serial_number_normalized: null, item_number: '65101002', inventory_qty: 18 });
+    mocks.state = hook(data);
+    const view = render(<MemoryRouter><LoansPage /></MemoryRouter>);
+    expect(screen.queryByRole('region', { name: 'Lageroverblik' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Salgslager' }));
+    const summary = screen.getByRole('region', { name: 'Lageroverblik' });
+    expect(summary.children).toHaveLength(4);
+    const header = summary.closest('header')!;
+    expect(header).toContainElement(screen.getByRole('heading', { level: 1 }));
+    expect(header).toContainElement(screen.getByRole('link', { name: 'Nyt lån' }));
+    expect(header.compareDocumentPosition(screen.getByRole('tablist')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(summary).getByRole('button', { name: 'Antal på lager' })).toHaveTextContent('20 stk.');
+    expect(within(summary).getByText('4 varelinjer mangler værdi')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Lager 4/ }));
+    expect(within(summary).getByRole('button', { name: 'Antal på lager' })).toHaveTextContent('1 stk.');
+    fireEvent.click(screen.getByRole('button', { name: '1010' }));
+    expect(within(summary).getByRole('button', { name: 'Antal på lager' })).toHaveTextContent('0 stk.');
+    fireEvent.click(screen.getByRole('button', { name: 'Alle lagre' }));
+    expect(within(summary).getByRole('button', { name: 'Antal på lager' })).toHaveTextContent('19 stk.');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: '65101002' } });
+    expect(within(summary).getByRole('button', { name: 'Antal på lager' })).toHaveTextContent('18 stk.');
+    expect(within(summary).getByText('1 varelinjer mangler værdi')).toBeInTheDocument();
+    mocks.state = hook({ ...data, assets: data.assets.map(row => row.asset_id === 'bulk' ? { ...row, inventory_qty: 17 } : row) });
+    view.rerender(<MemoryRouter><LoansPage /></MemoryRouter>);
+    expect(within(summary).getByRole('button', { name: 'Antal på lager' })).toHaveTextContent('17 stk.');
+    fireEvent.click(screen.getByRole('button', { name: 'Tre ældste varer' }));
+    expect(await screen.findByRole('dialog', { name: 'Tre ældste varer' })).toHaveTextContent('Lageralder ikke tilgængelig');
+    fireEvent.click(screen.getByRole('button', { name: 'Luk lagerinformation' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sælg salgslagermaskine' }));
+    expect(screen.queryByRole('region', { name: 'Lageroverblik' })).not.toBeInTheDocument();
+  });
+  it('opens top-three information with pointer/click and finds the original row without selecting or mutating it', async () => {
+    const rows = [asset, { ...asset, asset_id: 'other', asset_instance_id: 'LINE|QA|OTHER', brik_number: 83, serial_number: 'OTHER', serial_number_normalized: 'OTHER' }];
+    const resolver = (row: FabricLoanAsset) => ({ valueDkk: row.asset_id === asset.asset_id ? 100 : 50, valuationCurrency: 'DKK',
+      valuationReference: row.asset_id, receivedDate: '2025-01-01', receiptReference: `receipt-${row.asset_id}` });
+    const scroll = vi.fn();
+    const previousScroll = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    try {
+      render(<FabricStockAssetBrowser assets={rows} filters={{ warehouse: 'all', account: 'all', search: '' }} onFiltersChange={vi.fn()}
+        renderSummary={(visible, onFindAsset) => <FabricStockSummary summary={summarizeFabricStock(visible, resolver)} onFindAsset={onFindAsset} />} />);
+      fireEvent.pointerEnter(screen.getByRole('button', { name: 'Tre dyreste varer' }), { pointerType: 'mouse' });
+      const popup = await screen.findByRole('dialog', { name: 'Tre dyreste varer' });
+      expect(popup).toHaveTextContent('100,00 kr.');
+      expect(popup).toHaveTextContent('QA-ITEM');
+      expect(popup).toHaveTextContent('Samlet varelinje');
+      fireEvent.click(within(popup).getAllByRole('button', { name: /Find vare/ })[0]);
+      await waitFor(() => expect(scroll).toHaveBeenCalled());
+      const row = document.querySelector(`[data-asset-id="${asset.asset_id}"]`)!;
+      expect(row).toHaveAttribute('aria-expanded', 'true');
+      expect(document.activeElement).toBe(row);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mocks.setBrik).not.toHaveBeenCalled();
+      expect(mocks.refresh).not.toHaveBeenCalled();
+    } finally { HTMLElement.prototype.scrollIntoView = previousScroll; }
+  });
   it.each(['Salgslager', 'Sælg salgslagermaskine'])('keeps column headings immediately above each nonempty warehouse in %s', async (tab) => {
     render(<MemoryRouter><LoansPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('tab', { name: tab }));
