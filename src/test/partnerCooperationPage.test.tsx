@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BackendPartnerRelationsPage from '@/pages/backend/BackendPartnerRelationsPage';
 
 const mocks = vi.hoisted(() => ({
-  backend: true, active: true,
+  backend: true, active: true, service: false,
   upsert: vi.fn(), toggle: vi.fn(), remove: vi.fn(),
 }));
 vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: { id: 'backend' }, logout: vi.fn() }) }));
@@ -12,17 +12,20 @@ vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ language: 'd
 vi.mock('@/lib/portalAccess', () => ({ isBackendActor: () => mocks.backend }));
 vi.mock('@/components/portal/PortalHeader', () => ({ default: () => null }));
 vi.mock('@/components/portal/PortalFooter', () => ({ default: () => null }));
+vi.mock('@/components/backend/BillingRelationReview', () => ({ default: () => null }));
+vi.mock('@/lib/partnerBillingRelationsService', () => ({ loadBillingRelations: async () => ({ relations: [] }) }));
 vi.mock('@/components/backend/PartnerCooperationDialog', () => ({ default: ({ action }: { action: string }) => <div role="dialog">{action}</div> }));
 vi.mock('@/lib/dealerAccountsService', () => ({
   fetchDealerAccounts: async () => ({ rows: [
     { id: 'dealer', account_number: '10295', company_name: 'Dealer', customer_type_label: 'Forhandler' },
     { id: 'customer', account_number: '12041', company_name: 'Customer', customer_type_label: 'Forhandlerkunde' },
+    { id: 'service', account_number: '10082', company_name: 'Service', customer_type_label: 'Servicepartner' },
   ] }),
   isDealerCustomerAccount: (account: { id: string }) => account.id === 'customer',
 }));
 vi.mock('@/lib/partnerRelationsService', () => ({
-  listPartnerAccountRelations: async () => [{ id: 'relation', source_account_id: 'dealer', target_account_id: 'customer',
-    relation_type: 'dealer_has_dealer_customer', active: mocks.active }],
+  listPartnerAccountRelations: async () => [{ id: 'relation', source_account_id: 'dealer', target_account_id: mocks.service ? 'service' : 'customer',
+    relation_type: mocks.service ? 'dealer_has_service_partner' : 'dealer_has_dealer_customer', active: mocks.active }],
   listServicePartnerLinks: async () => [],
   upsertPartnerAccountRelation: mocks.upsert,
   setPartnerAccountRelationActive: mocks.toggle,
@@ -30,8 +33,15 @@ vi.mock('@/lib/partnerRelationsService', () => ({
 }));
 
 describe('Backend cooperation controls', () => {
-  beforeEach(() => { mocks.backend = true; mocks.active = true; vi.clearAllMocks(); });
+  beforeEach(() => { mocks.backend = true; mocks.active = true; mocks.service = false; vi.clearAllMocks(); });
   const open = () => render(<MemoryRouter><BackendPartnerRelationsPage /></MemoryRouter>);
+  it('uses the same approval/end/history controls for a Servicepartner, with no raw toggle/delete',async()=>{
+    mocks.service=true;open();
+    fireEvent.click(await screen.findByRole('button',{name:'Skift samarbejdspartner'}));
+    expect(screen.getByRole('dialog')).toHaveTextContent('SWITCH');
+    expect(screen.queryByRole('button',{name:'Slet'})).toBeNull();
+    expect(mocks.upsert).not.toHaveBeenCalled();expect(mocks.toggle).not.toHaveBeenCalled();expect(mocks.remove).not.toHaveBeenCalled();
+  });
   it.each([['Afslut samarbejde', 'END'], ['Skift forhandler', 'SWITCH'], ['Historik', 'HISTORY']])(
     'opens %s without a raw relation write', async (label, action) => {
       open(); fireEvent.click(await screen.findByRole('button', { name: label }));

@@ -21,6 +21,48 @@ const open = async (action: 'ACTIVATE' | 'END' | 'SWITCH' | 'HISTORY' = 'ACTIVAT
 };
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 describe('permanent Backend cooperation actions',()=>{
+  it('blocks new relation types when the schema has not yet been released',async()=>{
+    history.mockResolvedValue({version:0,events:[]});
+    render(<PartnerCooperationDialog customerId={customerId} action="ACTIVATE" relationType="importer_has_dealer_customer"
+      dealers={dealers} onClose={()=>{}} onSaved={async()=>{}}/>);
+    await screen.findByText(/afventer databasefrigivelse/);
+    expect(screen.getByRole('button',{name:'Godkend samarbejde'})).toBeDisabled();
+    expect(change).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['dealer', 'service_partner', 'dealer_has_service_partner'],
+    ['importer', 'service_partner', 'importer_has_service_partner'],
+    ['dealer', 'dealer_customer', 'dealer_has_dealer_customer'],
+    ['service_partner', 'dealer_customer', 'service_partner_has_dealer_customer'],
+  ] as const)('reviews %s → %s independently of billing',async(parentType, childType, relationType)=>{
+    history.mockResolvedValue({version:0,events:[],billing:{source_count:1,invoice_account:null}});
+    const rows=[{...dealers[0],customer_type_label:null,customer_type:null,dealer_type:childType},
+      {...dealers[1],customer_type_label:null,customer_type:null,dealer_type:parentType}];
+    const onSaved=vi.fn().mockResolvedValue(undefined);
+    render(<PartnerCooperationDialog customerId={customerId} action="ACTIVATE" relationType={relationType}
+      dealers={rows} onClose={()=>{}} onSaved={onSaved}/>);
+    await screen.findByText(/C5 INVOICEACCOUNT: tom/);
+    expect(screen.getByLabelText('Samarbejdspartner / overordnet partner')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Samarbejdspartner / overordnet partner'),{target:{value:parentId}});
+    expect(screen.getByLabelText('Relationstype')).toHaveValue(relationType);
+    fireEvent.change(screen.getByLabelText('Årsag'),{target:{value:'Verified cooperation, own billing'}});
+    fireEvent.click(screen.getByRole('button',{name:'Godkend samarbejde'}));
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    change.mockResolvedValue('event');
+    fireEvent.click(screen.getByRole('button',{name:'Godkend samarbejde'}));
+    await waitFor(()=>expect(onSaved).toHaveBeenCalledOnce());
+    expect(change.mock.calls[0][0]).toMatchObject({relationType,newDealerId:parentId,expectedVersion:0,confirmed:true});
+    expect(change.mock.calls[0][0]).not.toHaveProperty('billingAccountId');
+  });
+  it('shows a different read-only invoice account without removing valid cooperation choices',async()=>{
+    history.mockResolvedValue({version:0,events:[],billing:{source_count:1,invoice_account:'OTHER'}});
+    render(<PartnerCooperationDialog customerId={customerId} action="ACTIVATE" relationType="dealer_has_dealer_customer"
+      dealers={dealers} onClose={()=>{}} onSaved={async()=>{}}/>);
+    await screen.findByText('Konto #OTHER · C5');
+    expect(screen.getByRole('option',{name:/AB Lauridsen/})).toBeInTheDocument();
+    expect(screen.getByLabelText('Fakturering · kun læsning').querySelector('input')).toBeNull();
+  });
   it('requires a reason and explicit new-relation approval, without guessing from C5',async()=>{
     await open();fireEvent.click(screen.getByRole('button',{name:'Godkend forhandlerrelation'}));
     expect(screen.getByRole('alert')).toHaveTextContent('Angiv en årsag');expect(change).not.toHaveBeenCalled();

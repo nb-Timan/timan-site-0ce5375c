@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronRight, GitBranch, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GitBranch, Search } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { isBackendActor } from "@/lib/portalAccess";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -28,9 +28,6 @@ import {
   PartnerAccountRelation,
   PartnerAccountRelationType,
   listPartnerAccountRelations,
-  upsertPartnerAccountRelation,
-  setPartnerAccountRelationActive,
-  deletePartnerAccountRelation,
   ServicePartnerLink,
   listServicePartnerLinks,
   type PartnerCooperationAction,
@@ -114,7 +111,7 @@ const RELATION_TYPES: RelationConfig[] = [
   },
 ];
 
-const PRIMARY_RELATION_TYPES = RELATION_TYPES.filter((r) => r.value !== "service_partner_has_dealer");
+const PRIMARY_RELATION_TYPES = RELATION_TYPES;
 
 const normalize = (value: string | null | undefined) =>
   (value ?? "").toLowerCase().replace(/[\s_-]+/g, "");
@@ -159,16 +156,15 @@ export default function BackendPartnerRelationsPage() {
   const [billingError,setBillingError]=useState<string|null>(null);
   const [legacySpLinks, setLegacySpLinks] = useState<ServicePartnerLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const [relationType, setRelationType] = useState<PartnerAccountRelationType>("importer_has_dealer");
   const [sourceId, setSourceId] = useState("");
   const [targetId, setTargetId] = useState("");
-  const [active, setActive] = useState(true);
   const [search, setSearch] = useState("");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
-  const [cooperation, setCooperation] = useState<{ customerId: string; action: PartnerCooperationAction | 'HISTORY'; initialDealerId?: string } | null>(null);
+  const [cooperation, setCooperation] = useState<{ customerId: string; action: PartnerCooperationAction | 'HISTORY'; initialDealerId?: string;
+    relationType: PartnerAccountRelationType; previousRelationId?: string } | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -256,39 +252,7 @@ export default function BackendPartnerRelationsPage() {
       setMessage("En virksomhed kan ikke kobles til sig selv.");
       return;
     }
-    if (relationType === 'dealer_has_dealer_customer') {
-      setCooperation({ customerId: targetId, action: 'ACTIVATE', initialDealerId: sourceId });
-      return;
-    }
-    setBusy(true);
-    const result = await upsertPartnerAccountRelation(sourceId, targetId, relationType, active);
-    setBusy(false);
-    if (!result.ok) {
-      setMessage(result.error ?? "Kunne ikke gemme relationen.");
-      return;
-    }
-    setMessage("Relation gemt.");
-    setTargetId("");
-    await refresh();
-  }
-
-  async function onToggleRelation(id: string, nextActive: boolean) {
-    const result = await setPartnerAccountRelationActive(id, nextActive);
-    if (!result.ok) {
-      alert(result.error ?? "Kunne ikke opdatere relationen.");
-      return;
-    }
-    await refresh();
-  }
-
-  async function onDeleteRelation(id: string) {
-    if (!confirm("Slet denne partnerrelation?")) return;
-    const result = await deletePartnerAccountRelation(id);
-    if (!result.ok) {
-      alert(result.error ?? "Kunne ikke slette relationen.");
-      return;
-    }
-    await refresh();
+    setCooperation({ customerId: targetId, action: 'ACTIVATE', initialDealerId: sourceId, relationType });
   }
 
   return (
@@ -305,8 +269,8 @@ export default function BackendPartnerRelationsPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Partnernetværk</h1>
             <p className="mt-1 max-w-3xl text-sm text-slate-600">
-              Definer relationer mellem importører, forhandlere, servicepartnere og forhandlerkunder.
-              Eksisterende scope-data bevares, så adgang ikke ændres af denne side alene.
+              Godkend samarbejde mellem eksisterende partnere. Samarbejdsrelation og C5-fakturering er uafhængige;
+              adgang følger den godkendte relationstype.
             </p>
           </div>
           <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
@@ -377,18 +341,12 @@ export default function BackendPartnerRelationsPage() {
               </select>
             </label>
 
-            {relationType !== 'dealer_has_dealer_customer' && <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-              <span>Aktiv</span>
-            </label>}
-
             <button
               type="button"
               onClick={onSaveRelation}
-              disabled={busy}
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {busy ? "Gemmer..." : relationType === 'dealer_has_dealer_customer' ? 'Gennemgå relation' : "Gem relation"}
+              Gennemgå relation
             </button>
           </div>
 
@@ -460,33 +418,18 @@ export default function BackendPartnerRelationsPage() {
                               <div className="font-medium text-slate-900">{accountLabel(target)}</div>
                               <div className="text-xs text-slate-500">{kindLabel(target ? accountKind(target) : "other")}</div>
                             </div>
-                            {relation.relation_type === 'dealer_has_dealer_customer' ? <>
+                            <>
                               <div className="min-w-0 break-words text-sm">{relation.active ? 'Aktivt samarbejde' : 'Afsluttet samarbejde'}
                                 {relation.ended_at && <p className="text-xs text-gray-600">{new Date(relation.ended_at).toLocaleString('da-DK')} · {relation.end_reason}</p>}
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 {relation.active ? <>
-                                  <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'END' })}>Afslut samarbejde</button>
-                                  <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'SWITCH' })}>Skift forhandler</button>
-                                </> : <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'ACTIVATE', initialDealerId: relation.source_account_id })}>Godkend nyt samarbejde</button>}
-                                <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'HISTORY' })}>Historik</button>
+                                  <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'END', relationType: relation.relation_type, previousRelationId: relation.id })}>Afslut samarbejde</button>
+                                  <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'SWITCH', relationType: relation.relation_type, previousRelationId: relation.id })}>{relation.relation_type === 'dealer_has_dealer_customer' ? 'Skift forhandler' : 'Skift samarbejdspartner'}</button>
+                                </> : <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'ACTIVATE', initialDealerId: relation.source_account_id, relationType: relation.relation_type })}>Godkend nyt samarbejde</button>}
+                                <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'HISTORY', relationType: relation.relation_type })}>Historik</button>
                               </div>
-                            </> : <><label className="flex items-center gap-2 text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={relation.active}
-                                onChange={(event) => onToggleRelation(relation.id, event.target.checked)}
-                              />
-                              Aktiv
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteRelation(relation.id)}
-                              className="inline-flex items-center justify-start gap-1 text-rose-600 hover:underline md:justify-end"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Slet
-                            </button></>}
+                            </>
                           </div>
                         );
                       })}

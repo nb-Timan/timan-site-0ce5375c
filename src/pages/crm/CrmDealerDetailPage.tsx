@@ -1439,7 +1439,9 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
       toast.error(res.error || tl("partner_update_error", lang));
       return res;
     }
-    if (!academyMode) {
+    const hierarchyChanged = (linkedMainPartner?.id ?? null) !== hierarchy.parentAccountId
+      || Boolean(linkedMainPartner && dealer.billing_account_id === linkedMainPartner.id) !== hierarchy.billViaParent;
+    if (!academyMode && hierarchyChanged) {
       const relationResult = await setServicePartnerMainRelation({
         childAccountId: dealer.id,
         parentAccountId: hierarchy.parentAccountId,

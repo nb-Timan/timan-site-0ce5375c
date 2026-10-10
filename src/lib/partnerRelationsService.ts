@@ -215,10 +215,13 @@ export interface PartnerCooperationEvent {
   reviewer_name: string | null;
   created_at: string;
   reason: string;
+  relation_type?: PartnerAccountRelationType;
+  previous_relation_type?: PartnerAccountRelationType | null;
 }
 export interface PartnerCooperationHistory {
   version: number;
   events: PartnerCooperationEvent[];
+  billing?: { source_count: number; invoice_account: string | null };
 }
 export async function loadPartnerCooperationHistory(customerId: string): Promise<PartnerCooperationHistory> {
   const { data, error } = await supabase.rpc('partner_cooperation_history', { p_customer_id: customerId });
@@ -228,21 +231,34 @@ export async function loadPartnerCooperationHistory(customerId: string): Promise
 export async function changePartnerCooperation(input: {
   customerId: string; expectedVersion: number; action: PartnerCooperationAction;
   newDealerId: string | null; confirmed: boolean; reason: string; requestId: string;
+  relationType?: PartnerAccountRelationType; previousRelationId?: string;
 }) {
-  const { data, error } = await supabase.rpc('partner_cooperation_change', {
+  const args = {
     p_customer_id: input.customerId, p_expected_version: input.expectedVersion, p_action: input.action,
     p_new_dealer_id: input.newDealerId, p_confirm_new_relation: input.confirmed, p_reason: input.reason,
     p_request_id: input.requestId,
-  });
+    ...(input.relationType ? { p_relation_type: input.relationType, p_previous_relation_id: input.previousRelationId ?? null } : {}),
+  };
+  const { data, error } = await supabase.rpc(input.relationType ? 'partner_cooperation_change_typed' : 'partner_cooperation_change', args);
+  // The schema release is separately approved. Preserve the established customer
+  // lifecycle until then; never substitute this endpoint for another relation type.
+  if (error && input.relationType === 'dealer_has_dealer_customer' && ['PGRST202','42883'].includes(error.code)) {
+    const { p_relation_type: _type, p_previous_relation_id: _previous, ...legacyArgs } = args;
+    const legacy = await supabase.rpc('partner_cooperation_change', legacyArgs);
+    if (legacy.error) throw legacy.error;
+    return legacy.data as string;
+  }
   if (error) throw error;
   return data as string;
 }
 export function partnerCooperationError(error: unknown): string {
-  const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : '';
+  const message = error && typeof error === 'object' ? `${'code' in error ? error.code : ''} ${'message' in error ? error.message : ''}` : '';
   if (/VERSION_CONFLICT|STATE_CONFLICT/.test(message)) return 'Samarbejdet er ændret. Genindlæs før du fortsætter.';
   if (/BACKEND_ONLY/.test(message)) return 'Kun Timan Backend kan ændre samarbejdet.';
   if (/PARENT_CONFLICT|REVIEW_REQUIRED/.test(message)) return 'Eksisterende relationer kræver afklaring. Ingen ændring er gemt.';
   if (/APPROVAL_REQUIRED/.test(message)) return 'Den nye relation skal godkendes eksplicit.';
+  if (/CYCLE|INVALID_RELATION_TYPE|VALID_PARTNERS_REQUIRED/.test(message)) return 'Relationen er ikke gyldig for disse partnere, eller den skaber en cirkel.';
+  if (/PGRST202|42883/.test(message)) return 'Relationsopdateringen skal først frigives i databasen. Ingen ændring er gemt.';
   return 'Samarbejdet kunne ikke gemmes. Genindlæs og prøv igen.';
 }
 

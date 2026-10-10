@@ -174,7 +174,7 @@ export default function FabricPartnerComparisonPanel({ portalParents }: { portal
     </div>
     {shown.length > limit && <button type="button" onClick={() => setLimit(limit + 50)} className="mt-3 border px-3 py-2">Vis flere</button>}
     </>}
-    {reviewing && <FabricPartnerReviewDialog key={`${reviewing.account_number}-${reviewing.review?.version ?? 0}`} row={reviewing} parents={reviews.parents}
+    {reviewing && <FabricPartnerReviewDialog key={`${reviewing.account_number}-${reviewing.review?.version ?? 0}`} row={reviewing} parents={reviews.parents} cooperationPartners={data.portal}
       history={reviews.reviews.filter(review => review.account_number === reviewing.account_number)} onClose={() => setReviewing(null)} onSaved={reload} />}
   </section>;
 }

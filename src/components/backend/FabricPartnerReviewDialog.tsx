@@ -6,18 +6,24 @@ import { createReviewDraft, EDITABLE_REVIEW_FIELDS, REVIEW_PARTNER_TYPES, REVIEW
   REVIEW_STATUS_LABELS, validatePartnerReview, type PartnerReviewRow, type ReviewDraft,
   type ReviewParent, type ReviewRow, type ReviewStatus, type ReviewPartnerType, type ReviewValueSource } from '@/lib/fabricPartnerReview';
 import { partnerReviewError, savePartnerReview } from '@/lib/fabricPartnerReviewService';
+import PartnerCooperationDialog from './PartnerCooperationDialog';
+import { validCooperationTypes, cooperationBillingLabel } from '@/lib/partnerCooperation';
+import type { PortalPartnerParity } from '@/lib/fabricPartnerParity';
 
-export default function FabricPartnerReviewDialog({ row, parents, history, onClose, onSaved }: {
+export default function FabricPartnerReviewDialog({ row, parents, history, onClose, onSaved, cooperationPartners = [] }: {
   row: PartnerReviewRow; parents: ReviewParent[]; history: ReviewRow[];
   onClose: () => void; onSaved: () => Promise<void>;
+  cooperationPartners?: PortalPartnerParity[];
 }) {
   const [draft, setDraft] = useState<ReviewDraft>(() => createReviewDraft(row));
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [cooperationReview, setCooperationReview] = useState(false);
   const request = useRef<{ body: string; id: string } | null>(null);
   const source = row.c5[0];
   const portal = row.portal[0];
   const approval = row.active_approval;
+  const eligibleParent = row.portal.length === 1 ? cooperationPartners.find(parent => validCooperationTypes(parent, portal).length > 0) : null;
   const inputClass = 'mt-1 w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-2 text-sm';
   const save = async () => {
     const validation = validatePartnerReview(row, draft, parents.map(parent => parent.id));
@@ -32,10 +38,21 @@ export default function FabricPartnerReviewDialog({ row, parents, history, onClo
     } catch (error) { setErrors([partnerReviewError(error)]); }
     finally { setSaving(false); }
   };
+  if (cooperationReview && portal && eligibleParent) return <PartnerCooperationDialog customerId={portal.id} action="ACTIVATE"
+    relationType={validCooperationTypes(eligibleParent, portal)[0]}
+    dealers={[...cooperationPartners.filter(p => p.id !== portal.id), portal]}
+    billingInvoiceAccount={row.c5.length === 1 ? source.c5_invoice_account_number : undefined}
+    onClose={() => setCooperationReview(false)} onSaved={async () => { await onSaved(); onClose(); }} />;
   return <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
     <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-3xl overflow-y-auto p-4 text-left sm:p-6">
       <DialogHeader><DialogTitle className="pr-6 text-lg tracking-normal">Gennemgå {row.account_number} · {source?.company_name ?? portal?.company_name}</DialogTitle></DialogHeader>
       {row.needs_recheck && !approval && <p role="status" className="text-sm text-amber-800">Kilde eller Portal-oplysninger er ændret. Kræver genkontrol.</p>}
+      {eligibleParent && <section className="rounded border bg-slate-50 p-3 text-sm" aria-label="Samarbejdsrelation">
+        <p className="font-medium">Portal-samarbejde · separat godkendelse</p>
+        <p className="break-words">{cooperationBillingLabel(row.account_number, row.c5.length === 1 ? source.c5_invoice_account_number : undefined)}</p>
+        <p className="mt-1 text-xs">Blank eller anden fakturakonto blokerer ikke samarbejde. Partnertype og sælger ændres ikke.</p>
+        <button type="button" className="mt-2 rounded border bg-white px-3 py-2" onClick={() => setCooperationReview(true)}>Gennemgå samarbejde</button>
+      </section>}
       <dl className="grid min-w-0 gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
         <div><dt className="font-medium">C5 kundetype</dt><dd>{source?.c5_partner_type_code ?? 'Ukendt'}</dd></div>
         <div><dt className="font-medium">Fakturakonto</dt><dd>{source?.c5_invoice_account_number ?? '—'}</dd></div>

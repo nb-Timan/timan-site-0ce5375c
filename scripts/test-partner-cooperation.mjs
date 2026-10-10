@@ -145,6 +145,7 @@ try {
   await db.exec(file('20261010120531_je_service_controlled_import_pilot'));
   await db.exec(file('20261010140258_partner_import_materialization_evidence'));
   await db.exec(file('20261010140302_rostofte_legacy_cooperation_correction'));
+  await db.exec(file('20261010184027_cooperation_independent_of_billing'));
   const legacyCustomer=randomUUID(), kolding=randomUUID(), vedbaek=randomUUID(), koldingAuth=randomUUID();
   await db.exec(`insert into dealer_accounts(id,account_number,company_name,customer_type_label,assigned_seller_initials,
     parent_account_number,is_active,is_deleted,is_blocked,status)
@@ -216,5 +217,93 @@ try {
     (select jsonb_agg(to_jsonb(u) order by id) from app_users u),
     (select jsonb_agg(to_jsonb(o) order by id) from historical_orders o),
     (select jsonb_agg(to_jsonb(d) order by customer_id) from customer_documents d))::text) as value`),scopedBaseline,'all profile/users/historical documents preserved');
+  // Reuse the actual lifecycle, shadow ingest and production organization resolver.
+  const service='dcbfec99-6793-4d1c-bef6-c4219e1e4c6e', reesink='b6f4657a-6cc7-423d-b64d-dba372c96fd5';
+  const importer=randomUUID(), ownCustomer=randomUUID(), serviceAuth=randomUUID(), reesinkAuth=randomUUID();
+  await db.exec(`alter table dealer_accounts add column billing_account_id uuid;
+    insert into dealer_accounts(id,account_number,company_name,customer_type_label,assigned_seller_initials,is_active,is_deleted,is_blocked,status)
+      values('${service}','10082','Have og Park Center Svendborg','Servicepartner','EM',true,false,false,'active'),
+        ('${reesink}','10151','Reesink Turfcare A/S','Forhandler','EM',true,false,false,'active'),
+        ('${importer}','QA-I','Importer QA','Importør','EM',true,false,false,'active'),
+        ('${ownCustomer}','QA-C','Own billed customer','Forhandlerkunde','EM',true,false,false,'active');
+    insert into app_users(id,auth_user_id,email,full_name,portal_role,approved,is_active,dealer_number,organization_access_role)
+      values('${reesinkAuth}','${reesinkAuth}','reesink@example.invalid','Reesink QA','timan_dealer',true,true,'10151','collaboration_manager'),
+        ('${serviceAuth}','${serviceAuth}','service@example.invalid','Service QA','timan_service_partner',true,true,'10082','own_company');
+    insert into customer_documents values('${service}',1,777);`);
+  const serviceRows=[...legacyRows,{...sourceRows[0],account_number:'10082',account_raw:'10082',c5_partner_type_code:'2',c5_invoice_account_number:null,source_row_number:5},
+    {...sourceRows[0],account_number:'QA-C',account_raw:'QA-C',c5_partner_type_code:'5',c5_invoice_account_number:'QA-C',source_row_number:6}];
+  await ingest(serviceRows);
+  const fixedProfile=await scalar('select md5(row_to_json(d)::text) as value from dealer_accounts d where id=$1',[service]);
+  const billingBefore=await scalar('select md5(jsonb_agg(jsonb_build_array(account_number,billing_account_id) order by id)::text) as value from dealer_accounts');
+  const sourceBefore=await scalar('select md5(jsonb_agg(to_jsonb(s) order by source_row_number)::text) as value from fabric_partner_master_shadow s');
+  const typed=p=>scalar('select partner_cooperation_change_typed($1,$2,$3,$4,$5,$6,$7,$8,$9) as value',p);
+  const params=(target,version,action,parent,type,previous=null)=>[target,version,action,parent,true,'Explicit cooperation, own C5 billing preserved',randomUUID(),type,previous];
+  const servicePlan=params(service,0,'ACTIVATE',reesink,'dealer_has_service_partner');
+  await db.exec('set role anon'); await reject(typed(servicePlan),/permission denied/);
+  await db.exec('reset role; set role service_role'); await reject(typed(servicePlan),/permission denied/);
+  await db.exec('reset role; set role authenticated'); await actorUid(reesinkAuth); await reject(typed(servicePlan),/BACKEND_ONLY/);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[service]),0,'no premature Reesink access');
+  await actorUid(auth);
+  const notConfirmed=[...servicePlan];notConfirmed[4]=false; await reject(typed(notConfirmed),/APPROVAL_REQUIRED/);
+  await reject(typed(params(service,0,'ACTIVATE',reesink,'importer_has_service_partner')),/INVALID_RELATION_TYPE/);
+  const eventId=await typed(servicePlan);
+  check(await typed(servicePlan),eventId,'typed retries are idempotent');
+  const alteredTyped=[...servicePlan];alteredTyped[5]='Changed'; await reject(typed(alteredTyped),/REQUEST_CONFLICT/);
+  const serviceHistory=await scalar('select partner_cooperation_history($1) as value',[service]);
+  check(serviceHistory.billing,{source_count:1,invoice_account:null},'blank invoice is separate read-only information');
+  check(serviceHistory.events[0].relation_type,'dealer_has_service_partner','correct canonical type in existing audit');
+  check(serviceHistory.events[0].reviewed_by,actor,'typed canonical Backend actor');
+  check(serviceHistory.events[0].original_invoice_account_number,null,'blank invoice is not fabricated');
+  check('request_id' in serviceHistory.events[0],false,'history excludes mutation capability');
+  const serviceRelation=serviceHistory.events[0].new_relation_id;
+  await db.exec('reset role');
+  check(await scalar('select md5(row_to_json(d)::text) as value from dealer_accounts d where id=$1',[service]),fixedProfile,'whole service profile including EM/UUID/billing/pointer unchanged');
+  check(await scalar('select md5(jsonb_agg(to_jsonb(s) order by source_row_number)::text) as value from fabric_partner_master_shadow s'),sourceBefore,'cooperation never writes C5 source');
+  await reject(db.exec(`update partner_account_relations set active=false where id='${serviceRelation}'`),/LIFECYCLE_REQUIRED/);
+  await reject(db.exec(`delete from partner_account_relations where id='${serviceRelation}'`),/HISTORY_PRESERVED/);
+  await reject(db.exec(`insert into partner_account_relations(source_account_id,target_account_id,relation_type) values('${importer}','${service}','importer_has_service_partner')`),/LIFECYCLE_REQUIRED/);
+  await reject(typed(params(service,1,'ACTIVATE',importer,'importer_has_service_partner')),/STATE_CONFLICT/);
+  await ingest(serviceRows.map(r=>r.account_number==='10082'?{...r,c5_invoice_account_number:'OTHER-BILLING'}:r));
+  check((await scalar("select fabric_partner_review_effective('10082') as value")).parent_dealer_id,reesink,'different C5 billing does not move approved Servicepartner');
+  check(await scalar('select active as value from partner_account_relations where id=$1',[serviceRelation]),true,'Fabric refresh preserves activation');
+  await db.exec('set role authenticated'); await actorUid(reesinkAuth);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[service]),1,'existing collaboration-manager RLS includes only approved active target');
+  await actorUid(serviceAuth);
+  check(await scalar('select count(*)::int as value from resolve_collaboration_manager_accounts() where id=$1',[reesink]),0,'own-company role does not gain reverse parent access');
+  await actorUid(auth);
+  await typed(params(service,1,'SWITCH',importer,'importer_has_service_partner',serviceRelation));
+  const importerRelation=(await scalar('select partner_cooperation_history($1) as value',[service])).events[0].new_relation_id;
+  await actorUid(reesinkAuth);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[service]),0,'END/SWITCH removes former Reesink RLS scope');
+  await actorUid(auth);
+  await typed(params(service,2,'END',null,'importer_has_service_partner',importerRelation));
+  await db.exec('reset role');
+  await ingest(serviceRows);
+  check((await scalar("select fabric_partner_review_effective('10082') as value")).parent_dealer_id,null,'refresh cannot reactivate ended Servicepartner');
+  check((await scalar('select partner_cooperation_history($1) as value',[service])).version,3,'ACTIVATE/SWITCH/END history intact');
+  await ingest(serviceRows.map(r=>r.account_number==='10082'?{...r,c5_invoice_account_number:'UNRELATED-BILLING'}:r));
+  await typed(params(service,3,'ACTIVATE',reesink,'dealer_has_service_partner'));
+  check((await scalar('select partner_cooperation_history($1) as value',[service])).events[0].original_invoice_account_number,
+    'UNRELATED-BILLING','different C5 invoice also cannot block a NEW approval');
+  await typed(params(ownCustomer,0,'ACTIVATE',reesink,'dealer_has_dealer_customer'));
+  check((await scalar('select partner_cooperation_history($1) as value',[ownCustomer])).billing.invoice_account,'QA-C','own-billed Forhandlerkunde supported');
+  await db.exec('reset role');
+  check(await scalar('select md5(jsonb_agg(jsonb_build_array(account_number,billing_account_id) order by id)::text) as value from dealer_accounts'),billingBefore,'all billing accounts preserved');
+  check(await scalar('select md5(row_to_json(d)::text) as value from dealer_accounts d where id=$1',[service]),fixedProfile,'entire service account still unchanged after switch/end');
+  // All canonical types: missing C5 evidence also does not block Portal approval.
+  for (const type of ['importer_has_dealer','importer_has_service_partner','importer_has_dealer_customer',
+    'dealer_has_service_partner','dealer_has_dealer_customer','service_partner_has_dealer_customer','service_partner_has_dealer']) {
+    const [sourceType,targetType]=type.split('_has_'); const from=randomUUID(),to=randomUUID();
+    await db.query(`insert into dealer_accounts(id,account_number,company_name,dealer_type,is_active,is_deleted,is_blocked,status)
+      values($1,$2,'Type source',$3,true,false,false,'active'),($4,$5,'Type target',$6,true,false,false,'active')`,[from,from,sourceType,to,to,targetType]);
+    await typed(params(to,0,'ACTIVATE',from,type));
+    check((await scalar('select partner_cooperation_history($1) as value',[to])).events[0].relation_type,type,'valid '+type+' with no invoice source');
+  }
+  // Hierarchy cycle via an existing legacy parent pointer fails atomically.
+  const cycleDealer=randomUUID(),cycleService=randomUUID();
+  await db.query(`insert into dealer_accounts(id,account_number,company_name,dealer_type,parent_account_number,is_active,is_deleted,is_blocked)
+    values($1,'CYCLE-D','Cycle dealer','dealer','CYCLE-S',true,false,false),($2,'CYCLE-S','Cycle service','service_partner',null,true,false,false)`,[cycleDealer,cycleService]);
+  await reject(typed(params(cycleService,0,'ACTIVATE',cycleDealer,'dealer_has_service_partner')),/COOPERATION_CYCLE/);
+  check((await scalar('select partner_cooperation_history($1) as value',[cycleService])).version,0,'cycle rolls back audit and relationship atomically');
   console.log(`Partner cooperation lifecycle/RLS/history: ${checks} checks PASS`);
 } finally { await db.close(); }
