@@ -68,6 +68,8 @@ function mount(path = '/portal/loans/case') {
 beforeEach(() => {
   vi.resetAllMocks();
   identity.role = 'timan_backend';
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+  Element.prototype.scrollIntoView = vi.fn();
   mocks.getLoanCase.mockResolvedValue({ loanCase: loan, items: [item], photos: [photo] });
   mocks.listLoanCaseHistory.mockResolvedValue([]);
   mocks.listLoanSellers.mockResolvedValue([{ id: 'seller', display_name: 'QA Seller', initials: 'QA' }]);
@@ -77,7 +79,7 @@ beforeEach(() => {
   mocks.listLoanCases.mockResolvedValue([{ ...loan, status: 'READY_FOR_REVIEW', asset_count: 1,
     partner_name: 'QA Partner', responsible_name: 'QA Seller' }]);
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('Loan form interactions', () => {
   it('shows cancel only for Backend when server confirms never-issued eligibility', async () => {
@@ -322,5 +324,67 @@ describe('Loan form interactions', () => {
     mocks.getLoanCase.mockResolvedValue({ loanCase: { ...loan, status: 'READY_FOR_REVIEW', serial_numbers_confirmed_at: '2026-10-07T12:00:00Z' }, items: [item], photos: [photo] });
     mount();
     expect(await screen.findByRole('region', { name: 'Klar til intern kontrol' })).toHaveTextContent('Jeg bekræfter, at serienummer eller Brik nr.');
+  });
+
+  it('selects from the existing seller-scoped partner list and reloads only that partner contacts', async () => {
+    mocks.listLoanPartners.mockResolvedValue([
+      { id: 'partner', company_name: 'QA Partner', account_number: 'QA' },
+      { id: 'partner-new', company_name: 'AB Lauridsen Maskiner ApS', account_number: '10295' },
+    ]);
+    mocks.listLoanContacts.mockImplementation(async (id: string) => id === 'partner-new'
+      ? [{ id: 'contact-new', name: 'QA new contact' }] : [{ id: 'contact', name: 'QA Contact' }]);
+    mount(); await screen.findByText('QA-LOAN');
+    await waitFor(() => expect(screen.getByLabelText('Kontaktperson')).toHaveValue('contact'));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Samarbejdspartner' }));
+    fireEvent.change(screen.getByPlaceholderText('Søg forhandler eller kontonummer...'), { target: { value: '10295' } });
+    expect(screen.getByLabelText('Kontaktperson')).toHaveValue('contact');
+    fireEvent.click(await screen.findByRole('option', { name: '10295 · AB Lauridsen Maskiner ApS' }));
+    await screen.findByRole('option', { name: 'QA new contact' });
+    expect(screen.getByLabelText('Kontaktperson')).toHaveValue('');
+    expect(mocks.listLoanContacts).toHaveBeenCalledWith('partner-new');
+    expect(mocks.listLoanPartners.mock.calls.every(([seller]) => seller === 'seller')).toBe(true);
+    expect(mocks.updateLoanCaseRelationships).not.toHaveBeenCalled();
+  });
+
+  it('saves canonical partner/contact IDs and hydrates the same selected partner on reopen', async () => {
+    const partner = { id: 'partner-new', company_name: 'AB Lauridsen Maskiner ApS', account_number: '10295' };
+    mocks.listLoanPartners.mockResolvedValue([{ id: 'partner', company_name: 'QA Partner', account_number: 'QA' }, partner]);
+    mocks.listLoanContacts.mockImplementation(async (id: string) => id === 'partner-new'
+      ? [{ id: 'contact-new', name: 'QA new contact' }] : [{ id: 'contact', name: 'QA Contact' }]);
+    const mounted = mount(); await screen.findByText('QA-LOAN');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Samarbejdspartner' })).toHaveTextContent('QA Partner'));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Samarbejdspartner' }));
+    fireEvent.click(await screen.findByRole('option', { name: '10295 · AB Lauridsen Maskiner ApS' }));
+    await screen.findByRole('option', { name: 'QA new contact' });
+    fireEvent.change(screen.getByLabelText('Kontaktperson'), { target: { value: 'contact-new' } });
+    const saved = { ...loan, dealer_account_id: partner.id, dealer_contact_id: 'contact-new' };
+    mocks.updateLoanCaseRelationships.mockImplementation(async () => { mocks.getLoanCase.mockResolvedValue({ loanCase: saved, items: [item], photos: [photo] }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
+    await screen.findByText('Kladden er gemt.');
+    expect(mocks.updateLoanCaseRelationships).toHaveBeenCalledWith('case', { sellerId: 'seller', partnerId: 'partner-new', contactId: 'contact-new' });
+    mounted.unmount(); mount(); await screen.findByText('QA-LOAN');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Samarbejdspartner' })).toHaveTextContent('10295 · AB Lauridsen Maskiner ApS'));
+    await waitFor(() => expect(screen.getByLabelText('Kontaktperson')).toHaveValue('contact-new'));
+  });
+
+  it('clears dependent choices on seller change and ignores an old in-flight partner response', async () => {
+    let oldResponse!: (partners: unknown[]) => void;
+    mocks.listLoanSellers.mockResolvedValue([{ id: 'seller', display_name: 'QA Seller', initials: 'QA' }, { id: 'seller-next', display_name: 'Next seller', initials: 'QN' }]);
+    mocks.listLoanPartners.mockImplementation((seller: string) => seller === 'seller'
+      ? new Promise((resolve) => { oldResponse = resolve; })
+      : Promise.resolve([{ id: 'new-scope', company_name: 'New scoped partner', account_number: 'NEXT' }]));
+    mount('/portal/loans/new');
+    await screen.findByRole('option', { name: 'QA · QA Seller' });
+    expect(screen.getByRole('combobox', { name: 'Samarbejdspartner' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Ansvarlig Timan-sælger'), { target: { value: 'seller' } });
+    await waitFor(() => expect(mocks.listLoanPartners).toHaveBeenCalledWith('seller'));
+    fireEvent.change(screen.getByLabelText('Ansvarlig Timan-sælger'), { target: { value: 'seller-next' } });
+    await waitFor(() => expect(mocks.listLoanPartners).toHaveBeenCalledWith('seller-next'));
+    await act(async () => oldResponse([{ id: 'old-scope', company_name: 'Old scoped partner', account_number: 'OLD' }]));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Samarbejdspartner' }));
+    expect(await screen.findByRole('option', { name: 'NEXT · New scoped partner' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Old scoped partner/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Kontaktperson')).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: 'Samarbejdspartner' })).toHaveTextContent('Vælg samarbejdspartner');
   });
 });

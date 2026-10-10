@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import LoanShell from '@/pages/loans/LoanShell';
 import LoanStockPanel from '@/pages/loans/LoanStockPanel';
 import LoanCancelDialog from '@/pages/loans/LoanCancelDialog';
+import LoanPartnerCombobox from '@/pages/loans/LoanPartnerCombobox';
 import { addFabricLoanAsset } from '@/lib/fabricLoanStockService';
 import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
 import { useLanguage } from '@/context/LanguageContext';
@@ -148,17 +149,23 @@ export default function LoanCasePage() {
   }, [caseId, label, refresh]);
   useEffect(() => {
     if (!canManageCase || !sellerId) { setPartners([]); return; }
+    let active = true;
     void listLoanPartners(sellerId).then((next) => {
+      if (!active) return;
       setPartners(next);
       if (partnerId && !next.some((partner) => partner.id === partnerId)) { setPartnerId(''); setContactId(''); }
-    }).catch(() => setError(label('loansLoadError')));
+    }).catch(() => { if (active) setError(label('loansLoadError')); });
+    return () => { active = false; };
   }, [canManageCase, label, partnerId, sellerId]);
   useEffect(() => {
     if (!canManageCase || !partnerId) { setContacts([]); return; }
+    let active = true;
     void listLoanContacts(partnerId).then((next) => {
+      if (!active) return;
       setContacts(next);
       if (contactId && !next.some((contact) => contact.id === contactId)) setContactId('');
-    }).catch(() => setError(label('loansLoadError')));
+    }).catch(() => { if (active) setError(label('loansLoadError')); });
+    return () => { active = false; };
   }, [canManageCase, contactId, label, partnerId]);
 
   const dateRangeValid = isLoanDateRangeValid(loanDate || null, expectedReturn || null);
@@ -353,8 +360,8 @@ export default function LoanCasePage() {
         <h2 className="mb-4 text-sm font-semibold uppercase text-slate-700">{label('loansAgreement')}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {isNew || (canAdministerCase && loanCase?.status === 'DRAFT') ? <>
-            <Field label={label('loansSeller')} invalid={validationIssues.includes('seller') && !sellerId} error={label('loansRequiredSeller')}><select className={controlClass(validationIssues.includes('seller') && !sellerId)} value={sellerId} onChange={(event) => { setSellerId(event.target.value); setPartnerId(''); setContactId(''); }}><option value="">{label('loansSelectSeller')}</option>{sellers.map((seller) => <option key={seller.id} value={seller.id}>{seller.initials} · {seller.display_name}</option>)}</select></Field>
-            <Field label={label('loansPartner')} invalid={validationIssues.includes('partner') && !partnerId} error={label('loansRequiredPartner')}><select className={controlClass(validationIssues.includes('partner') && !partnerId)} value={partnerId} onChange={(event) => { setPartnerId(event.target.value); setContactId(''); }} disabled={!sellerId}><option value="">{label('loansSelectPartner')}</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.account_number} · {partner.company_name}</option>)}</select></Field>
+            <Field label={label('loansSeller')} invalid={validationIssues.includes('seller') && !sellerId} error={label('loansRequiredSeller')}><select className={controlClass(validationIssues.includes('seller') && !sellerId)} value={sellerId} onChange={(event) => { setSellerId(event.target.value); setPartnerId(''); setContactId(''); setPartners([]); setContacts([]); }}><option value="">{label('loansSelectSeller')}</option>{sellers.map((seller) => <option key={seller.id} value={seller.id}>{seller.initials} · {seller.display_name}</option>)}</select></Field>
+            <Field label={label('loansPartner')} invalid={validationIssues.includes('partner') && !partnerId} error={label('loansRequiredPartner')}><LoanPartnerCombobox key={sellerId} partners={partners} value={partnerId} onChange={(id) => { setPartnerId(id); setContactId(''); setContacts([]); }} label={label('loansPartner')} placeholder={label('loansSelectPartner')} disabled={!sellerId || busy || !canManageCase || (!isNew && loanCase?.status !== 'DRAFT')} invalid={validationIssues.includes('partner') && !partnerId} /></Field>
             <Field label={label('loansContact')} invalid={validationIssues.includes('contact') && !contactId} error={label('loansRequiredContact')}><select className={controlClass(validationIssues.includes('contact') && !contactId)} value={contactId} onChange={(event) => setContactId(event.target.value)} disabled={!partnerId || contacts.length === 0}><option value="">{label('loansSelectContact')}</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}{contact.role_title ? ` · ${contact.role_title}` : ''}</option>)}</select>{partnerId && contacts.length === 0 && <p className="mt-1 text-xs text-amber-800">{label('loansNoContacts')}</p>}</Field>
           </> : <>
             <Info label={label('loansSeller')} value={sellers.find((seller) => seller.id === sellerId)?.display_name ?? sellerId} />
