@@ -1,10 +1,13 @@
 # Cooperation is independent of C5 billing
 
-Status: implementation and isolated QA prepared; production migration and
-Reesink → #10082 activation are **not applied**. The production schema release
-was rejected by automatic approval review because it changes functions,
-triggers, audit columns and authenticated RPC permissions. Obtain explicit user
-approval for that release and for the concrete relation before retrying.
+Current status, 2026-10-10: the explicitly approved cooperation and billing-branch
+migrations are applied in production. Reesink → #10082 remains **inactive**.
+Timan has since approved the intended limited access model; its final concrete
+acceptance audit is **BLOCKED**, so production activation is not requested.
+See [the current access audit](reesink-service-partner-access-audit.md) for exact
+SQL/RLS gaps, missing service-case sources and the activation prerequisites.
+The release/activation steps and broad access consequences below record the
+earlier preparation; the current audit supersedes those assumptions.
 No Lovable build or credits were used.
 
 This continues the local Servicepartner preparation at `845f77dd`, reusing its

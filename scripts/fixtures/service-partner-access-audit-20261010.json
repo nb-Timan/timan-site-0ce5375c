@@ -1,0 +1,292 @@
+{
+  "auditedAt": "2026-10-10",
+  "project": "rdodyoixxybiozvmuqon",
+  "classification": "Read-only SQL definitions and availability, no production row data or secrets",
+  "functions": [
+    {
+      "name": "can_access_partnerdata_account",
+      "definition": "CREATE OR REPLACE FUNCTION public.can_access_partnerdata_account(p_dealer_account_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select coalesce(bool_or(\n    public.can_edit_partnerdata_account_as(p_dealer_account_id, actor.id)\n  ), false)\n  from public.current_timan_app_user() actor;\n$function$\n"
+    },
+    {
+      "name": "current_timan_app_user",
+      "definition": "CREATE OR REPLACE FUNCTION public.current_timan_app_user()\n RETURNS TABLE(id uuid, auth_user_id uuid, email text, display_name text, portal_role text, dealer_number text, initials text)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select\n    au.id,\n    au.auth_user_id,\n    au.email,\n    coalesce(au.display_name, au.full_name, au.email) as display_name,\n    coalesce(au.portal_role::text, au.role::text) as portal_role,\n    au.dealer_number,\n    au.initials\n  from public.app_users au\n  where (\n      au.auth_user_id = auth.uid()\n      or lower(trim(au.email)) = lower(trim(coalesce(auth.jwt() ->> 'email', '')))\n    )\n    and coalesce(au.is_active, true) = true\n    and coalesce(au.approved, true) = true\n  limit 1;\n$function$\n"
+    },
+    {
+      "name": "resolve_collaboration_manager_accounts",
+      "definition": "CREATE OR REPLACE FUNCTION public.resolve_collaboration_manager_accounts()\n RETURNS TABLE(id uuid, account_number text, company_name text, branch_name text)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\r\n  with caller as (\r\n    select\r\n      au.id,\r\n      au.auth_user_id,\r\n      au.email,\r\n      coalesce(au.portal_role::text, au.role) as portal_role,\r\n      au.dealer_number,\r\n      au.organization_access_role\r\n    from public.app_users au\r\n    where coalesce(au.approved, false) = true\r\n      and coalesce(au.is_active, false) = true\r\n      and (\r\n        au.auth_user_id = auth.uid()\r\n        or lower(trim(au.email)) = lower(trim(coalesce(auth.jwt() ->> 'email', '')))\r\n      )\r\n    order by (au.auth_user_id = auth.uid()) desc\r\n    limit 1\r\n  ),\r\n  own as (\r\n    select da.id, da.account_number, da.company_name, da.branch_name\r\n    from caller c\r\n    join public.dealer_accounts da\r\n      on da.account_number = c.dealer_number\r\n    where c.organization_access_role = 'collaboration_manager'\r\n      and c.portal_role in ('timan_importer','timan_dealer','timan_service_partner','dealer_customer','dealer_user')\r\n      and coalesce(da.is_active, true) = true\r\n      and coalesce(da.is_blocked, false) = false\r\n      and coalesce(da.is_deleted, false) = false\r\n      and coalesce(da.status, 'active') = 'active'\r\n      and not public.is_protected_internal_crm_account(da.account_number, da.company_name, da.branch_name)\r\n  ),\r\n  scoped as (\r\n    select own.id, own.account_number, own.company_name, own.branch_name\r\n    from own\r\n\r\n    union\r\n\r\n    select child.id, child.account_number, child.company_name, child.branch_name\r\n    from own\r\n    join public.dealer_accounts child\r\n      on child.parent_account_number = own.account_number\r\n    where coalesce(child.is_active, true) = true\r\n      and coalesce(child.is_blocked, false) = false\r\n      and coalesce(child.is_deleted, false) = false\r\n      and coalesce(child.status, 'active') = 'active'\r\n      and not public.is_protected_internal_crm_account(child.account_number, child.company_name, child.branch_name)\r\n\r\n    union\r\n\r\n    select target.id, target.account_number, target.company_name, target.branch_name\r\n    from own\r\n    join public.partner_account_relations par\r\n      on par.source_account_id = own.id\r\n     and par.active = true\r\n    join public.dealer_accounts target\r\n      on target.id = par.target_account_id\r\n    where coalesce(target.is_active, true) = true\r\n      and coalesce(target.is_blocked, false) = false\r\n      and coalesce(target.is_deleted, false) = false\r\n      and coalesce(target.status, 'active') = 'active'\r\n      and not public.is_protected_internal_crm_account(target.account_number, target.company_name, target.branch_name)\r\n  )\r\n  select distinct scoped.id, scoped.account_number, scoped.company_name, scoped.branch_name\r\n  from scoped\r\n  where scoped.account_number is not null;\r\n$function$\n"
+    },
+    {
+      "name": "service_visible_dealer_ids",
+      "definition": "CREATE OR REPLACE FUNCTION public.service_visible_dealer_ids()\n RETURNS SETOF uuid\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  with me as (\n    select au.*\n    from public.app_users au\n    where coalesce(au.is_active, false)\n      and coalesce(au.approved, false)\n      and (au.auth_user_id = auth.uid()\n        or lower(trim(au.email)) = lower(trim(coalesce(auth.jwt() ->> 'email', ''))))\n    limit 1\n  )\n  select public.warranty_visible_dealer_ids()\n\n  union\n\n  select scoped.id\n  from public.resolve_collaboration_manager_accounts() scoped\n  join me on me.organization_access_role = 'collaboration_manager'\n\n  union\n\n  select relation.target_account_id\n  from public.partner_account_relations relation\n  join public.dealer_accounts service_partner on service_partner.id = relation.source_account_id\n  join me on lower(trim(service_partner.account_number)) = lower(trim(me.dealer_number))\n  where me.portal_role::text = 'timan_service_partner'\n    and relation.relation_type = 'service_partner_has_dealer'\n    and relation.active = true;\n$function$\n"
+    },
+    {
+      "name": "app_user_owns_row",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_user_owns_row(_auth_user_id uuid, _email text)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\n  select\n    (_auth_user_id is not null and _auth_user_id = auth.uid())\n    or (\n      auth.uid() is not null\n      and _email is not null\n      and lower(_email) = lower(nullif(auth.jwt() ->> 'email', ''))\n    )\n$function$\n"
+    },
+    {
+      "name": "can_edit_partnerdata_account_as",
+      "definition": "CREATE OR REPLACE FUNCTION public.can_edit_partnerdata_account_as(p_dealer_account_id uuid, p_effective_actor_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1\n    from public.dealer_accounts da\n    join public.app_users actor on actor.id = p_effective_actor_id\n    where da.id = p_dealer_account_id\n      and coalesce(actor.approved, false) = true\n      and coalesce(actor.is_active, false) = true\n      and (\n        (\n          actor.portal_role::text in ('timan_backend', 'timan_service')\n          and public.can_maintain_partnerdata_as(actor.id)\n        )\n        or (\n          actor.portal_role::text = 'timan_seller'\n          and public.can_maintain_partnerdata_as(actor.id)\n          and da.id in (\n            select scope.dealer_account_id\n            from public.partnerdata_seller_account_scope(actor.id) scope\n          )\n        )\n        or (\n          actor.portal_role::text in (\n            'timan_dealer',\n            'timan_importer',\n            'timan_service_partner',\n            'dealer_customer',\n            'dealer_user'\n          )\n          and nullif(trim(actor.dealer_number), '') is not null\n          and da.account_number = actor.dealer_number\n        )\n      )\n  );\n$function$\n"
+    },
+    {
+      "name": "is_timan_global_warranty",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_timan_global_warranty()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select exists (\n    select 1\n    from public.app_users au\n    where au.portal_role in ('timan_backend'::public.portal_role, 'timan_service'::public.portal_role)\n      and coalesce(au.is_active, false) = true\n      and coalesce(au.approved, false) = true\n      and (\n        au.auth_user_id = auth.uid()\n        or lower(trim(au.email)) = lower(trim(coalesce(auth.jwt() ->> 'email', '')))\n      )\n  );\n$function$\n"
+    },
+    {
+      "name": "is_timan_staff",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_timan_staff(_uid uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\n  select exists (\n    select 1\n      from public.app_users u\n     where _uid is not null\n       and (\n         u.auth_user_id = _uid\n         or lower(u.email) = lower(nullif(auth.jwt() ->> 'email', ''))\n       )\n       and u.portal_role in (\n         'timan_backend'::public.portal_role,\n         'timan_seller'::public.portal_role,\n         'timan_service'::public.portal_role\n       )\n       and coalesce(u.approved, false) = true\n       and coalesce(u.is_active, false) = true\n  )\n$function$\n"
+    },
+    {
+      "name": "service_is_global_actor",
+      "definition": "CREATE OR REPLACE FUNCTION public.service_is_global_actor()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select public.is_timan_global_warranty();\n$function$\n"
+    },
+    {
+      "name": "warranty_visible_dealer_ids",
+      "definition": "CREATE OR REPLACE FUNCTION public.warranty_visible_dealer_ids()\n RETURNS SETOF uuid\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  with me as (\n    select au.*\n    from public.app_users au\n    where coalesce(au.is_active, false) = true\n      and coalesce(au.approved, false) = true\n      and (\n        au.auth_user_id = auth.uid()\n        or lower(trim(au.email)) = lower(trim(coalesce(auth.jwt() ->> 'email', '')))\n      )\n    limit 1\n  )\n  select da.id\n    from public.dealer_accounts da\n    join me on lower(trim(me.dealer_number)) = lower(trim(da.account_number))\n   where me.portal_role in ('timan_dealer'::public.portal_role, 'dealer_user'::public.portal_role, 'timan_importer'::public.portal_role, 'timan_service_partner'::public.portal_role)\n\n  union\n\n  select child.id\n    from public.dealer_accounts child\n    join public.dealer_accounts parent on lower(trim(child.parent_account_number)) = lower(trim(parent.account_number))\n    join me on lower(trim(me.dealer_number)) = lower(trim(parent.account_number))\n   where me.portal_role in ('timan_importer'::public.portal_role, 'timan_service_partner'::public.portal_role)\n\n  union\n\n  select da.id\n    from public.dealer_accounts da\n    join me on me.portal_role = 'timan_seller'::public.portal_role\n   where lower(trim(coalesce(da.assigned_seller_email, ''))) = lower(trim(coalesce(me.email, '')))\n     and coalesce(da.assigned_seller_email, '') <> ''\n\n  union\n\n  select da.id\n    from public.dealer_accounts da\n    join me on me.portal_role = 'timan_seller'::public.portal_role\n   where coalesce(da.assigned_seller_email, '') = ''\n     and lower(trim(coalesce(da.assigned_seller_initials, ''))) = lower(trim(coalesce(me.initials, '')))\n     and coalesce(da.assigned_seller_initials, '') <> '';\n$function$\n"
+    },
+    {
+      "name": "can_maintain_partnerdata_as",
+      "definition": "CREATE OR REPLACE FUNCTION public.can_maintain_partnerdata_as(p_actor_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select exists (\n    select 1\n    from public.app_users actor\n    where actor.id = p_actor_id\n      and coalesce(actor.approved, false) = true\n      and coalesce(actor.is_active, false) = true\n      and actor.portal_role::text in ('timan_backend', 'timan_seller', 'timan_service')\n      and (\n        actor.portal_role::text = 'timan_backend'\n        or case\n          when actor.allowed_areas is not null\n            then 'dealer_data' = any(actor.allowed_areas)\n          when actor.allowed_modules is not null\n            then 'dealer_data' = any(actor.allowed_modules)\n          when actor.module_access is not null\n            then 'dealer_data' = any(actor.module_access)\n          else true\n        end\n      )\n  );\n$function$\n"
+    },
+    {
+      "name": "list_partnerdata_accounts",
+      "definition": "CREATE OR REPLACE FUNCTION public.list_partnerdata_accounts(p_effective_user_id uuid DEFAULT NULL::uuid, p_include_deleted boolean DEFAULT false)\n RETURNS SETOF dealer_accounts\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  v_effective_actor_id uuid;\nbegin\n  v_effective_actor_id := public.partnerdata_effective_actor_id(p_effective_user_id);\n\n  return query\n    select da.*\n    from public.dealer_accounts da\n    where (p_include_deleted or not coalesce(da.is_deleted, false))\n      and public.can_edit_partnerdata_account_as(da.id, v_effective_actor_id)\n    order by da.company_name asc;\nend;\n$function$\n"
+    },
+    {
+      "name": "partnerdata_effective_actor_id",
+      "definition": "CREATE OR REPLACE FUNCTION public.partnerdata_effective_actor_id(p_effective_user_id uuid DEFAULT NULL::uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_actor public.app_users%rowtype;\n  v_effective public.app_users%rowtype;\nbegin\n  select au.* into v_actor\n  from public.app_users au\n  join public.current_timan_app_user() current_actor on current_actor.id = au.id;\n\n  if not found then\n    raise exception 'Authenticated Timan portal user not found'\n      using errcode = '42501';\n  end if;\n\n  if p_effective_user_id is null or p_effective_user_id = v_actor.id then\n    return v_actor.id;\n  end if;\n\n  if coalesce(v_actor.portal_role::text, v_actor.role::text) <> 'timan_backend' then\n    raise exception 'Only Timan Backend may use a View-as Partnerdata scope'\n      using errcode = '42501';\n  end if;\n\n  select * into v_effective\n  from public.app_users au\n  where au.id = p_effective_user_id\n    and coalesce(au.approved, false) = true\n    and coalesce(au.is_active, false) = true\n    and au.portal_role::text in (\n      'timan_backend', 'timan_seller', 'timan_service',\n      'timan_dealer', 'timan_importer', 'timan_service_partner',\n      'dealer_customer', 'dealer_user'\n    );\n\n  if not found then\n    raise exception 'Requested View-as Partnerdata user is not active'\n      using errcode = '42501';\n  end if;\n\n  return v_effective.id;\nend;\n$function$\n"
+    },
+    {
+      "name": "current_user_dealer_number",
+      "signature": "current_user_dealer_number()",
+      "definition": "CREATE OR REPLACE FUNCTION public.current_user_dealer_number()\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select dealer_number\n  from public.app_users\n  where auth_user_id = auth.uid()\n  limit 1;\n$function$\n"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "DELETE",
+      "qual": "is_timan_backend()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_delete_timan_backend",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_insert_timan_staff",
+      "schemaname": "public",
+      "with_check": "is_timan_backend()"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(account_number IN ( SELECT resolve_collaboration_manager_accounts.account_number\n   FROM resolve_collaboration_manager_accounts() resolve_collaboration_manager_accounts(id, account_number, company_name, branch_name)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_select_collaboration_manager_organization",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((account_number IS NOT NULL) AND (account_number = current_user_dealer_number()))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_select_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_partnerdata_account(id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_select_scoped",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((account_number IS NOT NULL) AND (account_number = current_user_dealer_number()))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_update_own",
+      "schemaname": "public",
+      "with_check": "((account_number IS NOT NULL) AND (account_number = current_user_dealer_number()))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "can_access_partnerdata_account(id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "dealer_accounts",
+      "permissive": "PERMISSIVE",
+      "policyname": "dealer_accounts_update_timan_staff",
+      "schemaname": "public",
+      "with_check": "can_access_partnerdata_account(id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((dealer_number IN ( SELECT resolve_collaboration_manager_accounts.account_number\n   FROM resolve_collaboration_manager_accounts() resolve_collaboration_manager_accounts(id, account_number, company_name, branch_name))) AND (COALESCE((portal_role)::text, role) = ANY (ARRAY['timan_importer'::text, 'timan_dealer'::text, 'timan_service_partner'::text, 'dealer_customer'::text, 'dealer_user'::text])))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "app_users",
+      "permissive": "PERMISSIVE",
+      "policyname": "app_users_select_collaboration_manager_organization",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "app_user_owns_row(auth_user_id, email)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "app_users",
+      "permissive": "PERMISSIVE",
+      "policyname": "app_users_select_self",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "is_timan_staff(auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "app_users",
+      "permissive": "PERMISSIVE",
+      "policyname": "app_users_select_staff",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "app_user_owns_row(auth_user_id, email)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "app_users",
+      "permissive": "PERMISSIVE",
+      "policyname": "app_users_update_self_profile",
+      "schemaname": "public",
+      "with_check": "app_user_owns_row(auth_user_id, email)"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM app_users actor\n  WHERE ((COALESCE(actor.approved, false) = true) AND (COALESCE(actor.is_active, false) = true) AND ((actor.auth_user_id = ( SELECT auth.uid() AS uid)) OR (lower(TRIM(BOTH FROM actor.email)) = lower(TRIM(BOTH FROM COALESCE((( SELECT auth.jwt() AS jwt) ->> 'email'::text), ''::text))))) AND ((COALESCE((actor.portal_role)::text, actor.role) = ANY (ARRAY['timan_backend'::text, 'timan_service'::text])) OR ((COALESCE((actor.portal_role)::text, actor.role) = 'timan_seller'::text) AND ((configurations.assigned_seller_id = actor.id) OR (lower(COALESCE(configurations.seller_email, ''::text)) = lower(actor.email)) OR ((configurations.created_by_user_id = actor.id) OR (configurations.created_by_user_id = actor.auth_user_id)))) OR ((COALESCE((actor.portal_role)::text, actor.role) = ANY (ARRAY['timan_importer'::text, 'timan_dealer'::text, 'timan_service_partner'::text, 'dealer_customer'::text, 'dealer_user'::text])) AND (configurations.dealer_number = actor.dealer_number)) OR (configurations.dealer_number IN ( SELECT scoped.account_number\n           FROM resolve_collaboration_manager_accounts() scoped(id, account_number, company_name, branch_name)))))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "configurations",
+      "permissive": "PERMISSIVE",
+      "policyname": "configurations_scoped_access",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM app_users actor\n  WHERE ((COALESCE(actor.approved, false) = true) AND (COALESCE(actor.is_active, false) = true) AND ((actor.auth_user_id = ( SELECT auth.uid() AS uid)) OR (lower(TRIM(BOTH FROM actor.email)) = lower(TRIM(BOTH FROM COALESCE((( SELECT auth.jwt() AS jwt) ->> 'email'::text), ''::text))))) AND ((COALESCE((actor.portal_role)::text, actor.role) = ANY (ARRAY['timan_backend'::text, 'timan_service'::text])) OR ((COALESCE((actor.portal_role)::text, actor.role) = 'timan_seller'::text) AND ((configurations.assigned_seller_id = actor.id) OR (lower(COALESCE(configurations.seller_email, ''::text)) = lower(actor.email)) OR ((configurations.created_by_user_id = actor.id) OR (configurations.created_by_user_id = actor.auth_user_id)))) OR ((COALESCE((actor.portal_role)::text, actor.role) = ANY (ARRAY['timan_importer'::text, 'timan_dealer'::text, 'timan_service_partner'::text, 'dealer_customer'::text, 'dealer_user'::text])) AND (configurations.dealer_number = actor.dealer_number))))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(dealer_number IN ( SELECT resolve_collaboration_manager_accounts.account_number\n   FROM resolve_collaboration_manager_accounts() resolve_collaboration_manager_accounts(id, account_number, company_name, branch_name)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "configurations",
+      "permissive": "PERMISSIVE",
+      "policyname": "configurations_select_collaboration_manager_organization",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(service_is_global_actor() OR (dealer_account_id IN ( SELECT service_visible_dealer_ids() AS service_visible_dealer_ids)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "service_registrations",
+      "permissive": "PERMISSIVE",
+      "policyname": "service_registrations_select_scoped",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "is_timan_global_warranty()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "warranty_registrations",
+      "permissive": "PERMISSIVE",
+      "policyname": "wr_internal_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((dealer_account_id IS NOT NULL) AND (dealer_match_status = 'matched'::text) AND (dealer_account_id IN ( SELECT warranty_visible_dealer_ids() AS warranty_visible_dealer_ids)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "warranty_registrations",
+      "permissive": "PERMISSIVE",
+      "policyname": "wr_scoped_select",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "availability": [
+    {
+      "name": "machines",
+      "present": false
+    },
+    {
+      "name": "service_tickets",
+      "present": false
+    },
+    {
+      "name": "service_claims",
+      "present": false
+    },
+    {
+      "name": "machine_activity_log",
+      "present": false
+    },
+    {
+      "name": "machine_documents",
+      "present": false
+    },
+    {
+      "name": "warranty_registrations",
+      "present": true
+    },
+    {
+      "name": "warranty_submissions",
+      "present": true
+    },
+    {
+      "name": "service_registrations",
+      "present": true
+    }
+  ]
+}

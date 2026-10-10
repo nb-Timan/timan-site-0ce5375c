@@ -305,5 +305,11 @@ try {
     values($1,'CYCLE-D','Cycle dealer','dealer','CYCLE-S',true,false,false),($2,'CYCLE-S','Cycle service','service_partner',null,true,false,false)`,[cycleDealer,cycleService]);
   await reject(typed(params(cycleService,0,'ACTIVATE',cycleDealer,'dealer_has_service_partner')),/COOPERATION_CYCLE/);
   check((await scalar('select partner_cooperation_history($1) as value',[cycleService])).version,0,'cycle rolls back audit and relationship atomically');
+  if (process.argv.includes('--service-access-audit')) {
+    const { auditServicePartnerAccess } = await import('./audit-service-partner-access.mjs');
+    const audit = await auditServicePartnerAccess({ db, backendAuth: auth, reesinkAuth, serviceAuth, reesink, service });
+    console.log(JSON.stringify(audit, null, 2));
+    if (audit.accessModelAcceptance !== 'PASS') process.exitCode = 2;
+  }
   console.log(`Partner cooperation lifecycle/RLS/history: ${checks} checks PASS`);
 } finally { await db.close(); }
