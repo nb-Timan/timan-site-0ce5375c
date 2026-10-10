@@ -65,14 +65,24 @@ UUID are Portal-owned decisions. The 12041 -> 12040 -> 10295 invoice chain is
 separate C5 evidence, not a Portal parent relationship. This implementation
 does not create JE Service or change any operational partner relationship.
 
-Permanent-override verification: 112 focused tests and 69 review SQL/RLS checks
+New decisions additionally capture the original C5 type and invoice account
+in separate columns and the original invoice chain as ordered relational child
+rows. Migration `20261010112321_partner_review_source_evidence.sql` does not
+backfill historical guesses. The Backend preview/history keeps these facts
+separate from the approved Portal parent and current raw C5 facts.
+
+Permanent-override verification: 112 focused tests and 75 review SQL/RLS checks
 plus 35 shadow regression checks PASS. Scoped lint/build/diff checks PASS.
 Typecheck remains at 111 existing diagnostics, with zero new diagnostics
 against 270d16bf. The additive migration is applied to the canonical project.
 A rollback-only production transaction verified JE Service type/relation and
 frozen values through changed source facts and explicit keep-approved save.
-All 18 protected baseline checksums stayed identical; six historical review
-events remain, JE remains version 4 PENDING, and no partner was created.
+All 18 baseline checksums were identical after the first rollback verification.
+At final verification only the independently scheduled Fabric Loans projection
+had refreshed; Portal business data, users, relations and loan records remained
+identical. Six historical review events remain, JE remains version 4 PENDING,
+and no partner was created. Original source evidence was also verified in a
+rollback-only production transaction; no QA approval or source mutation remains.
 
 ## Security
 

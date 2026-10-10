@@ -113,6 +113,7 @@ try {
   const permanent = readFileSync('supabase/migrations/20261010110700_permanent_partner_review_overrides.sql','utf8');
   check(/(?:insert\s+into|update|delete\s+from|truncate)\s+(?:public\.)?(?:app_users|dealer_accounts|partner_account_relations)\b/i.test(permanent),false,'permanent override has no protected write path');
   await db.exec(permanent);
+  await db.exec(readFileSync('supabase/migrations/20261010112321_partner_review_source_evidence.sql','utf8'));
   const effective = account => scalar('select fabric_partner_review_effective($1) as value',[account]);
   check((await effective('12041')).approval_id,decision,'migration preserves historical approval without rewriting it');
   check((await effective('12041')).fields.company_name,'JE Service','changed C5 name does not replace approved original');
@@ -135,6 +136,9 @@ try {
   const correction=await payload('12041','APPROVED',2);
   correction[9]=JSON.stringify({...fields,company_name:{source:'OVERRIDE',value:'Backend corrected JE'},city:{source:'OVERRIDE',value:null}});
   const corrected=await save(correction);
+  check(await scalar('select source_partner_type_code as value from fabric_partner_review_decisions where id=$1',[corrected]),'5','original C5 type captured server-side');
+  check(await scalar('select source_invoice_account_number as value from fabric_partner_review_decisions where id=$1',[corrected]),'12040','original C5 invoice account captured independently');
+  check(await scalar('select jsonb_agg(account_number order by ordinal) as value from fabric_partner_review_invoice_chain where decision_id=$1',[corrected]),['12041','12040','10295'],'original C5 invoice chain preserved as relational audit rows');
   check((await effective('12041')).fields.company_name,'Backend corrected JE','explicit Backend correction persisted separately');
   check((await effective('12041')).fields.city,null,'approved null never falls back to C5');
   const clarifyActive=await payload('12041','NEEDS_CLARIFICATION',3);
@@ -146,6 +150,9 @@ try {
   check(changed.partner_type,'dealer_customer','C5 changed type never overwrites approved Portal type');
   check(changed.parent_dealer_id,parent,'C5 changed invoice account never overwrites approved relation');
   check(changed.needs_recheck,true,'changed source facts require recheck, not automatic deactivation');
+  check(await scalar('select source_partner_type_code as value from fabric_partner_review_decisions where id=$1',[corrected]),'5','new C5 type cannot overwrite original evidence');
+  check(await scalar('select jsonb_agg(account_number order by ordinal) as value from fabric_partner_review_invoice_chain where decision_id=$1',[corrected]),['12041','12040','10295'],'new invoice chain cannot overwrite original audit');
+  await reject(db.exec('delete from fabric_partner_review_invoice_chain'),/IMMUTABLE/);
   const bad=await payload('12041','APPROVED',4);
   bad[9]=JSON.stringify({...fields,city:{source:'OVERRIDE',value:'x'.repeat(1001)}}); await reject(save(bad),/INVALID_FIELD_CHOICES/);
   bad[9]=JSON.stringify({...fields,city:{source:'OVERRIDE',value:'A',seller:'NB'}}); await reject(save(bad),/INVALID_FIELD_CHOICES/);

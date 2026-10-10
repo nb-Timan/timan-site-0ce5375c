@@ -43,6 +43,9 @@ export interface ReviewRow {
   readonly reviewer_name: string | null;
   readonly created_at: string;
   readonly snapshot_id: string | null;
+  readonly source_partner_type_code?: string | null;
+  readonly source_invoice_account_number?: string | null;
+  readonly source_invoice_chain?: readonly { account_number: string; invoice_account_number: string | null }[];
   readonly source_fingerprint: string | null;
   readonly portal_fingerprint: string | null;
   readonly current_source_fingerprint: string | null;

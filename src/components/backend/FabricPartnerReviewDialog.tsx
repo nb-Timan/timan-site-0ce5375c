@@ -99,6 +99,8 @@ export default function FabricPartnerReviewDialog({ row, parents, history, onClo
         {history.map(item => <div key={item.id} className="break-words border-b py-2">
           <p>Version {item.version} · {REVIEW_STATUS_LABELS[item.status]} · {item.reviewer_name ?? item.reviewed_by}</p>
           <p>{new Date(item.created_at).toLocaleString('da-DK')} · Snapshot: {item.snapshot_id ?? '—'}</p><p>{item.comment}</p>
+          <p>C5 ved beslutningen: type {item.source_partner_type_code ?? 'Ikke registreret historisk'} · Fakturakonto {item.source_invoice_account_number ?? '—'}</p>
+          {!!item.source_invoice_chain?.length && <p>Oprindelig C5-fakturakæde: {item.source_invoice_chain.map(link => link.account_number).join(' → ')}</p>}
         </div>)}
       </details>}
       {errors.length > 0 && <div role="alert" className="text-sm text-red-700">{errors.map(error => <p key={error}>{error}</p>)}</div>}
