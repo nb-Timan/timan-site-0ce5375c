@@ -41,7 +41,10 @@ describe('Backend read-only Fabric comparison', () => {
     expect(preview.shadow).toHaveLength(1);
   });
   it('keeps last valid display when preview reload fails', async () => {
-    rpc.mockResolvedValueOnce({ data: preview, error: null }).mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
+    let shadowCalls = 0;
+    rpc.mockImplementation(async name => name === 'fabric_partner_review_preview'
+      ? { data: { reviews: [], contexts: [], parents: [] }, error: null }
+      : ++shadowCalls === 1 ? { data: preview, error: null } : { data: null, error: { message: 'denied' } });
     render(<FabricPartnerComparisonPanel />);
     await screen.findByText('JE Service');
     fireEvent.click(screen.getByRole('button', { name: 'Genindlæs sammenligning' }));
