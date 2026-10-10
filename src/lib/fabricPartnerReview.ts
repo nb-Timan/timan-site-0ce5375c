@@ -48,6 +48,7 @@ export interface ReviewRow {
   readonly source_invoice_chain?: readonly { account_number: string; invoice_account_number: string | null }[];
   readonly source_fingerprint: string | null;
   readonly portal_fingerprint: string | null;
+  readonly materialized_portal_fingerprint?: string | null;
   readonly current_source_fingerprint: string | null;
   readonly current_portal_fingerprint: string | null;
   readonly needs_recheck: boolean;
@@ -101,7 +102,7 @@ export function reviewNeedsRecheck(review: ReviewRow): boolean {
   // The saved/current Portal hashes include parent facts; context hashes do not.
   return review.needs_recheck || !hasFingerprint(review.current_source_fingerprint)
     || review.source_fingerprint !== review.current_source_fingerprint
-    || review.portal_fingerprint !== review.current_portal_fingerprint;
+    || (review.materialized_portal_fingerprint ?? review.portal_fingerprint) !== review.current_portal_fingerprint;
 }
 
 export function buildPartnerReviewRows(

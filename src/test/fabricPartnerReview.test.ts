@@ -50,6 +50,16 @@ const parent: ReviewParent = {
 };
 
 describe('Fabric Partnerdata review decisions', () => {
+  it('uses verified materialization without rewriting original approval fingerprints', () => {
+    const saved = review({ portal_fingerprint: 'before-import', materialized_portal_fingerprint: 'after-import',
+      current_portal_fingerprint: 'after-import' });
+    expect(reviewNeedsRecheck(saved)).toBe(false);
+    expect(saved.portal_fingerprint).toBe('before-import');
+    expect(reviewNeedsRecheck({ ...saved, current_source_fingerprint: 'changed-source' })).toBe(true);
+    expect(reviewNeedsRecheck({ ...saved, current_portal_fingerprint: 'changed-relation' })).toBe(true);
+    expect(reviewNeedsRecheck({ ...saved, needs_recheck: true })).toBe(true);
+    expect(reviewNeedsRecheck({ ...saved, materialized_portal_fingerprint: null })).toBe(true);
+  });
   it('exports the four shared statuses with Danish labels and exactly six writable fields', () => {
     expect(REVIEW_STATUSES).toEqual(['PENDING', 'APPROVED', 'NEEDS_CLARIFICATION', 'IGNORED']);
     expect(REVIEW_STATUS_LABELS.APPROVED).toBe('Godkendt til import');

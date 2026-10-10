@@ -142,5 +142,79 @@ try {
   check(await scalar(`select md5(jsonb_build_array((select jsonb_agg(to_jsonb(d)-'parent_account_number' order by id) from dealer_accounts d),
     (select jsonb_agg(to_jsonb(u) order by id) from app_users u),(select jsonb_agg(to_jsonb(o) order by id) from historical_orders o))::text) as value`),baseline,'UUID/seller/users/historical orders preserved');
   check(await scalar("select relrowsecurity as value from pg_class where relname='partner_cooperation_events'"),true,'audit RLS enabled');
+  await db.exec(file('20261010120531_je_service_controlled_import_pilot'));
+  await db.exec(file('20261010140258_partner_import_materialization_evidence'));
+  await db.exec(file('20261010140302_rostofte_legacy_cooperation_correction'));
+  const legacyCustomer=randomUUID(), kolding=randomUUID(), vedbaek=randomUUID(), koldingAuth=randomUUID();
+  await db.exec(`insert into dealer_accounts(id,account_number,company_name,customer_type_label,assigned_seller_initials,
+    parent_account_number,is_active,is_deleted,is_blocked,status)
+    values('${legacyCustomer}','10363','Rostofte','Forhandlerkunde','EM','10138',true,false,false,'active'),
+      ('${kolding}','10138','Kolding','Servicepartner','EM',null,true,false,false,'active'),
+      ('${vedbaek}','50532','Vedbaek','Forhandler','EM','10138',true,false,false,'active');
+    insert into app_users(id,auth_user_id,email,full_name,portal_role,approved,is_active,dealer_number,organization_access_role)
+      values('${koldingAuth}','${koldingAuth}','kolding@example.invalid','Kolding QA','timan_dealer',true,true,'10138','collaboration_manager');
+    insert into customer_documents values('${legacyCustomer}',1,45678);`);
+  const scopedBaseline=await scalar(`select md5(jsonb_build_array(
+    (select jsonb_agg(to_jsonb(d)-'parent_account_number' order by id) from dealer_accounts d),
+    (select jsonb_agg(to_jsonb(u) order by id) from app_users u),
+    (select jsonb_agg(to_jsonb(o) order by id) from historical_orders o),
+    (select jsonb_agg(to_jsonb(d) order by customer_id) from customer_documents d))::text) as value`);
+  const legacyRows=[...sourceRows,{...sourceRows[2],account_number:'10363',account_raw:'10363',
+    company_name:'Rostofte',c5_invoice_account_number:'10295',source_row_number:4}];
+  await ingest(legacyRows);
+  const legacyPreview=()=>scalar('select partner_cooperation_rostofte_preview() as value');
+  const legacyPlan=await legacyPreview();
+  check(legacyPlan.customer_id,legacyCustomer,'dry-run preserves existing UUID');
+  check(legacyPlan.saved_approval_exists,false,'missing saved approval is explicit, never invented');
+  check(legacyPlan.planned_rows.new_dealer_accounts,0,'legacy correction creates no accounts');
+  const legacyParams=[legacyPlan.source_fingerprint,legacyPlan.portal_fingerprint,
+    legacyPlan.parent_portal_fingerprint,'Explicit Timan legacy correction',randomUUID(),true];
+  const legacySwitch=params=>scalar('select partner_cooperation_rostofte_switch($1,$2,$3,$4,$5,$6) as value',params);
+  await db.exec('set role anon');
+  await reject(legacyPreview(),/permission denied/); await reject(legacySwitch(legacyParams),/permission denied/);
+  await db.exec('reset role; set role service_role'); await reject(legacySwitch(legacyParams),/permission denied/);
+  await db.exec('reset role; set role authenticated'); await actorUid(koldingAuth);
+  await reject(legacyPreview(),/BACKEND_ONLY/); await reject(legacySwitch(legacyParams),/BACKEND_ONLY/);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[legacyCustomer]),1,'old dealer has only pre-switch legacy access');
+  await actorUid(dealerAuth);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[legacyCustomer]),0,'new dealer has no premature access');
+  await actorUid(auth); await db.exec('reset role');
+  await reject(legacySwitch([...legacyParams.slice(0,5),false]),/EXPLICIT_RELATION_APPROVAL_REQUIRED/);
+  await reject(legacySwitch(['stale',...legacyParams.slice(1)]),/SOURCE_CHANGED/);
+  await db.exec(`create function fail_legacy_event() returns trigger language plpgsql as $$ begin
+    if NEW.customer_id='${legacyCustomer}' then raise exception 'QA_ATOMIC_FAILURE'; end if; return NEW; end $$;
+    create trigger qa_legacy_failure before insert on partner_cooperation_events for each row execute function fail_legacy_event();`);
+  await reject(legacySwitch(legacyParams),/QA_ATOMIC_FAILURE/);
+  check(await scalar("select count(*)::int as value from fabric_partner_review_decisions where account_number='10363'"),0,'failed switch rolls approval back');
+  check(await scalar('select parent_account_number as value from dealer_accounts where id=$1',[legacyCustomer]),'10138','failed switch preserves old access pointer');
+  await db.exec('drop trigger qa_legacy_failure on partner_cooperation_events');
+  const legacyEvent=await legacySwitch(legacyParams);
+  check(await legacySwitch(legacyParams),legacyEvent,'atomic legacy request is idempotent');
+  await reject(legacySwitch([...legacyParams.slice(0,3),'Changed reason',...legacyParams.slice(4)]),/REQUEST_CONFLICT/);
+  check(await scalar('select previous_relation_id as value from partner_cooperation_events where id=$1',[legacyEvent]),null,'no old relationship row/start date fabricated');
+  check(await scalar('select previous_dealer_id as value from partner_cooperation_events where id=$1',[legacyEvent]),kolding,'observed old dealer retained');
+  check(await scalar('select previous_relation_origin as value from partner_cooperation_events where id=$1',[legacyEvent]),'OBSERVED_LEGACY_POINTER','legacy origin explicit');
+  check(await scalar('select parent_account_number as value from dealer_accounts where id=$1',[legacyCustomer]),'10295','canonical pointer switched');
+  check(await scalar('select count(*)::int as value from partner_account_relations where target_account_id=$1',[legacyCustomer]),1,'one permanent relation, no duplicate/fake old relation');
+  check((await scalar("select fabric_partner_review_effective('10363') as value")).needs_recheck,false,'approved switch itself does not produce false recheck');
+  await db.exec('set role authenticated'); await actorUid(koldingAuth);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[legacyCustomer]),0,'old dealer loses canonical RLS access');
+  check(await scalar('select count(*)::int as value from resolve_collaboration_manager_accounts() where id=$1',[vedbaek]),1,'Kolding retains other child access');
+  await actorUid(dealerAuth);
+  check(await scalar('select count(*)::int as value from customer_documents where customer_id=$1',[legacyCustomer]),1,'AB gains only approved customer access');
+  await actorUid(auth); await db.exec('reset role');
+  await ingest(legacyRows);
+  check((await scalar("select fabric_partner_review_effective('10363') as value")).needs_recheck,false,'unchanged refresh preserves approved legacy decision');
+  await ingest(legacyRows.map(row=>row.account_number==='10363'?{...row,c5_invoice_account_number:'10138'}:row));
+  check((await scalar("select fabric_partner_review_effective('10363') as value")).needs_recheck,true,'real source conflict still requires review');
+  check(await scalar('select parent_account_number as value from dealer_accounts where id=$1',[legacyCustomer]),'10295','Fabric never overrides permanent approved relation');
+  await reject(db.exec(`update dealer_accounts set parent_account_number='10138' where id='${legacyCustomer}'`),/LIFECYCLE_REQUIRED/);
+  check(await scalar('select parent_account_number as value from dealer_accounts where id=$1',[vedbaek]),'10138','Vedbaek pointer preserved');
+  check(await scalar('select customer_type_label as value from dealer_accounts where id=$1',[kolding]),'Servicepartner','Kolding type preserved');
+  check(await scalar(`select md5(jsonb_build_array(
+    (select jsonb_agg(to_jsonb(d)-'parent_account_number' order by id) from dealer_accounts d),
+    (select jsonb_agg(to_jsonb(u) order by id) from app_users u),
+    (select jsonb_agg(to_jsonb(o) order by id) from historical_orders o),
+    (select jsonb_agg(to_jsonb(d) order by customer_id) from customer_documents d))::text) as value`),scopedBaseline,'all profile/users/historical documents preserved');
   console.log(`Partner cooperation lifecycle/RLS/history: ${checks} checks PASS`);
 } finally { await db.close(); }
