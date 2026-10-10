@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import FabricPartnerReviewDialog from '@/components/backend/FabricPartnerReviewDialog';
 import { comparePartnerMaster } from '@/lib/fabricPartnerParity';
-import { buildPartnerReviewRows } from '@/lib/fabricPartnerReview';
+import { buildPartnerReviewRows, type ReviewRow } from '@/lib/fabricPartnerReview';
 import type { PartnerShadowRow } from '../../supabase/functions/_shared/fabricPartnerSnapshot';
 const { savePartnerReview } = vi.hoisted(() => ({ savePartnerReview: vi.fn() }));
 vi.mock('@/lib/fabricPartnerReviewService', () => ({ savePartnerReview, partnerReviewError: () => 'Beslutningen kunne ikke gemmes.' }));
@@ -55,5 +55,33 @@ describe('separate Backend review decisions',()=>{
   });
   it('uses viewport-bounded internal scrolling for mobile',()=>{
     open();expect(screen.getByRole('dialog')).toHaveClass('max-h-[90dvh]','overflow-y-auto','w-[calc(100%_-_2rem)]');
+  });
+  it('shows original and current C5 evidence while keeping stale approved values and parent selected',()=>{
+    const approved: ReviewRow = {
+      id:'11111111-1111-4111-8111-111111111111',account_number:'12041',version:1,status:'APPROVED',
+      proposed_partner_type:'dealer_customer',parent_dealer_id:parent.id,comment:'Verified relationship',
+      reviewed_by:parent.id,reviewer_name:'Backend reviewer',created_at:'2026-10-10T10:00:00Z',snapshot_id:null,
+      source_fingerprint:'original',portal_fingerprint:'portal',current_source_fingerprint:'changed',
+      current_portal_fingerprint:'portal',needs_recheck:true,
+      fields:Object.keys(source).filter(field=>['company_name','address1','address2','postal_code','city','country'].includes(field))
+        .map(field=>({field_name:field as 'company_name',value_source:'C5',approved_value:'Original approved',portal_value:null,c5_value:'Original C5'})),
+    };
+    const stale=buildPartnerReviewRows(comparePartnerMaster([], [{...source,company_name:'Changed C5'}]),[approved],[row.context!])[0];
+    open({row:stale,history:[approved]});
+    expect(screen.getByRole('status')).toHaveTextContent('godkendte værdier og relation bevares');
+    expect(screen.getByLabelText('Beslutning')).toHaveValue('APPROVED');
+    expect(screen.getByLabelText('Godkendt overordnet forhandler')).toHaveValue(parent.id);
+    expect(screen.getByLabelText('Firmanavn ved senere import')).toHaveValue('APPROVED');
+    expect(screen.getAllByText(/C5 ved godkendelse: Original C5/)).toHaveLength(6);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Changed C5');
+  });
+  it('lets Backend enter a scoped Portal correction separately from raw C5',async()=>{
+    open();savePartnerReview.mockResolvedValue('decision');
+    fireEvent.change(screen.getByLabelText('By ved senere import'),{target:{value:'OVERRIDE'}});
+    fireEvent.change(screen.getByLabelText('By Portal-korrektion'),{target:{value:'Corrected city'}});
+    fireEvent.click(screen.getByRole('button',{name:'Gem beslutning'}));
+    await waitFor(()=>expect(savePartnerReview).toHaveBeenCalledOnce());
+    expect(savePartnerReview.mock.calls[0][1]).toMatchObject({fields:{city:'OVERRIDE'},overrides:{city:'Corrected city'}});
+    expect(screen.getByRole('dialog')).toHaveTextContent('Rønnede');
   });
 });

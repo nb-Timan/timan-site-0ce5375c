@@ -3,7 +3,7 @@ import { comparePartnerMaster, type PartnerParity, type PortalPartnerParity } fr
 import {
   REVIEW_STATUSES, REVIEW_STATUS_LABELS, EDITABLE_REVIEW_FIELDS,
   buildPartnerReviewRows, createReviewDraft, defaultReviewFieldChoices, filterPartnerReviewRows,
-  groupPartnerImportQueue, partnerReviewCounts, reviewNeedsRecheck, validatePartnerReview,
+  groupPartnerImportQueue, partnerReviewCounts, reviewNeedsRecheck, validatePartnerReview, resolvePartnerReviewValues,
   type ReviewContext, type ReviewDraft, type ReviewFieldChoices, type ReviewParent, type ReviewRow,
 } from '@/lib/fabricPartnerReview';
 import type { PartnerShadowRow } from '../../supabase/functions/_shared/fabricPartnerSnapshot';
@@ -88,17 +88,18 @@ describe('Fabric Partnerdata review decisions', () => {
     { current_source_fingerprint: '' },
     { current_portal_fingerprint: null },
     { needs_recheck: true },
-  ])('excludes changed or missing fingerprints from approval filters and the queue: %j', patch => {
+  ])('preserves approval status but excludes changed or missing fingerprints from import: %j', patch => {
     const saved = review(patch);
     expect(reviewNeedsRecheck(saved)).toBe(true);
     const result = rows([saved]);
     expect(result[0].needs_recheck).toBe(true);
     expect(result[0].review?.status).toBe('APPROVED');
-    expect(result[0].review_status).toBe('NEEDS_CLARIFICATION');
-    expect(createReviewDraft(result[0]).status).toBe('NEEDS_CLARIFICATION');
-    expect(filterPartnerReviewRows(result, 'APPROVED')).toEqual([]);
-    expect(filterPartnerReviewRows(result, 'NEEDS_CLARIFICATION')).toHaveLength(1);
-    expect(partnerReviewCounts(result)).toMatchObject({ APPROVED: 0, NEEDS_CLARIFICATION: 1, NEEDS_RECHECK: 1 });
+    expect(result[0].review_status).toBe('APPROVED');
+    expect(createReviewDraft(result[0]).status).toBe('APPROVED');
+    expect(result[0].active_approval?.id).toBe(saved.id);
+    expect(filterPartnerReviewRows(result, 'APPROVED')).toHaveLength(1);
+    expect(filterPartnerReviewRows(result, 'NEEDS_RECHECK')).toHaveLength(1);
+    expect(partnerReviewCounts(result)).toMatchObject({ APPROVED: 1, NEEDS_CLARIFICATION: 0, NEEDS_RECHECK: 1 });
     expect(groupPartnerImportQueue(result)).toEqual([]);
   });
 
@@ -121,7 +122,7 @@ describe('Fabric Partnerdata review decisions', () => {
 
   it('keeps vanished accounts visible and requires recheck even when hashes appear unchanged', () => {
     const vanished = buildPartnerReviewRows([], [review()], []);
-    expect(vanished[0]).toMatchObject({ account_number: '00120', needs_recheck: true, review_status: 'NEEDS_CLARIFICATION' });
+    expect(vanished[0]).toMatchObject({ account_number: '00120', needs_recheck: true, review_status: 'APPROVED' });
     expect(groupPartnerImportQueue(vanished)).toEqual([]);
     const portalOnly = rows([review()], parity([], [portal]));
     expect(portalOnly[0].needs_recheck).toBe(true);
@@ -148,7 +149,7 @@ describe('safe field choices and approval validation', () => {
       ? { ...field, value_source: 'C5', approved_value: 'Frozen historical name' } : field) });
     const before = JSON.stringify(saved);
     const draft = createReviewDraft(rows([saved])[0]);
-    expect(draft.fields).toEqual({ ...choices, company_name: 'C5' });
+    expect(Object.values(draft.fields)).toEqual(Array(6).fill('APPROVED'));
     draft.fields.city = 'C5';
     expect(JSON.stringify(saved)).toBe(before);
   });
@@ -218,16 +219,16 @@ describe('safe field choices and approval validation', () => {
     expect(validatePartnerReview(rows()[0], approval(rows()[0], { parent_dealer_id: parent.id }), [parent.id]).valid).toBe(false);
   });
 
-  it('blocks missing/duplicate sources, duplicate Portal accounts, missing context and type conflicts', () => {
+  it('blocks missing/duplicate sources, duplicate Portal accounts and missing context', () => {
     const conflicting = [parity([], [portal]), parity([source(), source({ source_row_number: 2 })]),
-      parity([source()], [portal, { ...portal, id: parent.id }]), parity([source({ c5_partner_type_code: '2' })])];
+      parity([source()], [portal, { ...portal, id: parent.id }])];
     for (const compared of conflicting) {
       const row = rows([], compared)[0];
       expect(validatePartnerReview(row, approval(row)).valid).toBe(false);
     }
     const noContext = buildPartnerReviewRows(parity(), [], [])[0];
     expect(validatePartnerReview(noContext, approval(noContext)).valid).toBe(false);
-    expect(validatePartnerReview(rows()[0], approval(rows()[0], { proposed_partner_type: 'importer' })).valid).toBe(false);
+    expect(validatePartnerReview(rows()[0], approval(rows()[0], { proposed_partner_type: 'importer', comment: '' })).valid).toBe(false);
   });
 
   it('blocks importing unparsed C5 postal fields and using Portal values for a new account', () => {
@@ -243,6 +244,63 @@ describe('safe field choices and approval validation', () => {
     expect(row.needs_recheck).toBe(true);
     expect(validatePartnerReview(row, approval(row)).valid).toBe(true);
     expect(groupPartnerImportQueue([row])).toEqual([]);
+  });
+});
+
+describe('permanent Portal-owned approval precedence', () => {
+  it.each([
+    { company_name: 'New C5 name' }, { address1: 'New C5 address' },
+    { c5_invoice_account_number: '99999' }, { c5_partner_type_code: '2' },
+  ])('preserves approved relation/type/values when C5 changes: %j', patch => {
+    const approved = review({ proposed_partner_type: 'dealer_customer', parent_dealer_id: parent.id,
+      current_source_fingerprint: 'changed', fields: review().fields.map(field => ({ ...field,
+        approved_value: field.field_name === 'company_name' ? 'Approved JE' : null })) });
+    const row = rows([approved], parity([source(patch)]))[0];
+    const values = resolvePartnerReviewValues(row);
+    expect(values).toMatchObject({ approval_active: true, needs_recheck: true,
+      partner_type: 'dealer_customer', parent_dealer_id: parent.id });
+    expect(values.fields.find(field => field.field_name === 'company_name')?.value).toBe('Approved JE');
+    expect(row.c5[0]).toMatchObject(patch);
+    expect(groupPartnerImportQueue([row], [parent.id])).toEqual([]);
+  });
+
+  it('keeps an approval active during explicit clarification, and revokes only by Backend decision', () => {
+    const approved = review();
+    const clarification = review({ id: parent.id, version: 2, status: 'NEEDS_CLARIFICATION' });
+    const pending = review({ id: portal.id, version: 3, status: 'PENDING' });
+    expect(rows([clarification, approved])[0].active_approval?.id).toBe(approved.id);
+    expect(rows([pending, clarification, approved])[0].active_approval).toBeNull();
+    expect(rows([review({ version: 3, status: 'IGNORED' }), approved])[0].active_approval).toBeNull();
+    expect(rows([review({ version: 4 }), pending, approved])[0].active_approval?.version).toBe(4);
+  });
+
+  it('preserves approved null/blank values instead of falling back to new C5 values', () => {
+    const row = rows([review()], parity([source({ city: 'New city' })]))[0];
+    expect(resolvePartnerReviewValues(row).fields.find(field => field.field_name === 'city')).toMatchObject({ value: null, origin: 'APPROVED' });
+  });
+
+  it('falls back to existing Portal values before C5 proposals without active approval', () => {
+    expect(resolvePartnerReviewValues(rows([], parity([source({ city: 'Different' })]))[0]).fields
+      .find(field => field.field_name === 'city')).toMatchObject({ value: 'Aarhus', origin: 'PORTAL' });
+    expect(resolvePartnerReviewValues(rows([], parity([source()], []))[0]).fields
+      .find(field => field.field_name === 'city')).toMatchObject({ value: 'Aarhus', origin: 'C5' });
+  });
+
+  it('permits documented Backend type corrections without changing Portal or guessing C5 types', () => {
+    const row = rows([], parity([source({ c5_partner_type_code: '2' })]))[0];
+    expect(validatePartnerReview(row, approval(row, { proposed_partner_type: 'importer' })).valid).toBe(true);
+    expect(row.portal[0]).toEqual(portal);
+    expect(row.c5[0].c5_partner_type_code).toBe('2');
+  });
+
+  it('allows explicit Portal corrections but rejects oversized/missing/unknown correction fields', () => {
+    const row = rows()[0];
+    const draft = approval(row, { fields: { ...choices, city: 'OVERRIDE' }, overrides: { city: 'Corrected city' } });
+    expect(validatePartnerReview(row, draft).valid).toBe(true);
+    expect(validatePartnerReview(row, { ...draft, overrides: {} }).valid).toBe(false);
+    expect(validatePartnerReview(row, { ...draft, overrides: { city: 'x'.repeat(1001) } }).valid).toBe(false);
+    expect(validatePartnerReview(row, { ...draft, overrides: { seller: 'NB' } } as unknown as ReviewDraft).valid).toBe(false);
+    expect(validatePartnerReview(row, approval(row, { fields: { ...choices, city: 'APPROVED' } })).valid).toBe(false);
   });
 });
 

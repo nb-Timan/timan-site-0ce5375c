@@ -25,7 +25,8 @@ export async function savePartnerReview(row: PartnerReviewRow, draft: ReviewDraf
     p_proposed_partner_type: draft.proposed_partner_type,
     p_parent_dealer_id: draft.parent_dealer_id,
     p_comment: draft.comment,
-    p_fields: draft.fields,
+    p_fields: Object.fromEntries(Object.entries(draft.fields).map(([field, source]) => [field,
+      source === 'OVERRIDE' ? { source, value: draft.overrides?.[field as keyof typeof draft.fields] ?? null } : source])),
   });
   if (error) throw error;
   return data as string;

@@ -19,7 +19,7 @@ export const EDITABLE_REVIEW_FIELDS = [
   { field_name: 'country', portal_field: 'country', label: 'Land' },
 ] as const;
 export type ReviewFieldName = typeof EDITABLE_REVIEW_FIELDS[number]['field_name'];
-export type ReviewValueSource = 'PORTAL' | 'C5';
+export type ReviewValueSource = 'PORTAL' | 'C5' | 'APPROVED' | 'OVERRIDE';
 export type ReviewFieldChoices = Record<ReviewFieldName, ReviewValueSource>;
 
 export interface ReviewField {
@@ -72,6 +72,7 @@ export interface PartnerReviewRow extends PartnerParity {
   readonly context: ReviewContext | null;
   readonly review_status: ReviewStatus;
   readonly needs_recheck: boolean;
+  readonly active_approval: ReviewRow | null;
 }
 
 export interface ReviewDraft {
@@ -80,13 +81,15 @@ export interface ReviewDraft {
   parent_dealer_id: string | null;
   comment: string;
   fields: ReviewFieldChoices;
+  overrides?: Partial<Record<ReviewFieldName, string | null>>;
 }
 
 const isReviewPartnerType = (value: unknown): value is ReviewPartnerType =>
   REVIEW_PARTNER_TYPES.some(type => type === value);
 const isReviewFieldName = (value: string): value is ReviewFieldName =>
   EDITABLE_REVIEW_FIELDS.some(field => field.field_name === value);
-const isValueSource = (value: unknown): value is ReviewValueSource => value === 'PORTAL' || value === 'C5';
+const isValueSource = (value: unknown): value is ReviewValueSource =>
+  value === 'PORTAL' || value === 'C5' || value === 'APPROVED' || value === 'OVERRIDE';
 const hasFingerprint = (value: string | null) => typeof value === 'string' && value.trim().length > 0;
 const isUuid = (value: string | null) => typeof value === 'string'
   && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -118,10 +121,14 @@ export function buildPartnerReviewRows(
   return [...parityMap.values()].map(row => {
     const review = latest.get(row.account_number) ?? null;
     const context = contextMap.get(row.account_number) ?? null;
-    const needs_recheck = !!review && (reviewNeedsRecheck(review) || row.c5.length !== 1
+    const revokedAt = Math.max(0, ...reviews.filter(item => item.account_number === row.account_number
+      && (item.status === 'PENDING' || item.status === 'IGNORED')).map(item => item.version));
+    const active_approval = reviews.filter(item => item.account_number === row.account_number
+      && item.status === 'APPROVED' && item.version > revokedAt).sort((a, b) => b.version - a.version)[0] ?? null;
+    const needs_recheck = !!review && (reviewNeedsRecheck(active_approval ?? review) || row.c5.length !== 1
       || (context !== null && context.source_count !== 1));
-    return { ...row, review, context, needs_recheck,
-      review_status: review?.status === 'APPROVED' && needs_recheck ? 'NEEDS_CLARIFICATION' : review?.status ?? 'PENDING' };
+    return { ...row, review, context, needs_recheck, active_approval,
+      review_status: review?.status ?? 'PENDING' };
   });
 }
 
@@ -132,16 +139,21 @@ export function defaultReviewFieldChoices(row: PartnerParity): ReviewFieldChoice
 
 export function createReviewDraft(row: PartnerReviewRow): ReviewDraft {
   const fields = defaultReviewFieldChoices(row);
+  const overrides: ReviewDraft['overrides'] = {};
   for (const field of row.review?.fields ?? []) {
     if (isReviewFieldName(field.field_name) && isValueSource(field.value_source)) fields[field.field_name] = field.value_source;
   }
-  const savedType = row.review?.proposed_partner_type;
+  for (const field of row.active_approval?.fields ?? []) fields[field.field_name] = 'APPROVED';
+  for (const field of row.review?.fields ?? []) {
+    if (field.value_source === 'OVERRIDE') overrides[field.field_name] = field.approved_value;
+  }
+  const savedType = row.active_approval?.proposed_partner_type ?? row.review?.proposed_partner_type;
   const proposedType = row.c5.length === 1 ? proposeC5PartnerType(row.c5[0].c5_partner_type_code) : null;
   return {
-    status: row.review_status,
+    status: row.review?.status ?? row.review_status,
     proposed_partner_type: isReviewPartnerType(savedType) ? savedType : isReviewPartnerType(proposedType) ? proposedType : null,
-    parent_dealer_id: row.review?.parent_dealer_id ?? null,
-    comment: row.review?.comment ?? '', fields,
+    parent_dealer_id: row.active_approval?.parent_dealer_id ?? row.review?.parent_dealer_id ?? null,
+    comment: row.review?.comment ?? '', fields, overrides,
   };
 }
 
@@ -155,7 +167,20 @@ export function validatePartnerReview(
   if (!choices || typeof choices !== 'object' || Array.isArray(choices)
     || Object.keys(choices).length !== EDITABLE_REVIEW_FIELDS.length
     || !Object.entries(choices).every(([field, value]) => isReviewFieldName(field) && isValueSource(value))) {
-    errors.push('V\u00e6lg kun Portal eller C5 for de seks tilladte stamdatafelter.');
+    errors.push('V\u00e6lg en gyldig kilde for de seks tilladte stamdatafelter.');
+  }
+  if (draft.overrides && Object.keys(draft.overrides).some(field => !isReviewFieldName(field))) {
+    errors.push('Kun de seks tilladte stamdatafelter kan korrigeres.');
+  }
+  for (const field of EDITABLE_REVIEW_FIELDS) {
+    const choice = draft.fields?.[field.field_name];
+    if (choice === 'APPROVED' && !row.active_approval?.fields.some(saved => saved.field_name === field.field_name)) {
+      errors.push('Der findes ingen aktiv godkendt v\u00e6rdi for feltet.');
+    }
+    const value = draft.overrides?.[field.field_name];
+    if (choice === 'OVERRIDE' && (value === undefined || (value !== null && (typeof value !== 'string' || value.length > 1000)))) {
+      errors.push('Angiv en Portal-korrektion p\u00e5 h\u00f8jst 1000 tegn.');
+    }
   }
   if (draft.proposed_partner_type !== null && !isReviewPartnerType(draft.proposed_partner_type)) {
     errors.push('V\u00e6lg en tilladt Portal-partnertype.');
@@ -172,13 +197,7 @@ export function validatePartnerReview(
       || !hasFingerprint(row.context.source_fingerprint) || !hasFingerprint(row.context.portal_fingerprint)) {
       errors.push('Kontoen skal have en entydig aktuel kilde og en opdateret review-kontekst.');
     }
-    if (row.statuses.includes('TYPE_CONFLICT') || (row.portal.length === 1
-      && resolvePartnerAccountType(row.portal[0]) !== draft.proposed_partner_type)) {
-      errors.push('Typekonflikten skal afklares f\u00f8r godkendelse. Portalens eksisterende type bevares.');
-    }
     if (row.c5.length === 1) {
-      const knownType = proposeC5PartnerType(row.c5[0].c5_partner_type_code);
-      if (knownType && draft.proposed_partner_type !== knownType) errors.push('Den valgte type er i konflikt med den verificerede C5-type.');
       if (row.c5[0].zipcity_validation === 'REVIEW_REQUIRED'
         && (draft.fields?.postal_code === 'C5' || draft.fields?.city === 'C5')) {
         errors.push('C5-postnummer og by skal afklares f\u00f8r de kan v\u00e6lges til import.');
@@ -257,6 +276,25 @@ export interface PartnerImportQueueGroup {
   rows: PartnerReviewRow[];
 }
 
+/** Read-only proposed values; never applies them to Portal masterdata. */
+export function resolvePartnerReviewValues(row: PartnerReviewRow) {
+  const approval = row.active_approval;
+  const portal = row.portal.length === 1 ? row.portal[0] : null;
+  const source = row.c5.length === 1 ? row.c5[0] : null;
+  const fields = EDITABLE_REVIEW_FIELDS.map(field => {
+    const saved = approval?.fields.find(item => item.field_name === field.field_name);
+    const portalValue = portal?.[field.portal_field] ?? null;
+    return { field_name: field.field_name, value: saved ? saved.approved_value
+      : portal ? portalValue : source?.[field.field_name] ?? null,
+    origin: saved ? 'APPROVED' : portal ? 'PORTAL' : 'C5' } as const;
+  });
+  return { fields, partner_type: approval?.proposed_partner_type ?? (portal
+    ? resolvePartnerAccountType(portal) : source ? proposeC5PartnerType(source.c5_partner_type_code) : null),
+  parent_dealer_id: approval ? approval.parent_dealer_id : null,
+  parent_account_number: approval ? null : portal?.parent_account_number ?? null,
+  approval_active: !!approval, needs_recheck: row.needs_recheck };
+}
+
 export function groupPartnerImportQueue(
   rows: readonly PartnerReviewRow[], approvedParentIds: readonly string[] = [],
 ): PartnerImportQueueGroup[] {
@@ -267,13 +305,15 @@ export function groupPartnerImportQueue(
         const review = row.review;
         if (!review || review.status !== 'APPROVED' || row.needs_recheck || review.proposed_partner_type !== partner_type
           || (row.portal.length === 0 ? 'NEW' : 'EXISTING') !== kind || review.fields.length !== EDITABLE_REVIEW_FIELDS.length) return false;
-        if (kind === 'EXISTING' && !review.fields.some(field => field.value_source === 'C5'
+        if (kind === 'EXISTING' && !review.fields.some(field => field.value_source !== 'PORTAL'
           && field.approved_value !== field.portal_value)) return false;
         // Queue entries must use saved choices; form defaults cannot complete an approval.
         return validatePartnerReview(row, {
           status: review.status, proposed_partner_type: review.proposed_partner_type,
           parent_dealer_id: review.parent_dealer_id, comment: review.comment,
           fields: Object.fromEntries(review.fields.map(field => [field.field_name, field.value_source])) as ReviewFieldChoices,
+          overrides: Object.fromEntries(review.fields.filter(field => field.value_source === 'OVERRIDE')
+            .map(field => [field.field_name, field.approved_value])),
         }, approvedParentIds).valid;
       });
       if (members.length) groups.push({ partner_type, kind, rows: members });

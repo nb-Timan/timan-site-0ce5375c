@@ -17,6 +17,7 @@ export default function FabricPartnerReviewDialog({ row, parents, history, onClo
   const request = useRef<{ body: string; id: string } | null>(null);
   const source = row.c5[0];
   const portal = row.portal[0];
+  const approval = row.active_approval;
   const inputClass = 'mt-1 w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-2 text-sm';
   const save = async () => {
     const validation = validatePartnerReview(row, draft, parents.map(parent => parent.id));
@@ -34,7 +35,7 @@ export default function FabricPartnerReviewDialog({ row, parents, history, onClo
   return <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
     <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-3xl overflow-y-auto p-4 text-left sm:p-6">
       <DialogHeader><DialogTitle className="pr-6 text-lg tracking-normal">Gennemgå {row.account_number} · {source?.company_name ?? portal?.company_name}</DialogTitle></DialogHeader>
-      {row.needs_recheck && <p role="status" className="text-sm text-amber-800">Kilde eller Portal-oplysninger er ændret. Kræver genkontrol.</p>}
+      {row.needs_recheck && !approval && <p role="status" className="text-sm text-amber-800">Kilde eller Portal-oplysninger er ændret. Kræver genkontrol.</p>}
       <dl className="grid min-w-0 gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
         <div><dt className="font-medium">C5 kundetype</dt><dd>{source?.c5_partner_type_code ?? 'Ukendt'}</dd></div>
         <div><dt className="font-medium">Fakturakonto</dt><dd>{source?.c5_invoice_account_number ?? '—'}</dd></div>
@@ -44,6 +45,12 @@ export default function FabricPartnerReviewDialog({ row, parents, history, onClo
         <div><dt className="font-medium">Eksisterende sælger</dt><dd>{portal?.assigned_seller_initials ?? '—'} (bevares)</dd></div>
         <div className="min-w-0 sm:col-span-2"><dt className="font-medium">Konflikter / vurdering</dt><dd className="break-words">{row.reason}</dd></div>
       </dl>
+      {approval && <div className="border-y py-2 text-sm" role="status">
+        <p>Aktiv Portal-godkendelse · version {approval.version} · {approval.reviewer_name ?? approval.reviewed_by}</p>
+        <p>Godkendt relation: {approval.parent_dealer_id
+          ? parents.find(parent => parent.id === approval.parent_dealer_id)?.account_number ?? approval.parent_dealer_id : '—'}</p>
+        {row.needs_recheck && <p className="text-amber-800">Kræver genkontrol · godkendte værdier og relation bevares.</p>}
+      </div>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="min-w-0 text-sm font-medium">Beslutning<select className={inputClass} value={draft.status}
           onChange={event => setDraft({ ...draft, status: event.target.value as ReviewStatus })}>
@@ -63,19 +70,29 @@ export default function FabricPartnerReviewDialog({ row, parents, history, onClo
       <div className="divide-y border-y text-sm">
         {EDITABLE_REVIEW_FIELDS.map(field => {
           const portalValue = field.field_name === 'address1' ? portal?.address_line_1 : portal?.[field.portal_field];
+          const saved = approval?.fields.find(item => item.field_name === field.field_name);
           return <div key={field.field_name} className="grid min-w-0 gap-2 py-2 sm:grid-cols-[100px_1fr_1fr_170px]">
             <span className="font-medium">{field.label}</span>
             <div className="min-w-0 break-words"><span className="text-gray-500">Portal: </span>{portalValue || '—'}</div>
             <div className="min-w-0 break-words"><span className="text-gray-500">C5: </span>{source?.[field.field_name] || '—'}</div>
-            <label className="min-w-0"><span className="sr-only">{field.label} ved senere import</span>
+            <div className="min-w-0"><label><span className="sr-only">{field.label} ved senere import</span>
               <select aria-label={`${field.label} ved senere import`} className="w-full min-w-0 rounded border bg-white p-1.5"
                 value={draft.fields[field.field_name]} onChange={event => setDraft({ ...draft, fields: { ...draft.fields, [field.field_name]: event.target.value as ReviewValueSource } })}>
                 <option value="PORTAL" disabled={!portal}>Behold Portal</option><option value="C5">Brug C5</option>
+                {saved && <option value="APPROVED">Behold godkendt</option>}
+                <option value="OVERRIDE">Portal-korrektion</option>
               </select>
             </label>
+              {draft.fields[field.field_name] === 'OVERRIDE' && <input aria-label={`${field.label} Portal-korrektion`}
+                className={inputClass} maxLength={1000} value={draft.overrides?.[field.field_name] ?? ''}
+                onChange={event => setDraft({ ...draft, overrides: { ...draft.overrides, [field.field_name]: event.target.value } })} />}
+              {saved && <p className="mt-1 break-words text-xs text-gray-600">Godkendt: {saved.approved_value ?? '—'}<br />C5 ved godkendelse: {saved.c5_value ?? '—'}</p>}
+            </div>
           </div>;
         })}
       </div>
+      {approval && (draft.status === 'PENDING' || draft.status === 'IGNORED')
+        && <p className="text-sm text-amber-800">Gem denne beslutning for at ophæve den aktive Portal-godkendelse.</p>}
       <label className="text-sm font-medium">Kommentar / dokumenteret begrundelse<textarea className={inputClass} rows={3} maxLength={4000}
         value={draft.comment} onChange={event => setDraft({ ...draft, comment: event.target.value })} /></label>
       {history.length > 0 && <details className="min-w-0 text-sm"><summary className="cursor-pointer font-medium">Beslutningshistorik ({history.length})</summary>

@@ -22,15 +22,15 @@ callers. New decisions supersede old decisions without deleting the audit.
 Source fingerprints include current source facts and invoice-chain ancestors,
 but exclude sync timestamps and source LASTCHANGED metadata. Portal hashes
 include existing facts/relations and an explicitly selected parent. Changed or
-missing source facts invalidate approvals dynamically; outdated approvals stay
-in history but do not enter the import queue. Context hashes used for editor
+missing source facts require recheck without deactivating or overwriting an
+approval. Conflicted approvals do not enter the import queue. Context hashes used for editor
 concurrency are parent-free; saved/current review hashes include parent facts.
 
 ## Business boundaries
 
 Known types remain 1/A dealer, 2/B service partner, 3/C importer, 5/E dealer
 customer. Unknown codes require an explicit manual type and documented reason.
-An existing Portal type conflict cannot be approved for automatic conversion.
+Backend can document a type exception as a review decision, never an automatic conversion.
 Dealer customers require an explicit existing eligible Portal dealer; invoice
 chains are evidence, never automatic parent/billing writes.
 
@@ -38,7 +38,41 @@ Only company name, address lines, postal code, city and country can be chosen
 for later import. UUID, seller, phone/email, billing, user access, relations and
 Portal-owned operational metadata are not writable through this review RPC.
 Unparsed C5 ZIPCITY cannot be approved as postal code/city. Existing accounts
-enter the changes queue only when a chosen C5 field actually differs.
+enter the changes queue only when an explicitly approved field actually differs.
+
+## Permanent Portal overrides
+
+The additive migration `20261010110700_permanent_partner_review_overrides.sql`
+preserves all historical rows and existing access controls. An active approval
+has priority over existing Portal values, which have priority over a raw C5
+proposal. Explicit approved null/blank values remain null/blank.
+
+The editor defaults to keeping the approved value, not rereading C5 on save.
+Backend can explicitly choose current Portal, current C5 or a bounded manual
+Portal correction for each of the same six fields. Every version separately
+captures the approved value, the contemporaneous C5 value and Portal value.
+Earlier original C5 evidence remains available in immutable history.
+
+Source changes update only shadow facts and recheck status. A clarification
+event retains the active approval. An explicit Backend PENDING or IGNORED
+event revokes it; the editor warns before saving that decision. A later
+APPROVED event replaces the active approval but never deletes prior evidence.
+The server rejects missing approved values, unsafe correction payloads,
+concurrent versions/source changes and unauthorized callers.
+
+For JE Service, the approved `dealer_customer` type and explicit AB Lauridsen
+UUID are Portal-owned decisions. The 12041 -> 12040 -> 10295 invoice chain is
+separate C5 evidence, not a Portal parent relationship. This implementation
+does not create JE Service or change any operational partner relationship.
+
+Permanent-override verification: 112 focused tests and 69 review SQL/RLS checks
+plus 35 shadow regression checks PASS. Scoped lint/build/diff checks PASS.
+Typecheck remains at 111 existing diagnostics, with zero new diagnostics
+against 270d16bf. The additive migration is applied to the canonical project.
+A rollback-only production transaction verified JE Service type/relation and
+frozen values through changed source facts and explicit keep-approved save.
+All 18 protected baseline checksums stayed identical; six historical review
+events remain, JE remains version 4 PENDING, and no partner was created.
 
 ## Security
 
