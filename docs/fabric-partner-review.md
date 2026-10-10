@@ -301,11 +301,26 @@ matched the baseline. The existing unrelated dealer's authenticated preview
 call was rejected with BACKEND_ONLY. No Portal profile, user, relationship,
 CRM, Budget, Loan or SharePoint data was written by this work.
 
-The existing served preview was inspected without Lovable Build/Preview
-generation. Its partner overview still used the old Forhandlere heading and
-expanded SharePoint panel at inspection time, so the new frontend is not
-claimed live-verified. Existing Afslut samarbejde and Skift forhandler dialogs
-were inspected without submitting changes. No QA partners were created.
+Before push the existing served preview still used the old Forhandlere heading.
+After implementation commit `515f3297` was pushed, ordinary reload of that same
+preview served Partnerstyring and the new primary Fabric panel. No Lovable
+Build/Preview generation was triggered and no build credits were consumed.
+Existing Afslut samarbejde and Skift forhandler dialogs were inspected without
+submitting changes. No QA partners were created.
+
+The live panel showed 110 registered partner-type accounts out of 112 total
+Portal accounts, 915 pending reviews, zero eligible pending imports, one recheck
+and one actual imported account. C5 shadow population remains 916, not a target
+for Portal account creation. JE's receipt UUID matches the canonical account;
+its import is not shown as a second pending import. The review-status filter
+still includes its approved decision, independently of import eligibility.
+Actual 390 px: panel client/scroll widths are both 350 px, document width 375 px;
+legacy/geocoding sections are closed. The existing review dialog keeps source
+chain 12041 -> 12040 -> 10295 separate from Portal parent 10295 and retains
+approved values through recheck. It was closed without saving.
+The current map returns one real Portal result for 12041, explicitly without
+coordinates; raw shadow-only invoice account 12040 returns zero partner results.
+No coordinate, profile, approval or cooperation write was performed.
 
 Verification: 87 directly focused tests PASS; the broader 263-test selection
 has 262 PASS and one existing Windows-CRLF literal assertion failure in
@@ -322,8 +337,7 @@ no horizontal overflow. All four existing type controls were inspected.
 The final checksum pass retained all business/user/relation tables; only the
 independently scheduled derived Fabric Loans stock projection refreshed.
 
-Before cutover: synchronize the served frontend through an approved deployment
-path, connect a least-privilege server-side Fabric job trigger, authorize and
+Before cutover: connect a least-privilege server-side Fabric job trigger, authorize and
 verify each further controlled import scope, reconcile legacy/recheck conflicts,
 and explicitly approve field/account ownership transfer with before/after and
 rollback checks. Only then disable Partnerdata SharePoint writes for the exact
