@@ -1,0 +1,50 @@
+{
+  "markers": [
+    {
+      "case_id": "40aac887-8ceb-44f8-ae5e-98ae906b4318",
+      "loan_number": "U-6601",
+      "original_case_checksum": "732dbd3e23a14409b4d38508b8a41df8"
+    },
+    {
+      "case_id": "97dcaa42-ddf1-4a60-b38d-a57b1966387b",
+      "loan_number": "U-6602",
+      "original_case_checksum": "8218db54a9211ceb5a526971d48d830b"
+    },
+    {
+      "case_id": "971c98c9-450e-410a-a44b-bb999d782350",
+      "loan_number": "U-6603",
+      "original_case_checksum": "b5f76bec0d0be2ea536ea8c81277a3fa"
+    },
+    {
+      "case_id": "cfc41c91-13d3-4829-8c91-d323309cbbb5",
+      "loan_number": "U-6604",
+      "original_case_checksum": "cbc193b1e98ea6cf836b5030b80669f4"
+    },
+    {
+      "case_id": "f0801ee7-2bd5-41fb-80f8-79c38d3180f0",
+      "loan_number": "U-6605",
+      "original_case_checksum": "5f8bd39d09f13dac157c2cad279fec0f"
+    },
+    {
+      "case_id": "008c1e64-710d-40bc-8c15-f0dc1e3ac514",
+      "loan_number": "U-6606",
+      "original_case_checksum": "e12fbbf998ad11c51df566eb5e6fab22"
+    },
+    {
+      "case_id": "75ad47cf-b88b-48ac-b77b-7b6561e53e25",
+      "loan_number": "U-6607",
+      "original_case_checksum": "51900fedd8ee48a057000f67e9cf0b45"
+    }
+  ],
+  "archived": 7,
+  "allocator": {
+    "is_called": true,
+    "last_value": 6608
+  },
+  "protected_tables": 179,
+  "policies_unchanged": true,
+  "source_fingerprint": "ff05905f68659195bfe036c9aad50683",
+  "function_acl_unchanged": true,
+  "protected_source_unchanged": true,
+  "next_number_if_no_concurrent_creation": "U-6609"
+}
