@@ -21,6 +21,8 @@ import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 import LastChangedLine from '@/components/portal/LastChangedLine';
+import BillingBranchesPanel from '@/components/portal/BillingBranchesPanel';
+import { canMaintainPartnerdata } from '@/lib/partnerDataScope';
 
 
 import type { Language } from '@/types/configurator';
@@ -219,6 +221,10 @@ export default function DealerDataPage() {
               effectiveUserId={effectiveUser?.id ?? null}
               onUpdated={(next) => setDealer(next)}
             />
+            {!academyPartnerDataSandbox.isActive() && canMaintainPartnerdata(effectiveUser,portalRole) && <section className="mt-4 rounded-xl border bg-white p-4">
+              <h2 className="mb-3 text-sm font-semibold">Samarbejdspartnere</h2>
+              <BillingBranchesPanel mainId={dealer.id} enabled language={lang}/>
+            </section>}
           </>
         )}
       </main>

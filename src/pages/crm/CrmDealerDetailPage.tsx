@@ -81,6 +81,8 @@ import {
   type PartnerAccountRelation,
 } from "@/lib/partnerRelationsService";
 import { supabase } from "@/lib/supabase";
+import BillingBranchesPanel from '@/components/portal/BillingBranchesPanel';
+import { canMaintainPartnerdata } from '@/lib/partnerDataScope';
 import {
   listActivities as listCalendarActivities,
   createActivity as createCalendarActivity,
@@ -1616,6 +1618,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
                   onOpenList={() => setShowCollaborationModal(true)}
                   compact
                 />
+                <BillingBranchesPanel mainId={dealer.id} enabled={!academyPartnerDataSandbox.isActive() && canMaintainPartnerdata(effectiveUser,derivePortalRole(effectiveUser))} language={lang}/>
               </div>
 
               <div className="sm:col-span-2">

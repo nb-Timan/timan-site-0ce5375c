@@ -40,7 +40,6 @@ import {
   setDealerMain,
   updateDealerAccount,
   updateDealerBranchName,
-  groupDealersByParent,
   aggregateGroupStats,
   resolveEffectiveSeller,
   setDealerSuccessor,
@@ -55,6 +54,11 @@ import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
 import DealerProfileImportPanel from "@/components/backend/DealerProfileImportPanel";
 import FabricPartnerComparisonPanel from "@/components/backend/FabricPartnerComparisonPanel";
+import BillingRelationReview from '@/components/backend/BillingRelationReview';
+import { BillingBranchList } from '@/components/portal/BillingBranchesPanel';
+import { activeBillingBranches, groupPartnerHierarchy, type BillingRelation } from '@/lib/partnerBillingRelations';
+import { loadBillingRelations } from '@/lib/partnerBillingRelationsService';
+import { listPartnerAccountRelations, type PartnerAccountRelation } from '@/lib/partnerRelationsService';
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import { saveDealerGeocodingForAddress } from "@/lib/dealerGeocodingService";
 
@@ -83,6 +87,9 @@ export default function BackendDealerAccountsPage() {
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<DealerAccount[]>([]);
+  const [billingRows,setBillingRows]=useState<BillingRelation[]>([]);
+  const [billingError,setBillingError]=useState<string|null>(null);
+  const [partnerRelations,setPartnerRelations]=useState<PartnerAccountRelation[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
   const [sellers, setSellers] = useState<BackendUser[]>([]);
@@ -109,6 +116,7 @@ export default function BackendDealerAccountsPage() {
   const [showImport, setShowImport] = useState(false);
   const [showFabricComparison, setShowFabricComparison] = useState(true);
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
+  const canonicalMains=useMemo(()=>new Set(groupPartnerHierarchy(rows,partnerRelations,billingRows).filter(g=>g.canonicalMain).map(g=>g.main.id)),[rows,partnerRelations,billingRows]);
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
   useEffect(() => {
@@ -127,12 +135,16 @@ export default function BackendDealerAccountsPage() {
 
   const reload = useMemo(() => async () => {
     setLoadingRows(true);
-    const [dRes, uRes, sRes] = await Promise.all([
+    setBillingError(null);
+    const [dRes, uRes, sRes, billing, relations] = await Promise.all([
       fetchDealerAccounts({ includeDeleted: showDeleted }),
       fetchBackendUsers(),
       fetchDealerAccountStats(),
+      loadBillingRelations().catch(()=>{setBillingError('Betalingsrelationer kunne ikke indlæses. Genindlæs før gennemgang.');return null;}),
+      listPartnerAccountRelations(),
     ]);
     setRows(dRes.rows);
+    setBillingRows(billing?.relations??[]);setPartnerRelations(relations);
     setLoadError(dRes.error ?? sRes.error ?? null);
     setAllUsers(uRes.users);
     setSellers(uRes.users.filter((u) => u.role === "timan_seller" || u.role === "timan_backend"));
@@ -164,15 +176,15 @@ export default function BackendDealerAccountsPage() {
     if (customerType && (r.customer_type_label || r.customer_type) !== customerType) return false;
     if (seller && !sellerInitialsMatch(r.assigned_seller_initials, seller)) return false;
     if (unassignedOnly && r.assigned_seller_initials) return false;
-    if (structureFilter === "main" && !(r.is_main_account || (!r.parent_account_number && rows.some((x) => x.parent_account_number === r.account_number)))) return false;
-    if (structureFilter === "branch" && !r.parent_account_number) return false;
+    if (structureFilter === "main" && !(canonicalMains.has(r.id) || r.is_main_account || (!r.parent_account_number && rows.some((x) => x.parent_account_number === r.account_number)))) return false;
+    if (structureFilter === "branch" && (canonicalMains.has(r.id) || (!r.parent_account_number && !partnerRelations.some(relation=>relation.active&&relation.target_account_id===r.id&&['importer_has_service_partner','dealer_has_service_partner'].includes(relation.relation_type))))) return false;
     if (q) {
       const needle = q.toLowerCase();
       const hay = `${r.company_name} ${r.account_number} ${r.city ?? ""} ${r.email ?? ""} ${r.branch_name ?? ""}`.toLowerCase();
       if (!hay.includes(needle)) return false;
     }
     return true;
-  }), [rows, country, customerType, seller, unassignedOnly, structureFilter, q]);
+  }), [rows, country, customerType, seller, unassignedOnly, structureFilter, q,canonicalMains,partnerRelations]);
 
   // Successor index across the full row set (independent of filters), so we
   // can hide absorbed predecessors from top-level groups and render them as
@@ -182,8 +194,8 @@ export default function BackendDealerAccountsPage() {
     [rows],
   );
   const groups = useMemo(
-    () => groupDealersByParent(filtered.filter((r) => !absorbedIds.has(r.id))),
-    [filtered, absorbedIds],
+    () => groupPartnerHierarchy(filtered.filter((r) => !absorbedIds.has(r.id)),partnerRelations,billingRows),
+    [filtered, absorbedIds,partnerRelations,billingRows],
   );
   const dealersByAcct = useMemo(() => {
     const m = new Map<string, DealerAccount>();
@@ -420,7 +432,8 @@ export default function BackendDealerAccountsPage() {
                   const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
                   const hasBranches = g.branches.length > 0;
                   const hasPredecessors = predecessors.length > 0;
-                  const expandable = hasBranches || hasPredecessors;
+                  const billingChildren=activeBillingBranches(billingRows,g.main.id);
+                  const expandable = hasBranches || hasPredecessors || billingChildren.length>0;
                   const isGroupOpen = groupExpanded.has(g.main.id);
                   const agg = aggregateGroupStats(g, stats);
                   return (
@@ -431,7 +444,8 @@ export default function BackendDealerAccountsPage() {
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
                         dealersByAcct,
-                        isMainGroup: hasBranches || g.main.is_main_account,
+                        isMainGroup: g.canonicalMain || hasBranches || g.main.is_main_account || billingChildren.length>0,
+                        hierarchyAnchor:g.canonicalMain,
                         branchCount: g.branches.length,
                         successorCount: predecessors.length,
                         groupOpen: isGroupOpen,
@@ -446,6 +460,7 @@ export default function BackendDealerAccountsPage() {
                       })}
                       {isGroupOpen && hasBranches && g.branches.map((b) => renderDealerRow({
                         r: b, depth: 1,
+                        relationBadge:partnerRelations.some(relation=>relation.active&&relation.target_account_id===b.id&&['importer_has_service_partner','dealer_has_service_partner'].includes(relation.relation_type))?'Servicepartner':undefined,
                         stats, allUsers, expanded, setExpanded,
                         busyId, setBusyId, setSaveError, setEditing, setConfirmDelete,
                         appUserEmail: appUser?.email ?? null, reload,
@@ -453,6 +468,9 @@ export default function BackendDealerAccountsPage() {
                         showDealerData: showDealerDataButton,
                         formatCountry,
                       }))}
+                      {isGroupOpen && billingChildren.length>0 && <tr className="border-t bg-violet-50/30"><td colSpan={11} className="p-3 pl-12">
+                        <BillingBranchList rows={billingChildren} mainId={g.main.id} language={lang}/>
+                      </td></tr>}
                       {isGroupOpen && hasPredecessors && predecessors.map((p) => renderDealerRow({
                         r: p, depth: 1, variant: "successor",
                         stats, allUsers, expanded, setExpanded,
@@ -476,6 +494,7 @@ export default function BackendDealerAccountsPage() {
           </table>
         </div>
 
+        <div className="mt-4">{billingError&&<p role="status" className="mb-2 text-sm text-amber-700">{billingError}</p>}<BillingRelationReview partners={rows} onSaved={reload}/></div>
         <p className="mt-4 text-xs text-slate-500">
           Kilde: Supabase <code>public.dealer_accounts</code>. Viser {filtered.length} af {rows.length} forhandlere.
         </p>
@@ -614,6 +633,8 @@ type RenderRowOpts = {
   reload: () => Promise<void>;
   dealersByAcct: Map<string, DealerAccount>;
   isMainGroup?: boolean;
+  hierarchyAnchor?: boolean;
+  relationBadge?: string;
   branchCount?: number;
   successorCount?: number;
   variant?: "branch" | "successor";
@@ -628,7 +649,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
   const {
     r, depth, stats, allUsers, expanded, setExpanded, busyId, setBusyId,
     setSaveError, setEditing, setConfirmDelete, appUserEmail, reload,
-    dealersByAcct, isMainGroup, branchCount, successorCount, variant,
+    dealersByAcct, isMainGroup, branchCount, successorCount, variant,hierarchyAnchor,relationBadge,
     groupOpen, onToggleGroup, groupAgg, showDealerData, formatCountry,
   } = opts;
   const fmtCountry = formatCountry ?? ((v: string | null | undefined) => v ?? "");
@@ -639,7 +660,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
     ? allUsers.filter((u) => s.user_ids.includes(u.id))
     : allUsers.filter((u) => u.dealer_number === r.account_number);
   const eff = resolveEffectiveSeller(r, dealersByAcct);
-  const isBranch = depth === 1 || !!r.parent_account_number;
+  const isBranch = depth === 1 || (!hierarchyAnchor && !!r.parent_account_number);
 
   return (
     <React.Fragment key={r.id}>
@@ -690,7 +711,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
             ) : null}
             {isBranch && variant !== "successor" && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                Filial
+                {relationBadge??'Filial'}
               </span>
             )}
             {variant === "successor" && (

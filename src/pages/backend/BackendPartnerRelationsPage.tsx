@@ -15,6 +15,10 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useLanguage } from "@/context/LanguageContext";
 import PartnerCooperationDialog from '@/components/backend/PartnerCooperationDialog';
+import BillingRelationReview from '@/components/backend/BillingRelationReview';
+import { BillingBranchList } from '@/components/portal/BillingBranchesPanel';
+import { loadBillingRelations } from '@/lib/partnerBillingRelationsService';
+import type { BillingRelation } from '@/lib/partnerBillingRelations';
 import {
   DealerAccount,
   fetchDealerAccounts,
@@ -151,6 +155,8 @@ export default function BackendPartnerRelationsPage() {
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [relations, setRelations] = useState<PartnerAccountRelation[]>([]);
+  const [billing,setBilling]=useState<BillingRelation[]>([]);
+  const [billingError,setBillingError]=useState<string|null>(null);
   const [legacySpLinks, setLegacySpLinks] = useState<ServicePartnerLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -166,13 +172,16 @@ export default function BackendPartnerRelationsPage() {
 
   async function refresh() {
     setLoading(true);
-    const [dealerResult, networkRelations, serviceLinks] = await Promise.all([
+    setBillingError(null);
+    const [dealerResult, networkRelations, serviceLinks, billingData] = await Promise.all([
       fetchDealerAccounts({ includeDeleted: false }),
       listPartnerAccountRelations(),
       listServicePartnerLinks(),
+      loadBillingRelations().catch(()=>{setBillingError('Betalingsrelationer kunne ikke indlæses. Genindlæs før gennemgang.');return null;}),
     ]);
     setDealers(dealerResult.rows);
     setRelations(networkRelations);
+    setBilling(billingData?.relations??[]);
     setLegacySpLinks(serviceLinks);
     setLoading(false);
   }
@@ -511,6 +520,15 @@ export default function BackendPartnerRelationsPage() {
               <div className="mt-1 text-2xl font-bold text-slate-900">{legacySpLinks.length}</div>
             </div>
           </div>
+        </section>
+        <section className="mt-6 border-t pt-4" aria-label="Økonomiske partnerrelationer">
+          <h2 className="mb-3 text-lg font-semibold">Betalingsfilialer · økonomiske relationer</h2>
+          {billingError&&<p role="status" className="mb-2 text-sm text-amber-700">{billingError}</p>}
+          {dealers.filter(d=>billing.some(r=>r.main_partner_id===d.id&&r.active)).map(d=><div key={d.id} className="mb-4 rounded border p-3">
+            <h3 className="mb-2 text-sm font-semibold">{d.company_name} · #{d.account_number} · Hovedpartner</h3>
+            <div className="pl-4"><BillingBranchList rows={billing} mainId={d.id} language={language}/></div>
+          </div>)}
+          <BillingRelationReview partners={dealers} onSaved={refresh}/>
         </section>
       </main>
 
