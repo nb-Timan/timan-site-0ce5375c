@@ -62,6 +62,10 @@ verify_jwt = false
 [functions.fabric-loan-sync]
 verify_jwt = false
 
+# Dedicated signed server-to-server shadow snapshots. No browser imports.
+[functions.fabric-partner-shadow-sync]
+verify_jwt = false
+
 [functions.support-chat]
 verify_jwt = false
 

@@ -1,0 +1,104 @@
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { comparePartnerMaster, partnerParityCounts, proposeC5PartnerType, type ParityStatus, type PortalPartnerParity } from '@/lib/fabricPartnerParity';
+import type { PartnerShadowRow } from '../../../supabase/functions/_shared/fabricPartnerSnapshot';
+
+interface Preview {
+  state: { last_success_at: string | null; row_count: number; last_error: string | null; source_as_of: string | null };
+  shadow: PartnerShadowRow[]; portal: PortalPartnerParity[];
+}
+const labels: Record<ParityStatus, string> = {
+  MATCH: 'Match', FIELD_DIFFERENCE: 'Afvigelser', C5_ONLY: 'Kun C5', PORTAL_ONLY: 'Kun Portal',
+  TYPE_CONFLICT: 'Typekonflikt', ACCOUNT_CONFLICT: 'Kontokonflikt', REVIEW_REQUIRED: 'Kræver kontrol',
+};
+const ownershipLabels = { AUTO_CANDIDATE: 'C5-kandidat', REVIEW_ONLY: 'Manuel gennemgang' };
+
+export default function FabricPartnerComparisonPanel({ portalParents }: { portalParents?: Record<string, string | null> }) {
+  const [data, setData] = useState<Preview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState<ParityStatus | 'FORHANDLERKUNDER' | 'AUTO_SAFE_CANDIDATE' | ''>('');
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [limit, setLimit] = useState(50);
+  const reload = async () => {
+    setBusy(true); setError(null);
+    const response = await supabase.rpc('fabric_partner_shadow_preview');
+    if (response.error) setError('Sammenligningen kunne ikke indlæses.');
+    else setData(response.data as unknown as Preview);
+    setBusy(false);
+  };
+  useEffect(() => { void reload(); }, []);
+  // No snapshot means no parity conclusion, not 111 fabricated Portal-only records.
+  const rows = useMemo(() => data?.state.last_success_at ? comparePartnerMaster(data.portal.map(row => ({ ...row,
+    parent_account_number: portalParents?.[row.id],
+  })), data.shadow) : [], [data, portalParents]);
+  const counts = useMemo(() => partnerParityCounts(rows), [rows]);
+  const shown = rows.filter(row => (!filter || (filter === 'FORHANDLERKUNDER' ? row.c5.some(source => proposeC5PartnerType(source.c5_partner_type_code) === 'dealer_customer')
+    : filter === 'AUTO_SAFE_CANDIDATE' || filter === 'REVIEW_REQUIRED' ? row.classification === filter : row.statuses.includes(filter)))
+    && `${row.account_number} ${row.portal[0]?.company_name ?? ''} ${row.c5[0]?.company_name ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()));
+  return <section aria-label="Fabric sammenligning" className="my-6 border-y border-gray-200 py-5 text-sm">
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-lg font-semibold text-gray-900">Fabric sammenligning</h2>
+      <button type="button" title="Genindlæs sammenligning" aria-label="Genindlæs sammenligning" disabled={busy}
+        onClick={() => void reload()} className="p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} /></button>
+    </div>
+    {error && <p role="alert" className="mt-3 text-red-700">{error}</p>}
+    {data && <p className="mt-2 text-gray-600">Portal: {data.portal.length} · C5: {data.state.row_count} · Matchet: {counts.matched}
+      {' · '}Sidst synkroniseret: {data.state.last_success_at ? new Date(data.state.last_success_at).toLocaleString('da-DK') : 'Afventer første snapshot'}</p>}
+    {data?.state.last_error && <p role="alert" className="mt-2 text-amber-800">Seneste synkronisering fejlede. Sidste gyldige snapshot vises.</p>}
+    <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Sammenligningsfilter">
+      <button type="button" aria-pressed={!filter} className={`rounded px-3 py-1.5 ${!filter ? 'bg-gray-900 text-white' : 'border bg-white'}`}
+        onClick={() => { setFilter(''); setLimit(50); }}>Alle ({rows.length})</button>
+      {(Object.keys(labels) as ParityStatus[]).map(status => <button key={status} type="button" aria-pressed={filter === status}
+        onClick={() => { setFilter(status); setLimit(50); }} className={`rounded px-3 py-1.5 ${filter === status ? 'bg-gray-900 text-white' : 'border bg-white'}`}>
+        {labels[status]} ({counts[status]})</button>)}
+      {(['FORHANDLERKUNDER', 'AUTO_SAFE_CANDIDATE'] as const).map(value => <button key={value} type="button" aria-pressed={filter === value}
+        onClick={() => { setFilter(value); setLimit(50); }} className={`rounded px-3 py-1.5 ${filter === value ? 'bg-gray-900 text-white' : 'border bg-white'}`}>
+        {value === 'FORHANDLERKUNDER' ? 'Forhandlerkunder' : 'AUTO_SAFE_CANDIDATE'} ({counts[value]})</button>)}
+    </div>
+    <div className="relative mt-3"><Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+      <input aria-label="Søg i Fabric sammenligning" placeholder="Konto eller firmanavn" value={search}
+        onChange={event => { setSearch(event.target.value); setLimit(50); }} className="w-full rounded border py-2 pl-9 pr-3" />
+    </div>
+    <div className="mt-4 divide-y border-y">
+      {shown.slice(0, limit).map(row => <div key={row.account_number}>
+        <button type="button" aria-expanded={expanded === row.account_number} onClick={() => setExpanded(expanded === row.account_number ? null : row.account_number)}
+          className="grid w-full grid-cols-[20px_70px_1fr] items-start gap-2 py-3 text-left sm:grid-cols-[20px_80px_1fr_200px]">
+          {expanded === row.account_number ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          <span className="font-medium">{row.account_number || 'Tom konto'}</span>
+          <span className="min-w-0 break-words">{row.portal[0]?.company_name ?? row.c5[0]?.company_name ?? '—'}</span>
+          <span className="col-start-3 min-w-0 text-gray-600 sm:col-auto">{row.statuses.map(status => labels[status]).join(' · ')}</span>
+        </button>
+        {expanded === row.account_number && <div className="mb-4">
+          <p className="mb-3 break-words text-gray-600">Portal-ID: {row.portal.map(p => p.id).join(', ') || '—'} · C5-række: {row.c5.map(s => s.source_row_number).join(', ') || '—'}</p>
+          <p className="mb-3 break-words"><strong>{row.classification}</strong> · {row.reason}</p>
+          {row.invoiceChain.length > 0 && <dl className="mb-3 grid gap-2 sm:grid-cols-2">
+            <div><dt className="font-semibold">C5 invoice-kæde · kildefakta</dt><dd>{row.invoiceChain.join(' → ')}</dd></div>
+            <div><dt className="font-semibold">Foreslået forhandler · kun gennemgang</dt><dd>{row.proposedDealer ?? 'Ikke entydigt bevist'}</dd></div>
+            <div><dt className="font-semibold">Portal-ejet relation</dt><dd>{row.portal[0]?.parent_account_number ?? '—'} · {row.relationParity}</dd></div>
+          </dl>}
+          {row.c5.map(source => <dl key={`review-${source.source_row_number}`} className="mb-3 grid gap-2 border-y py-2 sm:grid-cols-3">
+            {(['c5_partner_type_code', 'language', 'vat_number', 'currency', 'payment', 'c5_blocked', 'c5_approved'] as const).map(field => <div key={field} className="min-w-0 break-words">
+              <dt className="font-semibold">{field}</dt><dd>{source[field] ?? '—'} · C5 · Kun gennemgang</dd>
+            </div>)}
+          </dl>)}
+          {row.fields.length > 0 ? <div className="divide-y">
+            {row.fields.map(field => <dl key={field.field} className={`grid gap-2 py-2 sm:grid-cols-4 ${field.different ? 'bg-amber-50' : ''}`}>
+              <div><dt className="font-semibold">{field.field}</dt><dd>{ownershipLabels[field.ownership]}</dd></div>
+              <div className="min-w-0 break-words"><dt className="text-gray-500">Portal</dt><dd>{field.portal ?? '—'}</dd></div>
+              <div className="min-w-0 break-words"><dt className="text-gray-500">C5</dt><dd>{field.c5 ?? '—'}</dd></div>
+              <div className="min-w-0 break-words"><dt className="text-gray-500">Foreslået</dt><dd>{field.proposed ?? '—'}</dd></div>
+            </dl>)}
+          </div> : row.c5.map(source => <dl key={source.source_row_number} className="grid gap-2 sm:grid-cols-2">
+            <div><dt>C5 invoice-konto</dt><dd>{source.c5_invoice_account_number ?? '—'}</dd></div>
+            <div><dt>Rå typekode</dt><dd>{source.c5_partner_type_code ?? '—'}</dd></div>
+            <div><dt>ZIPCITY</dt><dd>{source.zipcity_raw ?? '—'} ({source.zipcity_validation})</dd></div>
+          </dl>)}
+        </div>}
+      </div>)}
+    </div>
+    {shown.length > limit && <button type="button" onClick={() => setLimit(limit + 50)} className="mt-3 border px-3 py-2">Vis flere</button>}
+  </section>;
+}

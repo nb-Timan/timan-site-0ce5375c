@@ -54,6 +54,7 @@ import { supabase } from "@/lib/supabase";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
 import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
 import DealerProfileImportPanel from "@/components/backend/DealerProfileImportPanel";
+import FabricPartnerComparisonPanel from "@/components/backend/FabricPartnerComparisonPanel";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import { saveDealerGeocodingForAddress } from "@/lib/dealerGeocodingService";
 
@@ -106,6 +107,7 @@ export default function BackendDealerAccountsPage() {
   const [authDiag, setAuthDiag] = useState<BackendAuthCheck | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showFabricComparison, setShowFabricComparison] = useState(false);
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
 
   // Verify a real Supabase Auth session exists (not just a cached sessionStorage user).
@@ -244,6 +246,10 @@ export default function BackendDealerAccountsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" aria-expanded={showFabricComparison} onClick={() => setShowFabricComparison(value => !value)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              <GitBranch className="h-3.5 w-3.5" /> Fabric sammenligning
+            </button>
             <button type="button" onClick={() => setShowCreate(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">
               <Plus className="h-3.5 w-3.5" /> Opret forhandler
@@ -264,6 +270,7 @@ export default function BackendDealerAccountsPage() {
         </div>
 
         <SharePointSyncPanel />
+        {isBackend && showFabricComparison && <FabricPartnerComparisonPanel portalParents={Object.fromEntries(rows.map(row => [row.id, row.parent_account_number ?? null]))} />}
         <GeocodeDealersPanel />
         <DealerProfileImportPanel dealers={rows} onReload={() => reload()} />
 

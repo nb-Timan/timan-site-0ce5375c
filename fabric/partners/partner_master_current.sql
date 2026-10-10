@@ -1,0 +1,7 @@
+-- Additive, explicit whitelist. Normalization occurs in the shared ingest validator.
+CREATE VIEW [C5].[partner_master_current] AS
+SELECT [DATASET],[ACCOUNT],[NAME],[ADDRESS1],[ADDRESS2],[ZIPCITY],[COUNTRY],[ISO_LAND],
+       [PHONE],[EMAIL],[INVOICEACCOUNT],[GROUP_],[A_B_KUNDE],[SALESREP],[LANGUAGE_],
+       [VATNUMBER],[CURRENCY],[PAYMENT],[BLOCKED],[APPROVED],[ROWNUMBER],[LASTCHANGED]
+FROM [C5].[CUSTTABLE]
+WHERE TRIM([DATASET])='DAT';
