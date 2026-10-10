@@ -175,3 +175,80 @@ The new audit remains empty: no customer import or relationship change was
 created. Existing relation fingerprints exclude only the three newly added
 nullable end-summary columns when comparing with the pre-migration baseline.
 No SharePoint integration or source was modified.
+
+## JE Service one-account pilot
+
+`20261010120531_je_service_controlled_import_pilot.sql` was explicitly approved
+and applied to `rdodyoixxybiozvmuqon` (MCP migration history version
+`20261010121815`, name `je_service_controlled_import_pilot`). Its only import
+scope is DAT account 12041 under existing
+dealer 10295. The existing approval, six C5-selected fields, current source/
+parent fingerprints, absence of account/alias/name conflicts, active parent
+and separately captured 12041 -> 12040 -> 10295 invoice evidence are required.
+The preview is read-only; deploying the migration itself imports nothing.
+
+After separate explicit production approval, one atomic Backend RPC created
+one new canonical dealer-customer UUID, one permanent cooperation via
+`partner_cooperation_change`, one cooperation event and one immutable import
+receipt. The receipt links the pre-creation approval/fingerprints/source
+snapshot to the post-creation canonical cooperation event. Existing rows,
+seller assignments, users and historical business documents are not updated.
+The legacy address compatibility field mirrors the approved address line;
+billing UUID and new customer seller assignments stay null. Seller display
+continues to inherit from the existing parent. Invoice account 12040 remains
+source evidence and is not created as a Portal account.
+
+No generic/bulk importer, automatic login, SharePoint cutover or frontend
+apply button is introduced. The pilot RPC accepts no account selector or
+caller-provided profile payload. Source/approval changes fail closed, retries
+return the original result, and cooperation/audit failure rolls back the
+entire new account. Later retries never reactivate an ended cooperation.
+Approval was obtained before both production installation and execution.
+
+Production result on 2026-10-10 at 12:19:20 UTC:
+
+- JE account UUID: `aa88f1a3-a7bd-4e85-bc86-9e80175ac7ba`.
+- Original approval version 7: `032e3450-873e-4669-bd00-0b06db506349`.
+- Permanent relation: `395f3ef9-7012-4b0d-9885-227b4b118ebc`.
+- Cooperation event: `b51de410-d027-432a-a6eb-a677256ff9e0`.
+- Immutable import receipt: `6dbd5603-86a8-4e0f-97fa-ff9cb3369b55`.
+- 112 Portal accounts, 8 unchanged users, no Portal account 12040 or new login.
+
+Exact production retry returned the same identifiers with `replayed=true`;
+no duplicate account, relation or audit event was created. Existing account,
+user, relation, CRM, Budget, Loan and media checksums matched immediately
+after import. The independently scheduled Loans snapshot at 12:20:30 UTC
+subsequently changed its derived inventory checksum; that pipeline was not
+invoked or modified by the pilot. The other 17 checksums remained identical.
+No SharePoint code, configuration or source was changed.
+
+The existing Fabric notebook ran successfully again at 12:26:38 UTC with
+916 rows (snapshot `a607de27-ce62-40ff-a605-955b806c83cc`). JE's UUID and active
+relation to 10295 survived unchanged. Backend browser verification confirmed
+JE under AB Lauridsen's collaborators, the preserved 10285 Servicepartner,
+the inherited EM seller, exact approved profile values and reload persistence.
+Desktop and actual 390 px passed with no horizontal overflow.
+
+Remaining closure limitation: the existing review resolver reports
+`approval_active=true` and `needs_recheck=true` after materialization. The C5
+fingerprint is still `169a9891619a777cea65ccd6c3bfe73e`; the Portal fingerprint
+changed from `3b4c15590aff02f2e27a360d7bc23315` to
+`23c966c131da883edc3b4b8463f744b9` because the approved account/relation now
+exists. This is not a C5 change or a lost cooperation. The original approval
+was not rewritten, and no additional approval or broader resolver migration
+was silently applied to clear the conservative recheck flag.
+
+Canonical organization-access/RLS fixtures verify active dealer access and
+revocation after explicit cooperation changes. A read-only production check
+as the existing unrelated 10458 dealer returned zero JE rows and zero JE
+organization-scope rows. No AB Lauridsen login currently exists, so positive
+external AB login acceptance was not claimed and no user was created for QA.
+
+Verification: 40 pilot SQL/atomicity/idempotency checks, 46 cooperation checks,
+75 review checks, 35 shadow checks and 139 focused UI/domain/access tests PASS.
+Scoped lint, build and `git diff --check` PASS. App typecheck still fails on
+the pre-existing main diagnostics; no TypeScript, dependency or compiler
+configuration differs from main in this SQL-only pilot. RLS and private audit
+grants were verified live. Advisor notices about the private audit table's
+lack of client policies and authenticated SECURITY DEFINER RPCs are expected:
+the audit is intentionally inaccessible, and both RPCs enforce Backend gates.
