@@ -61,7 +61,8 @@ export default function LoanStockPanel({ onSelect, busy = false, selectionReady 
     {failed && <p role="alert" className="flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4 shrink-0" />{label(stock?.sync.last_success_at ? 'loansStockFailed' : 'loansStockNotReady')}</p>}
     {stock && (!stock.sync.configured || !isFabricStockFresh(stock.sync)) && <p role="status" className="text-sm text-amber-900">{label(!stock.sync.configured ? 'loansStockNotReady' : 'loansStockStale')}</p>}
     {onSelect && !selectionReady && <p className="text-sm text-slate-600">{label('loansStockHeaderRequired')}</p>}
-    <FabricStockAssetBrowser assets={stock?.assets ?? []} filters={filters} onFiltersChange={setFilters} loading={query.isPending}
+    <FabricStockAssetBrowser assets={stock?.assets ?? []} activeAssignments={stock?.active_assignments ?? []}
+      filters={filters} onFiltersChange={setFilters} loading={query.isPending}
       countsReady={Boolean(stock?.sync.last_success_at)}
       selection={onSelect && stock ? {
         selectedIds: new Set<string>(),

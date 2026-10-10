@@ -70,13 +70,36 @@ describe('single Fabric stock dataset', () => {
     mocks.state = hook({ assets: [bulk], sync: fresh() });
     render(<LoanStockPanel onSelect={vi.fn()} />);
     expect(screen.getAllByText('Nr. Hammerslagle')).toHaveLength(1);
-    expect(screen.getByText('18')).toBeInTheDocument();
+    expect(screen.getByText('Stk.: 18')).toBeInTheDocument();
     const search = screen.getByRole('textbox', { name: 'Søg i salgslager' });
     for (const query of ['65101002', '133226']) {
       fireEvent.change(search, { target: { value: query } });
       expect(screen.getAllByText('Nr. Hammerslagle')).toHaveLength(1);
     }
     expect(screen.getByRole('button', { name: /Vælg aktiv/ })).toBeDisabled();
+  });
+  it('shows the compact four-column summary and only uses the canonical active loan as borrower', () => {
+    mocks.state = hook({
+      assets: [{ ...asset, allocated: true, order_number: 'FABRIC-ORDER-42' }],
+      sync: fresh(),
+      active_assignments: [{
+        asset_id: asset.asset_id, loan_number: 'U-4242', partner_name: 'QA Partner',
+        partner_country: 'DK', status: 'ON_LOAN',
+      }],
+    });
+    render(<LoanStockPanel />);
+    expect(screen.getAllByText('Navn').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Varenr.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Brik nr.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Udlånsoplysninger').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('QA Partner · DK').length).toBeGreaterThan(0);
+    expect(screen.getByText('Stk.: 1 · U-4242')).toBeInTheDocument();
+    expect(screen.queryByText('Canonical SKU')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Nr.82 QA fejekost'));
+    expect(screen.getByText('Canonical SKU')).toBeInTheDocument();
+    expect(screen.getByText('Udlånt')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'U-4242' } });
+    expect(screen.getAllByText('QA Partner · DK').length).toBeGreaterThan(0);
   });
   it('renders separate Loans and Sales stock views', async () => {
     render(<MemoryRouter><LoansPage /></MemoryRouter>);
@@ -174,6 +197,7 @@ describe('single Fabric stock dataset', () => {
     render(<LoanStockPanel />);
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'qa-external' } });
     expect(screen.queryByText('QA-SERIAL')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('QA-EXTERNAL'));
     expect(screen.getByText('Ekstern placering')).toBeInTheDocument();
   });
   it('keeps shared Brik component rows distinct, searchable and informational instead of invalid', () => {
@@ -184,7 +208,7 @@ describe('single Fabric stock dataset', () => {
       item_number: '210123-00', line_text: 'Nr.96 Overfald' };
     mocks.state = hook({ assets: [componentA, componentB], sync: fresh() });
     render(<LoanStockPanel onSelect={vi.fn()} />);
-    expect(screen.getAllByText(/Brik nr. 96 bruges på 2 varelinjer/)).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Brik nr. 96 anvendes på 2 varelinjer/ })).toHaveLength(2);
     expect(screen.queryByText('Brik nr. er allerede i brug.')).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: '96' } });
     expect(screen.getByText('Nr.96 Skovl')).toBeInTheDocument();
@@ -278,6 +302,7 @@ describe('single Fabric stock dataset', () => {
     mocks.state = hook({ assets: [nonSerialized], sync: fresh() });
     render(<LoanStockPanel onSelect={vi.fn()} />);
     expect(screen.getByText('Nr.131 Sug for ukrudtsbørste')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Nr.131 Sug for ukrudtsbørste'));
     expect(screen.getByText('Mangler Brik nr.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vælg aktiv: 730601-00 #1' })).toBeDisabled();
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);

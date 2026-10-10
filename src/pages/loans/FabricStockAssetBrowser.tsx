@@ -1,20 +1,19 @@
-import type { ReactNode } from 'react';
-import { Check, Search } from 'lucide-react';
+import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { Check, ChevronRight, Info, Search } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import {
   fabricLoanAssetDisplayIdentity,
+  fabricLoanPhysicalGroupKey,
   fabricLoanSharedBrikRows,
   filterFabricLoanStock,
+  type FabricLoanAssignment,
   type FabricLoanAsset,
 } from '@/lib/fabricLoanStock';
+import { loanStatusTranslationKey, type LoanStatus } from '@/lib/loanDomain';
 import { resolveSalesStockCatalogItem } from '@/lib/salesStockConfigurator';
 import { t } from '@/lib/i18n/translations';
 
-export type FabricStockBrowserFilters = {
-  warehouse: string;
-  account: string;
-  search: string;
-};
+export type FabricStockBrowserFilters = { warehouse: string; account: string; search: string };
 
 type SelectionProps = {
   selectedIds: ReadonlySet<string>;
@@ -24,6 +23,7 @@ type SelectionProps = {
 
 type Props = {
   assets: FabricLoanAsset[];
+  activeAssignments?: FabricLoanAssignment[];
   filters: FabricStockBrowserFilters;
   onFiltersChange: (filters: FabricStockBrowserFilters) => void;
   loading?: boolean;
@@ -33,27 +33,50 @@ type Props = {
   statusFor?: (asset: FabricLoanAsset) => ReactNode;
 };
 
+const detailGridClass = 'grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-5';
+const rowGridClass = 'grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-[minmax(0,40fr)_minmax(0,20fr)_minmax(0,15fr)_minmax(0,25fr)] md:items-center md:gap-x-4';
+
 export default function FabricStockAssetBrowser({
-  assets,
-  filters,
-  onFiltersChange,
-  loading = false,
-  countsReady = true,
-  selection,
-  renderBrik,
-  statusFor,
+  assets, activeAssignments = [], filters, onFiltersChange, loading = false, countsReady = true,
+  selection, renderBrik, statusFor,
 }: Props) {
   const { uiLanguage } = useLanguage();
   const label = (key: string) => t(key, uiLanguage);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [openSharedBrikId, setOpenSharedBrikId] = useState<string | null>(null);
   const canonicalMatch = (asset: FabricLoanAsset) => resolveSalesStockCatalogItem(asset.item_number, 'DKK');
+  const assignmentByAssetId = new Map(activeAssignments.map((assignment) => [assignment.asset_id, assignment]));
+  const assignmentFor = (asset: FabricLoanAsset) => {
+    const direct = assignmentByAssetId.get(asset.asset_id);
+    if (direct) return direct;
+    if (!asset.brik_number) return undefined;
+    const groupKey = fabricLoanPhysicalGroupKey(asset);
+    const groupAsset = assets.find((candidate) => fabricLoanPhysicalGroupKey(candidate) === groupKey
+      && assignmentByAssetId.has(candidate.asset_id));
+    return groupAsset ? assignmentByAssetId.get(groupAsset.asset_id) : undefined;
+  };
   const visible = filterFabricLoanStock(assets, filters.warehouse, filters.search, filters.account,
-    (asset) => [canonicalMatch(asset)?.catalogItemNumber]);
+    (asset) => [canonicalMatch(asset)?.catalogItemNumber, assignmentFor(asset)?.loan_number]);
   const warehouseCount = (value: 'all' | '2' | '4') => countsReady
-    ? filterFabricLoanStock(assets, value, '', 'all').length
-    : '—';
+    ? filterFabricLoanStock(assets, value, '', 'all').length : '—';
   const warehouseCodes = filters.warehouse === 'all' ? ['2', '4'] : [filters.warehouse];
   const date = (value: string | null) => value ? new Date(value).toLocaleString(uiLanguage) : '—';
   const setFilter = (patch: Partial<FabricStockBrowserFilters>) => onFiltersChange({ ...filters, ...patch });
+  const toggleDetails = (assetId: string) => setExpandedIds((current) => {
+    const next = new Set(current);
+    if (next.has(assetId)) next.delete(assetId); else next.add(assetId);
+    return next;
+  });
+  const rowClick = (event: MouseEvent<HTMLElement>, assetId: string) => {
+    if ((event.target as HTMLElement).closest('button,input,a')) return;
+    toggleDetails(assetId);
+  };
+  const rowKeyDown = (event: KeyboardEvent<HTMLElement>, assetId: string) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    toggleDetails(assetId);
+  };
 
   return <div className="min-w-0 space-y-4">
     <div className="grid min-w-0 gap-4 md:grid-cols-2">
@@ -86,6 +109,10 @@ export default function FabricStockAssetBrowser({
         onChange={(event) => setFilter({ search: event.target.value })} placeholder={label('loansStockSearch')} />
     </label>
     {loading && <p role="status" className="text-sm text-slate-600">{label('loansLoading')}</p>}
+    <div className={`${rowGridClass} hidden border-y border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 md:grid`}>
+      <span>{label('loansStockName')}</span><span>{label('loansItemNumber')}</span>
+      <span>{label('loansStockBrikNumber')}</span><span>{label('loansStockLoanInformation')}</span>
+    </div>
     {warehouseCodes.map((warehouseCode) => {
       const rows = visible.filter((asset) => asset.warehouse_location_code === warehouseCode);
       return <section key={warehouseCode} className="min-w-0" aria-label={`${label(`loansWarehouse${warehouseCode}`)} ${label(warehouseCode === '2' ? 'loansStockNew' : 'loansStockUsed')}`}>
@@ -93,56 +120,77 @@ export default function FabricStockAssetBrowser({
           <h3 className="font-semibold text-slate-950">{label(`loansWarehouse${warehouseCode}`)}</h3>
           <p className="text-sm text-slate-600">{label(warehouseCode === '2' ? 'loansStockNew' : 'loansStockUsed')}</p>
         </div>
-        {rows.length === 0 ? <p className="py-4 text-sm text-slate-600">{label('loansStockNoMatch')}</p> : <div className="divide-y divide-slate-200">
+        {rows.length === 0 ? <p className="py-4 text-sm text-slate-600">{label('loansStockNoMatch')}</p> : <div className="divide-y divide-slate-200 border-x border-slate-200">
           {rows.map((asset) => {
             const match = canonicalMatch(asset);
-            const sharedBrikRows = fabricLoanSharedBrikRows(assets, asset);
-            const sharedBrikCount = Math.max(asset.brik_group_size ?? 0, sharedBrikRows.length);
-            const sharedSerialConflict = Boolean(asset.brik_group_serial_conflict)
-              || new Set(sharedBrikRows.map((row) => row.serial_number_normalized).filter(Boolean)).size > 1;
+            const assignment = assignmentFor(asset);
+            const sharedBrikCount = Math.max(asset.brik_group_size ?? 0, fabricLoanSharedBrikRows(assets, asset).length);
             const selected = selection?.selectedIds.has(asset.asset_id) ?? false;
             const issue = selection?.issueFor(asset) ?? null;
             const title = asset.line_text?.trim() || asset.item_name || asset.item_number;
-            return <article key={asset.asset_id} data-asset-id={asset.asset_id}
-              className={`min-w-0 border-x px-3 py-3 transition-colors ${selected ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-              <div className="flex min-w-0 items-start gap-3">
-                {selection && <button type="button" disabled={Boolean(issue)} onClick={() => selection.onToggle(asset)}
-                  aria-pressed={selected} aria-label={`${selected ? 'Fjern' : 'Vælg'} aktiv: ${fabricLoanAssetDisplayIdentity(asset)}`}
-                  title={issue ?? (selected ? 'Fjern aktiv' : 'Vælg aktiv')}
-                  className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center border ${selected ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-400 bg-white'} disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}>
-                  {selected && <Check className="h-4 w-4" />}
-                </button>}
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-semibold text-slate-950">{title}</p>
-                  <p className="mt-1 break-all text-xs text-slate-600"><span className="text-slate-500">{label('loansSerialNumber')}:</span> <span className="font-mono">{asset.serial_number ?? '—'}</span></p>
+            const expanded = expandedIds.has(asset.asset_id);
+            const sharedText = asset.brik_number && sharedBrikCount > 1
+              ? label('loansStockBrikSharedCompact').replace('{number}', String(asset.brik_number)).replace('{count}', String(sharedBrikCount)) : null;
+            const partner = assignment ? `${assignment.partner_name}${assignment.partner_country ? ` · ${assignment.partner_country}` : ''}` : null;
+            return <article key={asset.asset_id} data-asset-id={asset.asset_id} tabIndex={0}
+              aria-expanded={expanded} onClick={(event) => rowClick(event, asset.asset_id)} onKeyDown={(event) => rowKeyDown(event, asset.asset_id)}
+              className={`min-w-0 px-3 py-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700 ${selected ? 'bg-emerald-50' : 'bg-white hover:bg-slate-50'}`}>
+              <div className={rowGridClass}>
+                <div className="col-span-2 flex min-w-0 items-start gap-2 md:col-span-1">
+                  <ChevronRight className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                  {selection && <button type="button" disabled={Boolean(issue)} onClick={(event) => { event.stopPropagation(); selection.onToggle(asset); }}
+                    aria-pressed={selected} aria-label={`${selected ? 'Fjern' : 'Vælg'} aktiv: ${fabricLoanAssetDisplayIdentity(asset)}`}
+                    title={issue ?? (selected ? 'Fjern aktiv' : 'Vælg aktiv')}
+                    className={`inline-flex h-6 w-6 shrink-0 items-center justify-center border ${selected ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-400 bg-white'} disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}>
+                    {selected && <Check className="h-4 w-4" />}
+                  </button>}
+                  <div className="min-w-0 flex-1">
+                    <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">{label('loansStockName')}</span>
+                    <p className="break-words text-sm font-semibold text-slate-950">{title}</p>
+                    <p className="mt-0.5 break-all text-xs text-slate-600">{label('loansSerialNumber')}: <span className="font-mono">{asset.serial_number ?? '—'}</span></p>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">{label('loansItemNumber')}</span>
+                  <p className="break-all text-sm font-medium text-slate-900">{asset.item_number}</p>
+                  <p className="mt-0.5 break-all text-xs text-slate-600">{label('loansStockOrder')}: {asset.order_number ?? '—'}</p>
+                </div>
+                <div className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">{label('loansStockBrikNumber')}</span>
+                  <div className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-slate-900">
+                    {renderBrik ? renderBrik(asset) : asset.brik_number ?? '—'}
+                    {sharedText && <span className="relative inline-flex">
+                      <button type="button" aria-label={sharedText} title={sharedText}
+                        onClick={(event) => { event.stopPropagation(); setOpenSharedBrikId((current) => current === asset.asset_id ? null : asset.asset_id); }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-amber-700 hover:bg-amber-50 focus-visible:ring-2 focus-visible:ring-amber-600"><Info className="h-4 w-4" /></button>
+                      {openSharedBrikId === asset.asset_id && <span role="status" className="absolute left-0 top-7 z-20 w-64 rounded border border-amber-300 bg-amber-50 p-2 text-xs font-normal text-amber-950 shadow-lg">{sharedText}</span>}
+                    </span>}
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-600">{label('loansWarehouse')} {asset.warehouse_location_code}</p>
+                </div>
+                <div className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">{label('loansStockLoanInformation')}</span>
+                  <p className={`break-words text-sm font-medium ${assignment ? 'text-slate-900' : 'text-emerald-800'}`}>{partner ?? label('loansStockAvailable')}</p>
+                  <p className="mt-0.5 break-words text-xs text-slate-600">{assignment ? `${label('loansStockQuantity')}: 1 · ${assignment.loan_number}` : `${label('loansStockQuantity')}: ${asset.inventory_qty ?? '—'}`}</p>
                 </div>
               </div>
-              <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 xl:grid-cols-5">
-                {[
-                  [label('loansItemNumber'), asset.item_number],
-                  ['Canonical SKU', match?.catalogItemNumber ?? '—'],
-                  [label('loansWarehouse'), asset.warehouse_location_code],
-                  [label('loansStockAccount'), asset.account_number ?? '—'],
-                  [label('loansStockQuantity'), asset.inventory_qty ?? '—'],
-                  [label('loansStockOrder'), asset.order_number ?? '—'],
-                  [label('loansStockDate'), date(asset.stock_last_changed)],
-                  ['Type', match?.itemType ?? asset.item_type ?? '—'],
-                  ['Classification', asset.classification],
-                ].map(([key, value]) => <div key={key} className="min-w-0"><dt className="text-slate-500">{key}</dt><dd className="mt-0.5 break-words text-slate-900">{value}</dd></div>)}
-                <div className="min-w-0"><dt className="text-slate-500">{label('loansStockBrikNumber')}</dt><dd className="mt-0.5 min-h-6 text-slate-900">{renderBrik ? renderBrik(asset) : asset.brik_number ?? '—'}</dd></div>
-              </dl>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                {issue && <span className="font-medium text-amber-800">{issue}</span>}
-                {!issue && statusFor && <span className="text-slate-600">{statusFor(asset)}</span>}
-                {!issue && asset.account_number === '1020' && <span className="text-slate-600">{label('loansStockExternal')}</span>}
-                {asset.review_reason && <span className="break-words text-slate-600">{asset.review_reason}</span>}
-              </div>
-              {asset.brik_number && sharedBrikCount > 1 && <div role="status"
-                className="mt-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                {sharedSerialConflict
-                  ? label('loansStockBrikSerialConflict').replace('{number}', String(asset.brik_number))
-                  : <>{label('loansStockBrikShared').replace('{number}', String(asset.brik_number)).replace('{count}', String(sharedBrikCount))}
-                    <span className="ml-1">{label('loansStockBrikGroupHint')}</span></>}
+              {expanded && <div className="mt-3 border-t border-slate-200 pt-3">
+                <dl className={detailGridClass}>
+                  {[
+                    [label('loansStockFullName'), title], ['Canonical SKU', match?.catalogItemNumber ?? '—'],
+                    [label('loansSerialNumber'), asset.serial_number ?? '—'], [label('loansStockBrikNumber'), asset.brik_number ?? '—'],
+                    [label('loansWarehouse'), asset.warehouse_location_code], [label('loansStockAccount'), asset.account_number ?? '—'],
+                    [label('loansStockOrder'), asset.order_number ?? '—'], [label('loansStockDate'), date(asset.stock_last_changed)],
+                    ['Classification', asset.classification],
+                    [label('loansStockReservationStatus'), assignment ? label(loanStatusTranslationKey(assignment.status as LoanStatus)) : asset.allocated ? label('loansStockAllocated') : label('loansStockAvailable')],
+                    [label('loansStockActiveLoanNumber'), assignment?.loan_number ?? '—'], [label('loansPartner'), partner ?? '—'],
+                    [label('loansStockProductMasterMessage'), issue ?? (statusFor ? statusFor(asset) : match ? label('loansStockCanonicalMatch') : label('loansStockUnclassified'))],
+                  ].map(([key, value]) => <div key={String(key)} className="min-w-0"><dt className="text-slate-500">{key}</dt><dd className="mt-0.5 break-words text-slate-900">{value}</dd></div>)}
+                </dl>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  {!issue && asset.account_number === '1020' && <span className="text-slate-600">{label('loansStockExternal')}</span>}
+                  {asset.review_reason && <span className="break-words text-slate-600">{asset.review_reason}</span>}
+                </div>
               </div>}
             </article>;
           })}

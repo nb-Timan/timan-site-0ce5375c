@@ -39,7 +39,19 @@ export interface FabricLoanSyncStatus {
   last_success_at: string | null;
   stale_after_seconds: number;
 }
-export interface FabricLoanStock { assets: FabricLoanAsset[]; sync: FabricLoanSyncStatus; }
+export interface FabricLoanAssignment {
+  asset_id: string;
+  loan_number: string;
+  partner_name: string;
+  partner_country: string | null;
+  status: string;
+}
+
+export interface FabricLoanStock {
+  assets: FabricLoanAsset[];
+  sync: FabricLoanSyncStatus;
+  active_assignments?: FabricLoanAssignment[];
+}
 
 export function isFabricStockFresh(sync: FabricLoanSyncStatus, now = Date.now()): boolean {
   const sourceTime = sync.source_as_of ? Date.parse(sync.source_as_of) : NaN;

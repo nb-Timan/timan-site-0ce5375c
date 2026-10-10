@@ -57,8 +57,26 @@ const verification: Record<PortalUiLanguage, [string, string, string]> = {
   cs: ['Ověřit přístup k Fabric', 'Přístup k Fabric ověřen', 'Přístup k Fabric se nepodařilo ověřit.'],
 };
 
+const compactEnglish = {
+  loansStockName: 'Name', loansStockLoanInformation: 'Loan information', loansStockAvailable: 'Available',
+  loansStockFullName: 'Full name', loansStockReservationStatus: 'Reservation status',
+  loansStockActiveLoanNumber: 'Active loan no.', loansStockProductMasterMessage: 'Product Master message',
+  loansStockCanonicalMatch: 'Canonical Product Master match',
+  loansStockBrikSharedCompact: 'Tag no. {number} is used on {count} item rows which may belong to the same physical implement.',
+};
+
+const compactDanish = {
+  loansStockName: 'Navn', loansStockLoanInformation: 'Udlånsoplysninger', loansStockAvailable: 'Ledig',
+  loansStockFullName: 'Fuldt navn', loansStockReservationStatus: 'Reservationsstatus',
+  loansStockActiveLoanNumber: 'Aktivt U-nummer', loansStockProductMasterMessage: 'Product Master-besked',
+  loansStockCanonicalMatch: 'Canonical Product Master-match',
+  loansStockBrikSharedCompact: 'Brik nr. {number} anvendes på {count} varelinjer, som kan tilhøre samme fysiske redskab.',
+};
+
 export const LOAN_STOCK_TRANSLATIONS = Object.fromEntries(Object.entries(values).map(([language, words]) => {
-  const translations: Record<string, string> = { ...Object.fromEntries(keys.map((key, index) => [key, words[index]])),
+  const translations: Record<string, string> = {
+    ...Object.fromEntries(keys.map((key, index) => [key, words[index]])),
+    ...(language === 'da' ? compactDanish : compactEnglish),
     loansStockVerify: verification[language as PortalUiLanguage][0],
     loansStockVerified: verification[language as PortalUiLanguage][1],
     loansStockVerifyFailed: verification[language as PortalUiLanguage][2],

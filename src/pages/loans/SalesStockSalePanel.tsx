@@ -42,7 +42,8 @@ export default function SalesStockSalePanel() {
       <p className="mt-1 text-sm text-slate-700">Vælg de konkrete fysiske aktiver, som skal følge samme salgssag til tilbud og ordre.</p>
     </div>
     {!stock?.sync.last_success_at && !query.isPending && <p role="alert" className="flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 p-3 text-sm"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />Salgslagerdata er ikke klar.</p>}
-    <FabricStockAssetBrowser assets={stock?.assets ?? []} filters={filters} onFiltersChange={setFilters} loading={query.isPending}
+    <FabricStockAssetBrowser assets={stock?.assets ?? []} activeAssignments={stock?.active_assignments ?? []}
+      filters={filters} onFiltersChange={setFilters} loading={query.isPending}
       countsReady={Boolean(stock?.sync.last_success_at)}
       selection={{ selectedIds, onToggle: toggle, issueFor }} />
     <section className="border border-slate-200 bg-white p-4" aria-label="Valgte salgslageraktiver">
