@@ -82,3 +82,25 @@ AB's 10285 and 12041 relations remain untouched.
   normally; this implementation has no write path to it.
 
 Production Rostofte acceptance and final close are pending explicit approval.
+
+## Final browser verification
+
+The existing served Lovable preview subsequently picked up the pushed correction
+without triggering Build/Preview generation. JE shows APPROVED, original review
+version 7, active parent 10295, one cooperation-history event, and recheck count 0.
+Live desktop and actual 390 x 844 verification PASS; dialog scrolls internally,
+no horizontal overflow. Lovable credits consumed by this task: 0.
+
+JE SERVICE READY TO CLOSE: YES.
+ROSTOFTE READY TO CLOSE: NO, pending the exact production migration/switch approval.
+
+## Changed files
+
+- src/lib/fabricPartnerReview.ts
+- src/test/fabricPartnerReview.test.ts
+- scripts/test-je-service-import-pilot.mjs
+- scripts/test-partner-cooperation.mjs
+- scripts/partner-cooperation-browser-fixture.mjs
+- supabase/migrations/20261010140258_partner_import_materialization_evidence.sql
+- supabase/migrations/20261010140302_rostofte_legacy_cooperation_correction.sql
+- docs/partner-je-rostofte-closure.md
