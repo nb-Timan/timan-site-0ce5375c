@@ -125,3 +125,53 @@ and intentional Backend-gated SECURITY DEFINER RPCs do not justify broad grants.
 
 The review phase is technically complete. An actual controlled import pilot
 still requires separate approval, an explicit pilot scope and rollback design.
+
+## Permanent cooperation lifecycle
+
+Migration `20261010113512_permanent_partner_cooperation_lifecycle.sql` is
+additive and performs no backfill, partner import or relationship activation.
+It was separately approved and applied to the canonical production project;
+MCP history version 20261010115715, name permanent_partner_cooperation_lifecycle.
+
+Approved operational dealer/customer cooperation uses the existing
+`partner_account_relations` UUIDs, not C5 invoice-account chains. Backend alone
+can explicitly activate, switch or end cooperation through a version-checked,
+idempotent RPC. A new dealer requires explicit confirmation and a reason.
+Ending preserves the inactive row with date, actor and reason; immutable child
+events preserve every period, prior dealer, original source snapshot/invoice
+evidence and optional review decision. Historical CRM/order links never move.
+
+The same transaction updates the existing customer `parent_account_number`
+access pointer. This is necessary because existing organization/CRM scope
+consumers still use it. Ending clears that pointer, and switching replaces it
+only after checking for ambiguous/conflicting legacy ownership. Existing
+independent permissions are not broadened or removed. Other relation types
+retain their existing behavior.
+
+Table triggers reject protected relationship deletion, direct activation,
+direct deactivation and automatic parent reassignment, including source-sync
+writes. Only a Backend-gated same-transaction audit event authorizes the
+specific changes. Audit data has RLS and no direct client/service grants.
+
+C5 refresh changes shadow facts only. It cannot end or move cooperation;
+changed source fingerprints require recheck. Review comparison uses the latest
+operational cooperation decision (including an ended/null parent) instead of
+reviving a prior proposed relation. Existing approved profile-field overrides
+remain separate and unchanged. JE Service is not imported by this feature.
+
+Local verification includes real migration execution, canonical organization
+scope/RLS denial after switching, source-refresh persistence, explicit end/
+reactivation, retry/version protection, append-only history, and unchanged
+UUIDs, sellers, users and historical order snapshots. No real production
+relationship is used as a mutation fixture.
+
+Verification: 139 focused UI/domain/access tests, 46 cooperation SQL/RLS
+checks, 75 existing review SQL checks and 35 shadow isolation checks PASS.
+Scoped lint and build PASS. In-memory typecheck comparison against cc2a78b8
+has the same 111 pre-existing diagnostics and zero new diagnostics.
+Production verified RLS, fixed search paths, private helpers, no direct audit
+grants, and denial of history/change/direct-audit access for non-Backend.
+The new audit remains empty: no customer import or relationship change was
+created. Existing relation fingerprints exclude only the three newly added
+nullable end-summary columns when comparing with the pre-migration baseline.
+No SharePoint integration or source was modified.

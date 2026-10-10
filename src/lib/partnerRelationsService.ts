@@ -40,6 +40,9 @@ export interface PartnerAccountRelation {
   active: boolean;
   created_at: string;
   updated_at: string;
+  ended_at?: string | null;
+  ended_by?: string | null;
+  end_reason?: string | null;
 }
 
 const MAIN_SERVICE_PARTNER_RELATION_TYPES = new Set<PartnerAccountRelationType>([
@@ -88,7 +91,7 @@ export interface ServicePartnerLink {
 export async function listPartnerAccountRelations(): Promise<PartnerAccountRelation[]> {
   const { data, error } = await supabase
     .from("partner_account_relations")
-    .select("id, source_account_id, target_account_id, relation_type, active, created_at, updated_at")
+    .select("id, source_account_id, target_account_id, relation_type, active, created_at, updated_at, ended_at, ended_by, end_reason")
     .order("created_at", { ascending: false });
   if (error) {
     console.warn("[partnerRelations] listPartnerAccountRelations failed", error.message);
@@ -199,6 +202,48 @@ export async function deletePartnerAccountRelation(id: string): Promise<{ ok: bo
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+export type PartnerCooperationAction = 'ACTIVATE' | 'END' | 'SWITCH';
+export interface PartnerCooperationEvent {
+  id: string;
+  version: number;
+  action: PartnerCooperationAction;
+  previous_dealer_id: string | null;
+  new_dealer_id: string | null;
+  reviewed_by: string;
+  reviewer_name: string | null;
+  created_at: string;
+  reason: string;
+}
+export interface PartnerCooperationHistory {
+  version: number;
+  events: PartnerCooperationEvent[];
+}
+export async function loadPartnerCooperationHistory(customerId: string): Promise<PartnerCooperationHistory> {
+  const { data, error } = await supabase.rpc('partner_cooperation_history', { p_customer_id: customerId });
+  if (error) throw error;
+  return data as unknown as PartnerCooperationHistory;
+}
+export async function changePartnerCooperation(input: {
+  customerId: string; expectedVersion: number; action: PartnerCooperationAction;
+  newDealerId: string | null; confirmed: boolean; reason: string; requestId: string;
+}) {
+  const { data, error } = await supabase.rpc('partner_cooperation_change', {
+    p_customer_id: input.customerId, p_expected_version: input.expectedVersion, p_action: input.action,
+    p_new_dealer_id: input.newDealerId, p_confirm_new_relation: input.confirmed, p_reason: input.reason,
+    p_request_id: input.requestId,
+  });
+  if (error) throw error;
+  return data as string;
+}
+export function partnerCooperationError(error: unknown): string {
+  const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : '';
+  if (/VERSION_CONFLICT|STATE_CONFLICT/.test(message)) return 'Samarbejdet er ændret. Genindlæs før du fortsætter.';
+  if (/BACKEND_ONLY/.test(message)) return 'Kun Timan Backend kan ændre samarbejdet.';
+  if (/PARENT_CONFLICT|REVIEW_REQUIRED/.test(message)) return 'Eksisterende relationer kræver afklaring. Ingen ændring er gemt.';
+  if (/APPROVAL_REQUIRED/.test(message)) return 'Den nye relation skal godkendes eksplicit.';
+  return 'Samarbejdet kunne ikke gemmes. Genindlæs og prøv igen.';
 }
 
 export async function listServicePartnerLinks(): Promise<ServicePartnerLink[]> {

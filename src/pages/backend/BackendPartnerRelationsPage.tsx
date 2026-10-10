@@ -14,6 +14,7 @@ import { isBackendActor } from "@/lib/portalAccess";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useLanguage } from "@/context/LanguageContext";
+import PartnerCooperationDialog from '@/components/backend/PartnerCooperationDialog';
 import {
   DealerAccount,
   fetchDealerAccounts,
@@ -28,6 +29,7 @@ import {
   deletePartnerAccountRelation,
   ServicePartnerLink,
   listServicePartnerLinks,
+  type PartnerCooperationAction,
 } from "@/lib/partnerRelationsService";
 
 type AccountKind = "importer" | "dealer" | "service_partner" | "dealer_customer" | "other";
@@ -160,6 +162,7 @@ export default function BackendPartnerRelationsPage() {
   const [active, setActive] = useState(true);
   const [search, setSearch] = useState("");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
+  const [cooperation, setCooperation] = useState<{ customerId: string; action: PartnerCooperationAction | 'HISTORY'; initialDealerId?: string } | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -242,6 +245,10 @@ export default function BackendPartnerRelationsPage() {
     }
     if (sourceId === targetId) {
       setMessage("En virksomhed kan ikke kobles til sig selv.");
+      return;
+    }
+    if (relationType === 'dealer_has_dealer_customer') {
+      setCooperation({ customerId: targetId, action: 'ACTIVATE', initialDealerId: sourceId });
       return;
     }
     setBusy(true);
@@ -361,10 +368,10 @@ export default function BackendPartnerRelationsPage() {
               </select>
             </label>
 
-            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            {relationType !== 'dealer_has_dealer_customer' && <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
               <span>Aktiv</span>
-            </label>
+            </label>}
 
             <button
               type="button"
@@ -372,7 +379,7 @@ export default function BackendPartnerRelationsPage() {
               disabled={busy}
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {busy ? "Gemmer..." : "Gem relation"}
+              {busy ? "Gemmer..." : relationType === 'dealer_has_dealer_customer' ? 'Gennemgå relation' : "Gem relation"}
             </button>
           </div>
 
@@ -444,7 +451,18 @@ export default function BackendPartnerRelationsPage() {
                               <div className="font-medium text-slate-900">{accountLabel(target)}</div>
                               <div className="text-xs text-slate-500">{kindLabel(target ? accountKind(target) : "other")}</div>
                             </div>
-                            <label className="flex items-center gap-2 text-slate-700">
+                            {relation.relation_type === 'dealer_has_dealer_customer' ? <>
+                              <div className="min-w-0 break-words text-sm">{relation.active ? 'Aktivt samarbejde' : 'Afsluttet samarbejde'}
+                                {relation.ended_at && <p className="text-xs text-gray-600">{new Date(relation.ended_at).toLocaleString('da-DK')} · {relation.end_reason}</p>}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {relation.active ? <>
+                                  <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'END' })}>Afslut samarbejde</button>
+                                  <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'SWITCH' })}>Skift forhandler</button>
+                                </> : <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'ACTIVATE', initialDealerId: relation.source_account_id })}>Godkend nyt samarbejde</button>}
+                                <button type="button" className="rounded border px-2 py-1.5" onClick={() => setCooperation({ customerId: relation.target_account_id, action: 'HISTORY' })}>Historik</button>
+                              </div>
+                            </> : <><label className="flex items-center gap-2 text-slate-700">
                               <input
                                 type="checkbox"
                                 checked={relation.active}
@@ -459,7 +477,7 @@ export default function BackendPartnerRelationsPage() {
                             >
                               <Trash2 className="h-4 w-4" />
                               Slet
-                            </button>
+                            </button></>}
                           </div>
                         );
                       })}
@@ -495,6 +513,9 @@ export default function BackendPartnerRelationsPage() {
           </div>
         </section>
       </main>
+
+      {cooperation && <PartnerCooperationDialog key={`${cooperation.customerId}-${cooperation.action}`} {...cooperation}
+        dealers={dealers} onClose={() => setCooperation(null)} onSaved={refresh} />}
 
       <PortalFooter language={language} />
     </div>
