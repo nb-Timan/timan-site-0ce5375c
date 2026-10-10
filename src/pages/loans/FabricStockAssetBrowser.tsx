@@ -34,6 +34,7 @@ type Props = {
   selection?: SelectionProps;
   renderBrik?: (asset: FabricLoanAsset) => ReactNode;
   statusFor?: (asset: FabricLoanAsset) => ReactNode;
+  informationFor?: (asset: FabricLoanAsset) => ReactNode;
 };
 
 const detailGridClass = 'grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-5';
@@ -41,7 +42,7 @@ const rowGridClass = 'grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 md:grid-cols-[min
 
 export default function FabricStockAssetBrowser({
   assets, activeAssignments = [], filters, onFiltersChange, loading = false, countsReady = true,
-  selection, renderBrik, statusFor,
+  selection, renderBrik, statusFor, informationFor,
 }: Props) {
   const { uiLanguage } = useLanguage();
   const label = (key: string) => t(key, uiLanguage);
@@ -184,6 +185,7 @@ export default function FabricStockAssetBrowser({
                   <p className={`break-words text-sm font-medium ${assignment ? 'text-slate-900' : 'text-emerald-800'}`}>{partner ?? label('loansStockAvailable')}</p>
                   <p className="mt-0.5 break-words text-xs text-slate-600">{assignment ? `${label('loansStockQuantity')}: 1 · ${assignment.loan_number}` : `${label('loansStockQuantity')}: ${asset.inventory_qty ?? '—'}`}</p>
                   {selection?.mode === 'checkbox' && issueText && <p id={`sales-stock-issue-${asset.asset_id}`} className="mt-1 break-words text-xs font-medium text-amber-800">{issueText}</p>}
+                  {!issueText && informationFor && <p className="mt-1 break-words text-xs text-slate-600">{informationFor(asset)}</p>}
                 </div>
               </div>
               {expanded && <div className="mt-3 border-t border-slate-200 pt-3">

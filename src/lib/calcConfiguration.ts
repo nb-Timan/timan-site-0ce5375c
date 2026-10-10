@@ -81,8 +81,9 @@ export function configurationCampaignSelection(state: ConfiguratorState) {
 export function calculateConfiguration(state: ConfiguratorState, options: PricingOptions = {}): CalcResult {
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler. Brug det afsendte dokument; priser genberegnes ikke automatisk.');
   const now = options.now ?? Date.now();
-  const directPricing = state.pricingMode === 'direct';
   const salesStockMode = state.salesChannel === 'sales_stock_demo' && Boolean(state.salesStockAssets?.length);
+  const sourceSalesStockLines = salesStockMode && state.salesStockAssets?.some(asset => asset.priceSource !== undefined);
+  const directPricing = !sourceSalesStockLines && state.pricingMode === 'direct';
   const campaignDisabled = state.campaignDisabled === true;
   const partnerAccountType = resolveConfiguratorPartnerAccountType({ persisted: state.partnerAccountType });
   const currency = configuratorCurrency(state);
@@ -98,16 +99,31 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '', selectionOrder = -1, lineUnit = unit) => {
     item.price = roundPricingMoney(item.price);
     item.quantity = quantity;
-    item.unitPrice = roundPricingMoney(item.price / Math.max(1, quantity));
-    if (nettoPricing && isConfiguratorNettoSku(item.varenr)) item.isNetto = true;
+    item.unitPrice = roundPricingMoney(item.price / (sourceSalesStockLines && quantity > 0 ? quantity : Math.max(1, quantity)));
+    if (!sourceSalesStockLines && nettoPricing && isConfiguratorNettoSku(item.varenr)) item.isNetto = true;
     lineItems.push(item);
     const salesStockAsset = salesStockMode
-      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === lineUnit && asset.catalogItemNumber === item.varenr)
+      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === lineUnit
+        && (asset.itemNumber === item.varenr || asset.catalogItemNumber === item.varenr))
       : undefined;
     lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder, discountApplications: [], salesStockAsset });
   };
 
-  for (const machine of state.machineConfigs ?? []) {
+  // New sales-stock cases use physical source lines, not generated catalogue carts.
+  // Legacy snapshots retain their original catalogue line shape.
+  if (sourceSalesStockLines) {
+    for (const asset of state.salesStockAssets ?? []) {
+      unit = asset.configuratorUnitNumber;
+      const quantity = asset.quantity ?? 1;
+      const base = asset.originalListPrice ?? asset.adjustedBasePrice;
+      const pending = base === null || !Number.isFinite(base) || base <= 0
+        || asset.pricingCurrency !== currency
+        || (asset.pricingMethod === 'adjusted_base' && (asset.adjustedBasePrice === null || asset.adjustedBasePrice <= 0));
+      add({ txt: asset.itemText, description: asset.itemText, price: pending ? 0 : base! * quantity,
+        varenr: asset.itemNumber, bold: true, isMachine: asset.itemType === 'machine',
+        index: unit, ...(pending ? { pricePending: true } : {}) }, quantity, false, false);
+    }
+  } else for (const machine of state.machineConfigs ?? []) {
     const product = PRODUCTS[machine.type];
     if (!product) continue;
     for (let index = 1; index <= machine.qty; index++) {
@@ -179,7 +195,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         if (affected.length === 0) continue;
         if (asset.pricingMethod === 'adjusted_base' && asset.adjustedBasePrice !== null) {
           const basis = roundPricingMoney(affected.reduce((sum, line) => sum + line.net, 0));
-          const target = roundPricingMoney(Math.min(basis, Math.max(0, asset.adjustedBasePrice)));
+          const target = roundPricingMoney(Math.min(basis, Math.max(0, asset.adjustedBasePrice) * (asset.quantity ?? 1)));
           const amount = roundPricingMoney(basis - target);
           if (amount > 0) {
             let allocated = 0;
@@ -325,7 +341,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     discountApplications: line.discountApplications,
   }));
   const discountBasis = roundPricingMoney(subtotal - nettoTotal);
-  return { lineItems, subtotal, ...(nettoTotal ? { nettoTotal } : {}), discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: discountBasis ? totalDiscount / discountBasis * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines, commercialLines };
+  return { lineItems, subtotal, ...(lineItems.some(item => item.pricePending) ? { pricingIncomplete: true } : {}),
+    ...(nettoTotal ? { nettoTotal } : {}), discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: discountBasis ? totalDiscount / discountBasis * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines, commercialLines };
 }
 
 export function calcConfigurationTotals(state: ConfiguratorState, options: PricingOptions = {}): { subtotal: number; totalDiscount: number; finalPrice: number } {

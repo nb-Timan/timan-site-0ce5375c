@@ -17,10 +17,14 @@ function normalizeSalesStockAssets(value: unknown): SalesStockAssetSnapshot[] {
     && typeof asset.sourceAssetId === 'string'
     && typeof asset.assetInstanceId === 'string'
     && typeof asset.itemNumber === 'string'
-    && typeof asset.catalogItemNumber === 'string'
-    && (asset.itemType === 'machine' || asset.itemType === 'equipment'))
+    && (asset.catalogItemNumber == null || typeof asset.catalogItemNumber === 'string')
+    && (asset.itemType == null || asset.itemType === 'machine' || asset.itemType === 'equipment'))
     .map((asset) => ({
       ...asset,
+      catalogItemNumber: asset.catalogItemNumber ?? null,
+      itemType: asset.itemType ?? null,
+      originalListPrice: typeof asset.originalListPrice === 'number' && Number.isFinite(asset.originalListPrice) && asset.originalListPrice > 0
+        ? asset.originalListPrice : null,
       serialNumber: typeof asset.serialNumber === 'string' && asset.serialNumber.trim() ? asset.serialNumber.trim() : null,
       brikNumber: Number.isInteger(asset.brikNumber) && Number(asset.brikNumber) > 0 ? Number(asset.brikNumber) : null,
       adjustedBasePrice: typeof asset.adjustedBasePrice === 'number' && Number.isFinite(asset.adjustedBasePrice)
@@ -109,7 +113,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     flowType,
     salesChannel,
     salesStockAssets,
-    pricingMode,
+    pricingMode: salesChannel === 'sales_stock_demo' ? 'partner' : pricingMode,
     locale: typeof value?.locale === 'string' && CONFIGURATOR_LOCALES.has(value.locale)
       ? value.locale
       : value?.language ?? 'da',
@@ -189,28 +193,39 @@ export function assertValidConfiguratorCommercialState(state: Pick<ConfiguratorS
   }
 }
 
-export function assertValidSalesStockState(state: Pick<ConfiguratorState, 'salesChannel' | 'salesStockAssets'>): void {
+export function assertValidSalesStockState(state: Pick<ConfiguratorState, 'salesChannel' | 'salesStockAssets'>
+  & Partial<Pick<ConfiguratorState, 'pricingMode' | 'currency'>>): void {
   if (state.salesChannel !== 'sales_stock_demo') return;
+  if (state.pricingMode === 'direct') throw new Error('SALES_STOCK_DIRECT_NOT_ALLOWED');
   if (!state.salesStockAssets?.length) throw new Error('SALES_STOCK_ASSETS_REQUIRED');
   const ids = new Set<string>();
   for (const asset of state.salesStockAssets) {
-    if (!asset.sourceAssetId || !asset.assetInstanceId || !asset.itemNumber || !asset.catalogItemNumber || ids.has(asset.sourceAssetId)) {
+    if (!asset.sourceAssetId || !asset.assetInstanceId || !asset.itemNumber || ids.has(asset.sourceAssetId)) {
       throw new Error('SALES_STOCK_ASSET_IDENTITY_INVALID');
     }
     ids.add(asset.sourceAssetId);
+    if (state.currency && asset.pricingCurrency !== state.currency) throw new Error('SALES_STOCK_PRICE_CURRENCY_MISMATCH');
+    if (asset.quantity !== undefined && (!Number.isFinite(asset.quantity) || asset.quantity <= 0)) {
+      throw new Error('SALES_STOCK_QUANTITY_INVALID');
+    }
+    if (asset.originalListPrice !== null && (!Number.isFinite(asset.originalListPrice) || asset.originalListPrice <= 0)) {
+      throw new Error('SALES_STOCK_PRICE_REQUIRED');
+    }
     if (asset.pricingMethod !== 'adjusted_base' && asset.pricingMethod !== 'sales_stock_discount') {
       throw new Error('SALES_STOCK_PRICING_METHOD_INVALID');
     }
     if (asset.pricingMethod === 'adjusted_base') {
-      if (asset.adjustedBasePrice === null || asset.adjustedBasePrice < 0 || asset.adjustedBasePrice > asset.originalListPrice) {
+      if (asset.adjustedBasePrice === null || !Number.isFinite(asset.adjustedBasePrice) || asset.adjustedBasePrice <= 0
+        || (asset.originalListPrice !== null && asset.adjustedBasePrice > asset.originalListPrice)) {
         throw new Error('SALES_STOCK_ADJUSTED_BASE_INVALID');
       }
       if (asset.salesStockDiscountPct !== null) throw new Error('SALES_STOCK_PRICING_METHOD_CONFLICT');
       if (!asset.pricingReason.trim()) throw new Error('SALES_STOCK_PRICING_REASON_REQUIRED');
     } else {
+      if (asset.originalListPrice === null) throw new Error('SALES_STOCK_PRICE_REQUIRED');
       if (asset.adjustedBasePrice !== null) throw new Error('SALES_STOCK_PRICING_METHOD_CONFLICT');
       if (asset.salesStockDiscountPct !== null
-        && (asset.salesStockDiscountPct < 0 || asset.salesStockDiscountPct > 100 || !asset.pricingReason.trim())) {
+        && (!Number.isFinite(asset.salesStockDiscountPct) || asset.salesStockDiscountPct < 0 || asset.salesStockDiscountPct >= 100 || !asset.pricingReason.trim())) {
         throw new Error('SALES_STOCK_PRICING_REASON_REQUIRED');
       }
     }

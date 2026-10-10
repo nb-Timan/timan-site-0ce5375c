@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFabricLoanStock } from '@/hooks/useFabricLoanStock';
 import { useLanguage } from '@/context/LanguageContext';
 import type { FabricLoanAsset } from '@/lib/fabricLoanStock';
-import { salesStockAssetSelectionIssue, salesStockSelectedGroupIssue, storeSalesStockHandoff } from '@/lib/salesStockConfigurator';
+import { resolveSalesStockCatalogItem, salesStockAssetSelectionIssue, salesStockSelectedGroupIssue, storeSalesStockHandoff } from '@/lib/salesStockConfigurator';
 import { t } from '@/lib/i18n/translations';
 import FabricStockAssetBrowser, { type FabricStockBrowserFilters } from './FabricStockAssetBrowser';
 
@@ -59,6 +59,8 @@ export default function SalesStockSalePanel() {
     <FabricStockAssetBrowser assets={stock?.assets ?? []} activeAssignments={stock?.active_assignments ?? []}
       filters={filters} onFiltersChange={setFilters} loading={query.isPending}
       countsReady={Boolean(stock?.sync.last_success_at)}
+      informationFor={(asset) => !resolveSalesStockCatalogItem(asset.item_number, 'DKK')
+        ? 'Intet Product Master-match · Salgspris kræver fastsættelse' : null}
       selection={{ mode: 'checkbox', selectedIds, onToggle: toggle, issueFor }} />
     <section className="border border-slate-200 bg-white p-4" aria-label="Valgte salgslageraktiver">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold text-slate-950">Valgte salgslageraktiver</h3><p className="text-sm text-slate-600">Valgte aktiver: {selected.length}</p></div>

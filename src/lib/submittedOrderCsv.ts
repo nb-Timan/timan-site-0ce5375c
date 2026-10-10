@@ -127,7 +127,7 @@ export function buildSubmittedOrderCsv(input: SubmittedOrderCsvInput): Submitted
 
   const orderTotals = {
     gross: totals.subtotal,
-    base: totalByKind(allApplications, 'base'),
+    base: roundPricingMoney(totalByKind(allApplications, 'base') + totalByKind(allApplications, 'sales_stock_base') + totalByKind(allApplications, 'sales_stock')),
     quantity: totalByKind(allApplications, 'quantity'),
     delivery: totalByKind(allApplications, 'delivery'),
     dealer: totalByKind(allApplications, 'dealer'),
@@ -141,7 +141,7 @@ export function buildSubmittedOrderCsv(input: SubmittedOrderCsvInput): Submitted
 
   const records = lines.map((line, index) => {
     const applications = line.discountApplications ?? [];
-    const standardPct = applicationPct(applications, 'base');
+    const standardPct = sequentialEquivalentDiscountPct(applicationPct(applications, 'base'), applicationPct(applications, 'sales_stock_base'), applicationPct(applications, 'sales_stock'));
     const quantityPct = applicationPct(applications, 'quantity');
     const deliveryPct = applicationPct(applications, 'delivery');
     const extraPct = applicationPct(applications, 'dealer');
@@ -153,7 +153,7 @@ export function buildSubmittedOrderCsv(input: SubmittedOrderCsvInput): Submitted
       : sequentialEquivalentDiscountPct(standardPct, quantityPct, deliveryPct);
     const navBaseAmount = applicationAmount(applications, demoPct > 0
       ? ['demo']
-      : ['base', 'quantity', 'delivery']);
+      : ['base', 'sales_stock_base', 'sales_stock', 'quantity', 'delivery']);
     const extraAmount = applicationAmount(applications, ['dealer', 'direct']);
     const netAfterNavBase = roundPricingMoney(line.total - navBaseAmount);
     const netAfterExtra = roundPricingMoney(netAfterNavBase - extraAmount);
@@ -170,7 +170,8 @@ export function buildSubmittedOrderCsv(input: SubmittedOrderCsvInput): Submitted
       percent(campaignPct), percent(demoPct), percent(directPct), percent(navBasePct),
       money(netAfterNavBase), money(netAfterExtra), money(Number(line.finalNetAmount)),
       dates[0] ?? state.date, input.confirmedDeliveryDate ?? '',
-      unitNumber ? input.serialNumbersByUnit?.[unitNumber] ?? '' : '', unitNumber ? input.erpReferencesByUnit?.[unitNumber] ?? '' : '',
+      unitNumber ? input.serialNumbersByUnit?.[unitNumber] ?? state.salesStockAssets?.find(asset => asset.configuratorUnitNumber === unitNumber)?.serialNumber ?? '' : '',
+      unitNumber ? input.erpReferencesByUnit?.[unitNumber] ?? state.salesStockAssets?.find(asset => asset.configuratorUnitNumber === unitNumber)?.sourceOrderNumber ?? '' : '',
       money(orderTotals.gross), money(orderTotals.base), money(orderTotals.quantity), money(orderTotals.delivery),
       money(orderTotals.dealer), money(orderTotals.campaign), money(orderTotals.demo), money(orderTotals.direct),
       money(orderTotals.net), matchesOrderTotal ? 'YES' : 'NO',

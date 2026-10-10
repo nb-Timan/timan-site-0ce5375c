@@ -1,5 +1,6 @@
 import { DEMO_FEE_ITEM_NUMBER, getAccessoriesFlat, getLocalizedName, getPriceForCurrency, PRODUCTS } from '@/data/machines';
-import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { calculateConfiguration, calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { assertValidSalesStockState } from '@/lib/configuratorState';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { configuratorCurrency, hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { convertCurrency } from '@/lib/currency';
@@ -99,7 +100,7 @@ export function buildAccountOrderDiscountRows(
   if (details === null) return totalDiscount > 0 ? fallback : [];
   if (!details.length) return [];
 
-  const labelKeys: Record<NonNullable<DiscountDetail['kind']>, string> = {
+  const labelKeys: Partial<Record<NonNullable<DiscountDetail['kind']>, string>> = {
     demo: 'accountOrderDemoDiscount',
     base: 'accountOrderBaseDiscount',
     delivery: 'accountOrderDeliveryDiscount',
@@ -112,7 +113,8 @@ export function buildAccountOrderDiscountRows(
   const grouped = new Map<string, number>();
   for (const detail of details) {
     if (detail.amount === 0 && detail.kind !== 'base') continue;
-    const label = portalT(detail.kind ? labelKeys[detail.kind] : 'accountOrderDiscount', language);
+    const label = detail.kind === 'sales_stock_base' || detail.kind === 'sales_stock'
+      ? detail.txt : portalT(detail.kind ? labelKeys[detail.kind] ?? 'accountOrderDiscount' : 'accountOrderDiscount', language);
     const campaignCode = detail.kind === 'campaign'
       ? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId && line.itemNumber === detail.varenr)?.campaignCode
         ?? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId)?.campaignCode
@@ -216,6 +218,16 @@ export function buildAccountCaseLines(
       const reference = line.unitNumber ? machinePurchaseReference(state, line.unitNumber) : null;
       return { ...line, purchaseReferences: reference ? [reference] : [] };
     });
+  }
+  if (state.salesChannel === 'sales_stock_demo' && state.salesStockAssets?.some(asset => asset.priceSource !== undefined)) {
+    assertValidSalesStockState(state);
+    const calculated = calculateConfiguration(state);
+    if (calculated.pricingIncomplete) throw new Error('SALES_STOCK_PRICE_REQUIRED');
+    return calculated.lineItems.filter(line => !line.subtotal && !line.isSectionHeader).map(line => ({
+      unitNumber: line.index, itemNo: line.varenr, description: line.description ?? line.txt,
+      note: '', unitPrice: line.unitPrice!, quantity: line.quantity!, total: line.price,
+      purchaseReferences: line.index && machinePurchaseReference(state, line.index) ? [machinePurchaseReference(state, line.index)!] : [],
+    }));
   }
   const legacyLang = normalizeLang(language);
   const frozen = hasFrozenConfiguratorPricing(state);

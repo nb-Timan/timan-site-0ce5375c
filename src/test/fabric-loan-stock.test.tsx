@@ -214,7 +214,7 @@ describe('single Fabric stock dataset', () => {
     expect(salesStockAssetSelectionIssue(loaderLineEquipment, fresh(), 'DKK')).toBeNull();
   });
   it('shows deterministic reasons for every unsafe sales-stock selection', () => {
-    expect(salesStockAssetSelectionIssue({ ...asset, item_number: 'UNKNOWN-01' }, fresh(), 'DKK')).toBe('Mangler Product Master-match');
+    expect(salesStockAssetSelectionIssue({ ...asset, item_number: 'UNKNOWN-01' }, fresh(), 'DKK')).toBeNull();
     expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410910-00', serial_number: null, brik_number: null }, fresh(), 'DKK')).toBe('Mangler Brik nr.');
     expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410040-01', review_required: true }, fresh(), 'DKK')).toBe('Kræver kontrol');
     expect(salesStockAssetSelectionIssue({ ...asset, item_number: '410040-01', identity_conflict: true }, fresh(), 'DKK')).toBe('Identitetskonflikt');

@@ -148,6 +148,7 @@ import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, baseMachineQuantity, commonMachineDeliveryDate, formatDeliveryDestination, hasMachineDeliveryOverride, hasProductSplitDelivery, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey, deliveryDestinationSections } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
 import { buildSalesStockConfiguratorState, configuratorSalesSourceType, consumeSalesStockHandoff, isSalesStockConfiguration, salesStockAssetContextLines } from '@/lib/salesStockConfigurator';
+import { assertValidSalesStockState } from '@/lib/configuratorState';
 import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 import {
   reconcileConfiguratorStartupOption,
@@ -455,6 +456,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
     : calcResult;
   const campaignPricingActive = isCampaignPricingActive(displayCalc?.campaignLines);
+  const validateSalesStockPricing = useCallback(() => {
+    if (!isSalesStockConfiguration(state)) return true;
+    try {
+      assertValidSalesStockState(state);
+      if (calculateConfiguration(state).pricingIncomplete) throw new Error('SALES_STOCK_PRICE_REQUIRED');
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error && error.message.includes('REASON')
+        ? 'Angiv en årsag til salgsprisen.' : 'Salgspris kræver fastsættelse');
+      return false;
+    }
+  }, [state]);
   const campaignPricingRelevant = shouldShowCampaignDisableControl(state, calcResult?.campaignLines, isGrossPriceMode);
   const machineDeliveryDiscountByUnit = useMemo(
     () => new Map((displayCalc?.deliveryDiscounts ?? []).map(discount => [discount.unitNumber, discount])),
@@ -1123,6 +1136,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
    * available. Returns the created lead id, or null on failure.
    */
   const createLeadFromCurrentState = useCallback(async (): Promise<string | null> => {
+    if (!validateSalesStockPricing()) return null;
     if (!validateNewLeadIntent()) return null;
     try {
       const { createLead } = await import('@/lib/crmLeadsService');
@@ -1208,7 +1222,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       console.error('[createLeadFromCurrentState] failed:', err);
       return null;
     }
-  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc, validateNewLeadIntent]);
+  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc, validateNewLeadIntent, validateSalesStockPricing]);
 
   /**
    * If the user selected "Opret nyt lead" in the picker, create the lead
@@ -1264,6 +1278,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
 
   const handleSaveChanges = useCallback(async (): Promise<boolean> => {
+    if (!validateSalesStockPricing()) return false;
     if (academySandbox.isActive()) {
       toast.info('Academy-træning gemmes kun lokalt.');
       return false;
@@ -1379,12 +1394,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, backendCorrectionSessionId, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated, handleSyncLinkedLead]);
+  }, [savedConfigurationId, savingChanges, orderLocked, backendCorrectionSessionId, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated, handleSyncLinkedLead, validateSalesStockPricing]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async (options?: { quiet?: boolean }): Promise<string | null> => {
+    if (!validateSalesStockPricing()) return null;
     if (!validateNewLeadIntent()) return null;
     if (academySandbox.isActive()) {
       refreshAcademyCase();
@@ -1558,7 +1574,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isAcademyCase3, isExhibition, displayCalc, refreshAcademyCase, validateNewLeadIntent]);
+  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isAcademyCase3, isExhibition, displayCalc, refreshAcademyCase, validateNewLeadIntent, validateSalesStockPricing]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -1592,7 +1608,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         setIsSavedCurrent(false);
         toast.success('Salgslageraktiver indlæst i Configurator.');
       } catch (error) {
-        toast.error('Et valgt aktiv findes ikke i den canonical produktkatalog.', {
+        toast.error('Et valgt salgslageraktiv kunne ikke valideres.', {
           description: error instanceof Error ? error.message : String(error),
         });
       }
@@ -2313,6 +2329,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   // Open confirmation — but first ask about sales arguments
   const openConfirmation = async () => {
+    if (!validateSalesStockPricing()) return;
 
     // Hard guard: a submitted order can never reopen the send confirmation.
     if (orderLocked && !backendCorrectionSessionId) {
@@ -2394,6 +2411,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     flowOverride?: ConfiguratorSubmitFlowType,
     options?: { orderRevisionAction?: OrderRevisionAction },
   ): Promise<boolean> => {
+    if (!validateSalesStockPricing()) return false;
     const effectiveFlowType = flowOverride ?? state.flowType;
     let documentState = refreshConfiguratorProductDescriptions(state);
     let documentCalc = hasFrozenConfiguratorPricing(documentState) && !isGrossPriceMode
@@ -4892,7 +4910,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 })}
                 </div>
               </div>
-              {canUseDirectPricingMode && state.flowType === 'quote' && (
+              {canUseDirectPricingMode && state.flowType === 'quote' && !isSalesStockMode && (
                 <div className="mt-3 flex items-center justify-between gap-3" data-testid="configurator-direct-control">
                   <div className="min-w-0">
                     <label htmlFor="configurator-direct-pricing" className="text-sm font-semibold text-gray-800">{T('directMode')}</label>
@@ -4950,7 +4968,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       ? machineDeliveryDiscountByUnit.get(item.index)
                       : undefined;
                     const salesStockAsset = isSalesStockMode && item.index
-                      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === item.index && asset.catalogItemNumber === item.varenr)
+                      ? state.salesStockAssets?.find((asset) => asset.configuratorUnitNumber === item.index && (asset.itemNumber === item.varenr || asset.catalogItemNumber === item.varenr))
                       : undefined;
                     return (
                       <div key={idx}>
@@ -4979,13 +4997,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               <span className="font-semibold text-amber-900">Salgslager / {salesStockAsset.warehouseLocationCode === '4' ? 'brugt' : 'demo'}</span>
                               <span className="block">Serienr.: {salesStockAsset.serialNumber || '—'} · Brik nr.: {salesStockAsset.brikNumber ?? '—'}</span>
                               <span className="block">Konto {salesStockAsset.accountNumber ?? '—'} · Lager {salesStockAsset.warehouseLocationCode} · Ordre {salesStockAsset.sourceOrderNumber ?? '—'}</span>
-                              <span className="block">Canonical list price: {formatDisplayMoney(salesStockAsset.originalListPrice)}</span>
+                              <span className="block">Prisgrundlag: {salesStockAsset.originalListPrice === null ? 'Manuel fastsættelse' : formatDisplayMoney(salesStockAsset.originalListPrice)}</span>
                               {salesStockAsset.pricingMethod === 'adjusted_base'
-                                ? <span className="block">Nedskrevet grundpris: {formatDisplayMoney(salesStockAsset.adjustedBasePrice ?? salesStockAsset.originalListPrice)}</span>
+                                ? <span className="block">Salgsgrundpris: {salesStockAsset.adjustedBasePrice === null ? 'Salgspris kræver fastsættelse' : formatDisplayMoney(salesStockAsset.adjustedBasePrice)}</span>
                                 : <span className="block">Salgslager-/demo-rabat: {(salesStockAsset.salesStockDiscountPct ?? state.baseDiscountPct! * 100).toLocaleString(uiLanguage)}%</span>}
                             </div>}
                           </div>
-                          {permissions.canSeePrices && <span className="price-col ml-3 whitespace-nowrap text-right font-medium">{formatDisplayMoney(item.price)}</span>}
+                          {permissions.canSeePrices && <span className="price-col ml-3 shrink-0 text-right font-medium">{item.pricePending ? '—' : formatDisplayMoney(item.price)}</span>}
                         </div>
                         {item.isMachine && (
                           <div className="mt-0.5 pl-4 text-[11px] text-gray-500">
@@ -5037,7 +5055,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
                       <span>{T(isDirectPricing ? 'directNetPrice' : 'subtotal')}</span>
-                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal - (displayCalc!.nettoTotal ?? 0))}</span>
+                      <span className="font-medium price-col">{displayCalc!.pricingIncomplete ? '—' : formatDisplayMoney(displayCalc!.subtotal - (displayCalc!.nettoTotal ?? 0))}</span>
                     </div>
                     {displayCalc!.totalDiscount > 0 && (
                       <div className="text-red-600 text-sm space-y-1">
@@ -5100,7 +5118,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     )}
                     <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2" data-testid="configurator-pricing-summary">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
-                      <span className="text-xl text-emerald-700 price-col ml-2">{formatDisplayMoney(displayCalc!.currentPrice)}</span>
+                      <span className="text-xl text-emerald-700 price-col ml-2">{displayCalc!.pricingIncomplete ? '—' : formatDisplayMoney(displayCalc!.currentPrice)}</span>
                     </div>
                   </div>
                 )}
@@ -5182,6 +5200,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               disabled={savingBeforeReset}
               onClick={async () => {
                 if (!appUser) return;
+                if (!validateSalesStockPricing()) return;
                 setSavingBeforeReset(true);
                 const label = state.firmanavn
                   ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`

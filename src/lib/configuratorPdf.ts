@@ -458,6 +458,7 @@ function drawTextSection(pdf: any, title: string, body: string, y: number): numb
 }
 
 export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
+  if (input.calcResult.pricingIncomplete) throw new Error('SALES_STOCK_PRICE_REQUIRED');
   const pdf = new input.jsPDF("p", "mm", "a4");
   const title = input.flowType === "quote" ? input.TC("quoteRequestTitle") : input.TC("orderRequestTitle");
   const ref = input.flowType === "order" ? input.orderNumber || "" : input.quoteNumber || "";
@@ -510,7 +511,7 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     };
     for (const [index, asset] of input.state.salesStockAssets.entries()) {
       const pricingValue = asset.pricingMethod === 'adjusted_base'
-        ? `Nedskrevet grundpris: ${formatMoney(asset.adjustedBasePrice ?? asset.originalListPrice, asset.pricingCurrency)}`
+        ? `Salgsgrundpris: ${formatMoney(asset.adjustedBasePrice ?? asset.originalListPrice!, asset.pricingCurrency)}`
         : `Salgslager-/demo-rabat: ${asset.salesStockDiscountPct ?? 0}%`;
       y = drawLabelValueGrid(pdf, `${sourceLabels[input.contentLanguage]} ${index + 1}`, [
         ['Varenr.', asset.itemNumber],
@@ -519,7 +520,8 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
         ['Brik nr.', asset.brikNumber == null ? '-' : String(asset.brikNumber)],
         ['Lager / konto', `${asset.warehouseLocationCode} / ${asset.accountNumber || '-'}`],
         ['Kildeordre', asset.sourceOrderNumber || '-'],
-        ['Canonical list price', formatMoney(asset.originalListPrice, asset.pricingCurrency)],
+        ['Prisgrundlag', asset.originalListPrice === null ? 'Manuel fastsættelse' : formatMoney(asset.originalListPrice, asset.pricingCurrency)],
+        ['Stk.', String(asset.quantity ?? 1)],
         ['Prisgrundlag', pricingValue],
         ['Årsag / note', asset.pricingReason || '-'],
       ], y, index > 0);

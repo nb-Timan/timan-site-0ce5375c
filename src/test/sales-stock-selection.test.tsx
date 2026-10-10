@@ -61,11 +61,13 @@ describe('sales stock multi-selection', () => {
     mocks.stock!.active_assignments = [{ asset_id: 'loan', loan_number: 'U-QA-01', partner_name: 'QA Partner',
       partner_country: 'DK', status: 'ON_LOAN' }];
     render(<SalesStockSalePanel />);
-    screen.getAllByRole('checkbox').forEach((checkbox) => expect(checkbox).toBeDisabled());
+    screen.getAllByRole('checkbox').filter(checkbox => checkbox.getAttribute('aria-label') !== 'Vælg aktiv: master')
+      .forEach((checkbox) => expect(checkbox).toBeDisabled());
+    expect(screen.getByRole('checkbox', { name: 'Vælg aktiv: master' })).toBeEnabled();
     expect(screen.getByText('Allerede reserveret til lån · U-QA-01')).toBeInTheDocument();
     expect(screen.getByText('Allerede reserveret til salg')).toBeInTheDocument();
     expect(screen.getByText('Mangler Brik nr.')).toBeInTheDocument();
-    expect(screen.getByText('Mangler Product Master-match')).toBeInTheDocument();
+    expect(screen.getByText('Intet Product Master-match · Salgspris kræver fastsættelse')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Søg i salgslager' }), { target: { value: 'U-QA-01' } });
     expect(screen.getAllByRole('checkbox')).toHaveLength(1);
   });
@@ -78,6 +80,16 @@ describe('sales stock multi-selection', () => {
     expect(screen.getByRole('checkbox', { name: 'Vælg aktiv: C' })).toBeEnabled();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Fjern aktiv: A' }));
     expect(screen.getByRole('checkbox', { name: 'Vælg aktiv: B' })).toBeEnabled();
+  });
+
+  it('selects non-catalogue assets across both warehouses without inventing a SKU match', () => {
+    mocks.stock!.assets = ['210100-01', '210112-02', '210123-00'].map((sku, index) =>
+      asset(`N${index}`, { item_number: sku, item_type: null, warehouse_location_code: index === 1 ? '4' : '2' }));
+    render(<SalesStockSalePanel />);
+    select('N0'); select('N1'); select('N2');
+    expect(screen.getByText('Valgte aktiver: 3')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Til Configurator' }));
+    expect(consumeSalesStockHandoff().map(row => row.item_number)).toEqual(['210100-01', '210112-02', '210123-00']);
   });
 
   it.each(['reservation', 'removed', 'failed read', 'changed grouping'])('revalidates selected assets after %s and blocks transfer until resolved', (change) => {

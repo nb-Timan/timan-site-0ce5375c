@@ -1,5 +1,7 @@
 import { ACCESSORIES, getAccessoriesFlat, getPriceForCurrency, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
+import { getCurrentProductPrice } from '@/lib/publishedProductMaster';
 import type { Currency } from '@/lib/currency';
 import { fabricLoanPhysicalGroupKey, isFabricStockFresh, type FabricLoanAsset, type FabricLoanSyncStatus } from '@/lib/fabricLoanStock';
 import type { ConfiguratorState, MachineConfig, SalesStockAssetSnapshot } from '@/types/configurator';
@@ -58,15 +60,18 @@ export function resolveSalesStockCatalogItem(itemNumber: string, currency: Curre
 }
 
 export function canLaunchSalesStockAsset(asset: FabricLoanAsset, currency: Currency): boolean {
+  void currency;
   return asset.classification === 'LOAN_CANDIDATE'
     && !asset.review_required
     && !asset.identity_conflict
+    && !asset.brik_group_serial_conflict
     && !asset.allocated
     && !asset.sales_committed
     && asset.source_present
+    && asset.inventory_qty !== null && Number.isFinite(asset.inventory_qty) && asset.inventory_qty > 0
     && Boolean(asset.serial_number?.trim() || (asset.asset_instance_id?.trim() && asset.brik_number))
     && ['2', '4'].includes(asset.warehouse_location_code)
-    && Boolean(resolveSalesStockCatalogItem(asset.item_number, currency));
+    && ['1010', '1020'].includes(asset.account_number ?? '');
 }
 
 export function salesStockAssetSelectionIssue(
@@ -74,6 +79,7 @@ export function salesStockAssetSelectionIssue(
   sync: FabricLoanSyncStatus,
   currency: Currency,
 ): string | null {
+  void currency;
   if (!isFabricStockFresh(sync)) return 'Salgslagerdata er ikke opdateret';
   if (asset.identity_conflict || asset.brik_group_serial_conflict
     || asset.classification === 'IDENTITY_CONFLICT') return 'Identitetskonflikt';
@@ -83,11 +89,11 @@ export function salesStockAssetSelectionIssue(
   if (!asset.source_present || asset.classification !== 'LOAN_CANDIDATE'
     || !['2', '4'].includes(asset.warehouse_location_code)
     || !['1010', '1020'].includes(asset.account_number ?? '')) return 'Ikke salgbar';
+  if (asset.inventory_qty === null || !Number.isFinite(asset.inventory_qty) || asset.inventory_qty <= 0) return 'Ikke disponibel';
   if (!asset.serial_number?.trim()) {
     if (!asset.asset_instance_id?.trim()) return 'Identitetskonflikt';
     if (!asset.brik_number) return 'Mangler Brik nr.';
   }
-  if (!resolveSalesStockCatalogItem(asset.item_number, currency)) return 'Mangler Product Master-match';
   return null;
 }
 
@@ -113,22 +119,27 @@ export function buildSalesStockConfiguratorState(
 
   assets.forEach((asset, index) => {
     const match = resolveSalesStockCatalogItem(asset.item_number, currency);
-    if (!match) throw new Error(`SALES_STOCK_PRODUCT_NOT_FOUND:${asset.item_number}`);
+    const releasedPrice = match ? getCurrentProductPrice({ itemNumber: match.catalogItemNumber, currency,
+      legacy: { DKK: null, EUR: null, SEK: null } }) : null;
+    const originalPrice = releasedPrice !== null && releasedPrice > 0 ? releasedPrice : null;
+    if (!canLaunchSalesStockAsset(asset, currency)) throw new Error(`SALES_STOCK_ASSET_UNAVAILABLE:${asset.item_number}`);
     const unitNumber = index + 1;
     machineConfigs.push({
       id: `sales-stock-${unitNumber}`,
-      type: match.machineType,
+      type: match?.machineType ?? 'SALES_STOCK',
       qty: 1,
       configMode: 'shared',
-      acc: match.itemType === 'equipment' ? [match.catalogId] : [],
+      acc: [],
     });
     snapshots.push({
       sourceAssetId: asset.asset_id,
       assetInstanceId: asset.asset_instance_id,
       itemNumber: asset.item_number,
-      catalogItemNumber: match.catalogItemNumber,
+      catalogItemNumber: match?.catalogItemNumber ?? null,
       itemText: asset.line_text?.trim() || asset.item_name?.trim() || asset.item_number,
-      itemType: match.itemType,
+      itemType: asset.item_type,
+      quantity: asset.inventory_qty!,
+      priceSource: originalPrice !== null ? 'catalogue' : 'manual',
       serialNumber: asset.serial_number?.trim() || null,
       brikNumber: asset.brik_number ?? null,
       warehouseLocationCode: asset.warehouse_location_code,
@@ -137,9 +148,9 @@ export function buildSalesStockConfiguratorState(
       sourceOrderNumber: asset.order_number,
       classification: asset.classification,
       configuratorUnitNumber: unitNumber,
-      originalListPrice: match.listPrice,
+      originalListPrice: originalPrice,
       pricingCurrency: currency,
-      pricingMethod: 'sales_stock_discount',
+      pricingMethod: originalPrice !== null ? 'sales_stock_discount' : 'adjusted_base',
       adjustedBasePrice: null,
       salesStockDiscountPct: null,
       pricingReason: '',
@@ -214,6 +225,19 @@ export function updateSalesStockAssetPricing(
     salesStockAssets: (state.salesStockAssets ?? []).map((asset) => asset.sourceAssetId === sourceAssetId
       ? {
           ...asset,
+          ...(asset.pricingCurrency !== configuratorCurrency(state) ? {
+            pricingCurrency: configuratorCurrency(state),
+            ...(() => {
+              const price = asset.catalogItemNumber ? getCurrentProductPrice({
+                itemNumber: asset.catalogItemNumber, currency: configuratorCurrency(state),
+                legacy: { DKK: null, EUR: null, SEK: null },
+              }) : null;
+              return { originalListPrice: price !== null && price > 0 ? price : null,
+                priceSource: price !== null && price > 0 ? 'catalogue' as const : 'manual' as const };
+            })(),
+            adjustedBasePrice: null,
+            salesStockDiscountPct: null,
+          } : {}),
           ...patch,
           ...(patch.pricingMethod === 'adjusted_base' ? { salesStockDiscountPct: null } : {}),
           ...(patch.pricingMethod === 'sales_stock_discount' ? { adjustedBasePrice: null } : {}),

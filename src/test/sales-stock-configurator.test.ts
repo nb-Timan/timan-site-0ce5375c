@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { replaceProductMaster } from '@/lib/publishedProductMaster';
 import { PRODUCTS } from '@/data/machines';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
 import { assertValidSalesStockState, normalizeConfiguratorState } from '@/lib/configuratorState';
@@ -44,7 +45,14 @@ const asset = (id: string, itemNumber: '410040-01' | '411000-04', serial: string
 });
 
 describe('sales-stock Configurator domain', () => {
-  beforeEach(() => sessionStorage.clear());
+  beforeEach(() => {
+    sessionStorage.clear();
+    replaceProductMaster([
+      { item_number: '410040', price_dkk: 167500, price_eur: 22515, price_sek: 253790 },
+      { item_number: '411000', price_dkk: 235000, price_eur: 31590, price_sek: 355900 },
+    ]);
+  });
+  afterEach(() => replaceProductMaster([]));
 
   it('resolves exact Fabric revision suffixes through canonical Product Master item numbers', () => {
     expect(resolveSalesStockCatalogItem('410040-01', 'DKK')?.machineType).toBe('RC-751');

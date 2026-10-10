@@ -4,6 +4,7 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { convertCurrency, currencyFromLanguage, isCurrency, type Currency } from '@/lib/currency';
 import { publishedProduct, publishedProductStoredText } from '@/lib/publishedProductMaster';
 import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
+import { assertValidSalesStockState } from '@/lib/configuratorState';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
 const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${machineType}:${accessoryId}`;
@@ -119,6 +120,8 @@ function pricingSignature(state: ConfiguratorState, identity: { currency: Curren
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify({
     ...identity,
+    ...(state.salesChannel === 'sales_stock_demo' && state.salesStockAssets?.some(asset => asset.priceSource !== undefined)
+      ? { salesStockAssets: state.salesStockAssets } : {}),
     ...(state.pricingMode === 'direct' ? { pricingMode: 'direct' } : {}),
     ...(state.campaignDisabled ? { campaignDisabled: true } : {}),
     ...(isConfiguratorPartnerAccountType(state.partnerAccountType) ? { partnerAccountType: state.partnerAccountType } : {}),
@@ -184,10 +187,20 @@ export function protectLegacySentPricing(state: ConfiguratorState, row: { quote_
 
 /** Capture every selected product's unit price at the explicit commercial boundary. */
 export function createConfiguratorPricingSnapshot(state: ConfiguratorState): ConfiguratorPricingSnapshot {
+  assertValidSalesStockState(state);
   const prices: Record<string, number> = {};
   const names: Record<string, string> = {};
   const language = state.language;
   const currency = configuratorCurrency(state);
+
+  if (state.salesChannel === 'sales_stock_demo' && state.salesStockAssets?.some(asset => asset.priceSource !== undefined)) {
+    for (const asset of state.salesStockAssets) {
+      if (asset.pricingCurrency !== currency) throw new Error('SALES_STOCK_PRICE_CURRENCY_MISMATCH');
+      prices[`sales-stock:${asset.sourceAssetId}`] = asset.originalListPrice ?? asset.adjustedBasePrice!;
+      names[asset.itemNumber] = asset.itemText;
+    }
+    return { version: 1, discountEngineVersion: 2, nettoPricingVersion: 1, capturedAt: new Date().toISOString(), currency, prices, names };
+  }
 
   for (const machine of state.machineConfigs ?? []) {
     const product = PRODUCTS[machine.type];

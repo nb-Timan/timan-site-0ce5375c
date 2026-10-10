@@ -17,9 +17,11 @@ export interface SalesStockAssetSnapshot {
   sourceAssetId: string;
   assetInstanceId: string;
   itemNumber: string;
-  catalogItemNumber: string;
+  catalogItemNumber: string | null;
   itemText: string;
-  itemType: 'machine' | 'equipment';
+  itemType: 'machine' | 'equipment' | null;
+  quantity?: number;
+  priceSource?: 'catalogue' | 'manual';
   serialNumber: string | null;
   brikNumber: number | null;
   warehouseLocationCode: string;
@@ -28,7 +30,7 @@ export interface SalesStockAssetSnapshot {
   sourceOrderNumber: string | null;
   classification: string;
   configuratorUnitNumber: number;
-  originalListPrice: number;
+  originalListPrice: number | null;
   pricingCurrency: Currency;
   pricingMethod: SalesStockPricingMethod;
   adjustedBasePrice: number | null;
@@ -335,6 +337,7 @@ export interface ConfiguratorState {
 }
 
 export interface LineItem {
+  pricePending?: boolean;
   isNetto?: boolean;
   campaign?: CampaignLineSnapshot;
   txt: string;
@@ -370,6 +373,7 @@ export interface DiscountDetail {
 }
 
 export interface CalcResult {
+  pricingIncomplete?: boolean;
   /** Included in subtotal/currentPrice but never in any discount basis. */
   nettoTotal?: number;
   campaignLines?: CampaignLineSnapshot[];
