@@ -1,5 +1,7 @@
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Check, ChevronRight, Info, Search } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useLanguage } from '@/context/LanguageContext';
 import {
   fabricLoanAssetDisplayIdentity,
@@ -16,6 +18,7 @@ import { t } from '@/lib/i18n/translations';
 export type FabricStockBrowserFilters = { warehouse: string; account: string; search: string };
 
 type SelectionProps = {
+  mode?: 'checkbox';
   selectedIds: ReadonlySet<string>;
   onToggle: (asset: FabricLoanAsset) => void;
   issueFor: (asset: FabricLoanAsset) => string | null;
@@ -43,7 +46,6 @@ export default function FabricStockAssetBrowser({
   const { uiLanguage } = useLanguage();
   const label = (key: string) => t(key, uiLanguage);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
-  const [openSharedBrikId, setOpenSharedBrikId] = useState<string | null>(null);
   const canonicalMatch = (asset: FabricLoanAsset) => resolveSalesStockCatalogItem(asset.item_number, 'DKK');
   const assignmentByAssetId = new Map(activeAssignments.map((assignment) => [assignment.asset_id, assignment]));
   const assignmentFor = (asset: FabricLoanAsset) => {
@@ -132,13 +134,21 @@ export default function FabricStockAssetBrowser({
             const sharedText = asset.brik_number && sharedBrikCount > 1
               ? label('loansStockBrikSharedCompact').replace('{number}', String(asset.brik_number)).replace('{count}', String(sharedBrikCount)) : null;
             const partner = assignment ? `${assignment.partner_name}${assignment.partner_country ? ` · ${assignment.partner_country}` : ''}` : null;
+            const issueText = issue && asset.allocated && !asset.sales_committed && assignment
+              ? `${issue} · ${assignment.loan_number}` : issue;
             return <article key={asset.asset_id} data-asset-id={asset.asset_id} tabIndex={0}
               aria-expanded={expanded} onClick={(event) => rowClick(event, asset.asset_id)} onKeyDown={(event) => rowKeyDown(event, asset.asset_id)}
               className={`min-w-0 px-3 py-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700 ${selected ? 'bg-emerald-50' : 'bg-white hover:bg-slate-50'}`}>
               <div className={rowGridClass}>
                 <div className="col-span-2 flex min-w-0 items-start gap-2 md:col-span-1">
                   <ChevronRight className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-                  {selection && <button type="button" disabled={Boolean(issue)} onClick={(event) => { event.stopPropagation(); selection.onToggle(asset); }}
+                  {selection?.mode === 'checkbox' ? <Checkbox checked={selected} disabled={Boolean(issue)}
+                    onClick={(event) => event.stopPropagation()} onCheckedChange={() => selection.onToggle(asset)}
+                    aria-label={`${selected ? 'Fjern' : 'Vælg'} aktiv: ${fabricLoanAssetDisplayIdentity(asset)}`}
+                    aria-describedby={issue ? `sales-stock-issue-${asset.asset_id}` : undefined}
+                    title={issueText ?? (selected ? 'Fjern aktiv' : 'Vælg aktiv')}
+                    className="h-6 w-6 border-slate-400 data-[state=checked]:border-emerald-700 data-[state=checked]:bg-emerald-700 data-[state=checked]:text-white" />
+                  : selection && <button type="button" disabled={Boolean(issue)} onClick={(event) => { event.stopPropagation(); selection.onToggle(asset); }}
                     aria-pressed={selected} aria-label={`${selected ? 'Fjern' : 'Vælg'} aktiv: ${fabricLoanAssetDisplayIdentity(asset)}`}
                     title={issue ?? (selected ? 'Fjern aktiv' : 'Vælg aktiv')}
                     className={`inline-flex h-6 w-6 shrink-0 items-center justify-center border ${selected ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-400 bg-white'} disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}>
@@ -159,12 +169,13 @@ export default function FabricStockAssetBrowser({
                   <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">{label('loansStockBrikNumber')}</span>
                   <div className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-slate-900">
                     {renderBrik ? renderBrik(asset) : asset.brik_number ?? '—'}
-                    {sharedText && <span className="relative inline-flex">
-                      <button type="button" aria-label={sharedText} title={sharedText}
-                        onClick={(event) => { event.stopPropagation(); setOpenSharedBrikId((current) => current === asset.asset_id ? null : asset.asset_id); }}
+                    {sharedText && <Popover>
+                      <PopoverTrigger asChild><button type="button" aria-label={sharedText} title={sharedText}
+                        onClick={(event) => event.stopPropagation()}
                         className="inline-flex h-6 w-6 items-center justify-center rounded text-amber-700 hover:bg-amber-50 focus-visible:ring-2 focus-visible:ring-amber-600"><Info className="h-4 w-4" /></button>
-                      {openSharedBrikId === asset.asset_id && <span role="status" className="absolute left-0 top-7 z-20 w-64 rounded border border-amber-300 bg-amber-50 p-2 text-xs font-normal text-amber-950 shadow-lg">{sharedText}</span>}
-                    </span>}
+                      </PopoverTrigger>
+                      <PopoverContent collisionPadding={12} className="w-64 max-w-[calc(100vw-24px)] border-amber-300 bg-amber-50 p-2 text-xs text-amber-950" onClick={(event) => event.stopPropagation()}>{sharedText}</PopoverContent>
+                    </Popover>}
                   </div>
                   <p className="mt-0.5 text-xs text-slate-600">{label('loansWarehouse')} {asset.warehouse_location_code}</p>
                 </div>
@@ -172,6 +183,7 @@ export default function FabricStockAssetBrowser({
                   <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">{label('loansStockLoanInformation')}</span>
                   <p className={`break-words text-sm font-medium ${assignment ? 'text-slate-900' : 'text-emerald-800'}`}>{partner ?? label('loansStockAvailable')}</p>
                   <p className="mt-0.5 break-words text-xs text-slate-600">{assignment ? `${label('loansStockQuantity')}: 1 · ${assignment.loan_number}` : `${label('loansStockQuantity')}: ${asset.inventory_qty ?? '—'}`}</p>
+                  {selection?.mode === 'checkbox' && issueText && <p id={`sales-stock-issue-${asset.asset_id}`} className="mt-1 break-words text-xs font-medium text-amber-800">{issueText}</p>}
                 </div>
               </div>
               {expanded && <div className="mt-3 border-t border-slate-200 pt-3">

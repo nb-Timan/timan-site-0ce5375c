@@ -131,11 +131,11 @@ describe('single Fabric stock dataset', () => {
     mocks.state = hook({ assets: [rc751, rc1000], sync: fresh() });
     render(<MemoryRouter><LoansPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('tab', { name: 'Sælg salgslagermaskine' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Vælg aktiv: 410040-A' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Vælg aktiv: 411000-A' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Vælg aktiv: 410040-A' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Vælg aktiv: 411000-A' }));
     expect(screen.getByText('Valgte aktiver: 2')).toBeInTheDocument();
     expect(screen.getAllByText(/Serienr\./).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByRole('button', { name: /Åbn i konfigurator/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Til Configurator' })).toBeEnabled();
   });
   it('uses the shared warehouse/account/search browser in the sales tab', async () => {
     const rc751 = { ...asset, asset_id: 'rc751-a', asset_instance_id: 'SERIAL|DAT|410040-A',
